@@ -43,7 +43,7 @@ function getConfig(): EmailConfig {
 }
 
 // Create a transporter for sending emails
-async function createTransporter() {
+function createTransporter() {
   const config = getConfig();
   
   // For demo purposes, if no SMTP config is provided, use a mock
@@ -53,10 +53,7 @@ async function createTransporter() {
   }
 
   try {
-    // Dynamic import for nodemailer
-    const nodemailer = await import('nodemailer');
-    
-    const transporter = nodemailer.default.createTransport({
+    const transporter = nodemailer.createTransport({
       host: config.host,
       port: config.port,
       secure: config.secure,
@@ -86,7 +83,7 @@ export async function sendEmail(payload: EmailPayload): Promise<boolean> {
   }
 
   try {
-    const transporter = await createTransporter();
+    const transporter = createTransporter();
     
     if (!transporter) {
       console.log('📧 [MOCK EMAIL] No transporter available:');
