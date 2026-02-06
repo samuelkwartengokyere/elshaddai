@@ -90,6 +90,11 @@ export default function Footer() {
                   Live Stream
                 </Link>
               </li>
+              <li>
+                <Link href="/contact" className="text-gray-300 hover:text-white transition duration-300">
+                  Contact
+                </Link>
+              </li>
             </ul>
           </motion.div>
 

@@ -14,6 +14,7 @@ export default function Header() {
     { name: 'Live Stream', href: '/live' },
     { name: 'Give', href: '/give' },
     { name: 'Events', href: '/events' },
+    { name: 'Contact', href: '/contact' },
   ]
 
   return (
