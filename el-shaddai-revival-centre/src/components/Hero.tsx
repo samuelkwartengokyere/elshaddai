@@ -24,8 +24,8 @@ export default function Hero() {
   return (
     <section className="relative bg-gradient-to-r from-primary to-secondary text-white py-20">
       <div className="container mx-auto px-4 text-center">
-        <h1 className="text-5xl md:text-6xl font-bold mb-6">
-          Welcome Home
+        <h1 className="text-5xl md:text-6xl font-bold mb-6 text-white">
+          Welcome to El-Shaddai Revival Centre
         </h1>
         <p className="text-xl mb-8 max-w-2xl mx-auto">
           Join us as we worship, grow, and serve together in Christ's love

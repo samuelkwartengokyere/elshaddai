@@ -8,7 +8,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
           {/* Church Info */}
           <div>
-            <h3 className="text-2xl font-bold mb-4">Grace Church</h3>
+            <h3 className="text-2xl font-bold mb-4">El-Shaddai Revival Centre</h3>
             <p className="mb-4 text-gray-300">
               A community of faith, hope, and love. Welcome home.
             </p>
@@ -92,7 +92,7 @@ export default function Footer() {
 
         {/* Copyright */}
         <div className="border-t border-gray-600 mt-8 pt-8 text-center text-gray-400">
-          <p>&copy; {new Date().getFullYear()} Grace Church. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} El-Shaddai Revival Centre. All rights reserved.</p>
         </div>
       </div>
     </footer>

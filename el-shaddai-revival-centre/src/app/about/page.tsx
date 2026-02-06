@@ -96,7 +96,7 @@ export default function AboutPage() {
       {/* Hero Section */}
       <section className="relative bg-gradient-to-r from-primary to-secondary text-white py-20">
         <div className="container mx-auto px-4 text-center">
-          <h1 className="text-5xl md:text-6xl font-bold mb-6">About Grace Church</h1>
+          <h1 className="text-5xl md:text-6xl font-bold mb-6">About El-Shaddai Revival Centre</h1>
           <p className="text-xl max-w-3xl mx-auto opacity-90">
             A community of faith, hope, and love, dedicated to sharing God's word and serving our community
           </p>
@@ -120,7 +120,7 @@ export default function AboutPage() {
                 <div>
                   <h3 className="text-2xl font-bold mb-4">Humble Beginnings</h3>
                   <p className="text-gray-600 mb-4">
-                    Grace Church was founded in 1985 by a small group of believers who had a vision 
+                    El-Shaddai Revival Centre was founded in 1985 by a small group of believers who had a vision 
                     to create a place where everyone could experience God's love and grace. 
                     What started as a Bible study in a local living room has grown into a vibrant 
                     community of thousands.
@@ -131,7 +131,7 @@ export default function AboutPage() {
                     have multiplied, but our heart for God and people has never changed.
                   </p>
                   <p className="text-gray-600">
-                    Today, Grace Church continues to be a beacon of hope in our community, 
+                    Today, El-Shaddai Revival Centre continues to be a beacon of hope in our community, 
                     welcoming all who seek a deeper relationship with God and meaningful 
                     connections with others.
                   </p>
@@ -405,7 +405,7 @@ export default function AboutPage() {
           <h2 className="text-4xl font-bold mb-4">Ready to Get Involved?</h2>
           <p className="text-xl mb-8 max-w-3xl mx-auto opacity-90">
             Whether you&apos;re looking for a church home, wanting to serve, or just curious about faith, 
-            we have a place for you at Grace Church.
+            we have a place for you at El-Shaddai Revival Centre.
           </p>
           <div className="flex flex-col sm:flex-row gap-4 justify-center">
             <Link 

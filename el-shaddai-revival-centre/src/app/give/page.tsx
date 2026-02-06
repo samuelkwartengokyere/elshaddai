@@ -75,7 +75,7 @@ export default function GivePage() {
               <h3 className="text-lg font-bold mb-3">By Mail</h3>
               <p className="text-gray-600">
                 Send checks payable to:<br />
-                <strong>Grace Church</strong><br />
+                <strong>El-Shaddai Revival Centre</strong><br />
                 123 Faith Street<br />
                 Your City, State 12345
               </p>

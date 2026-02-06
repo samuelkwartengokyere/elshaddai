@@ -6,8 +6,8 @@ import Footer from '@/components/Footer'
 const inter = Inter({ subsets: ['latin'] })
 
 export const metadata = {
-  title: 'Grace Church - Welcome Home',
-  description: 'A community of faith, hope, and love',
+  title: 'El-Shaddai Revival Centre - Welcome Home',
+  description: 'A community of faith, hope, and love. Welcome to El-Shaddai Revival Centre.',
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

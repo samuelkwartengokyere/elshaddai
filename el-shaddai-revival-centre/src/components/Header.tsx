@@ -21,7 +21,7 @@ export default function Header() {
         <div className="flex justify-between items-center">
           <Link href="/" className="flex items-center space-x-2">
             <Church className="h-8 w-8 text-accent" />
-            <span className="text-2xl font-bold text-primary">Grace Church</span>
+            <span className="text-2xl font-bold text-primary">El-Shaddai Revival Centre</span>
           </Link>
 
           {/* Desktop Navigation */}
