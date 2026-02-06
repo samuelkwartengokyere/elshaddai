@@ -1,7 +1,8 @@
 'use client'
 import { useState } from 'react'
 import Link from 'next/link'
-import { Menu, X, Church } from 'lucide-react'
+import Image from 'next/image'
+import { Menu, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
 export default function Header() {
@@ -28,17 +29,31 @@ export default function Header() {
         <div className="flex justify-between items-center">
           <Link href="/" className="flex items-center space-x-2">
             <motion.div
-              whileHover={{ rotate: 360 }}
-              transition={{ duration: 0.5 }}
+              whileHover={{ scale: 1.05 }}
+              transition={{ duration: 0.3 }}
             >
-              <Church className="h-8 w-8 text-accent" />
+              <Image
+                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSe_YoU1bk4RMRlaDKr1eBRH0OmKxr2O3ybRm-kuH_EAA&s"
+                alt="The Church Of Pentecost Logo"
+                width={50}
+                height={50}
+                className="object-contain"
+              />
             </motion.div>
-            <motion.span
-              className="text-2xl font-bold text-primary"
-              whileHover={{ scale: 1.02 }}
-            >
-              El-Shaddai Revival Centre
-            </motion.span>
+            <div className="flex flex-col">
+              <motion.span
+                className="text-xl md:text-2xl font-bold text-primary leading-tight"
+                whileHover={{ scale: 1.02 }}
+              >
+                The Church Of Pentecost
+              </motion.span>
+              <motion.span
+                className="text-sm md:text-base font-medium text-gray-500"
+                whileHover={{ scale: 1.02 }}
+              >
+                El-Shaddai Revival Centre
+              </motion.span>
+            </div>
           </Link>
 
           {/* Desktop Navigation */}

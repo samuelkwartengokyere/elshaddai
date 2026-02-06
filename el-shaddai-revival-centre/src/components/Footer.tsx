@@ -41,7 +41,7 @@ export default function Footer() {
         >
           {/* Church Info */}
           <motion.div variants={itemVariants}>
-            <h3 className="text-2xl font-bold mb-4">El-Shaddai Revival Centre</h3>
+            <h3 className="text-2xl font-bold mb-4">The Church Of Pentecost</h3>
             <p className="mb-4 text-gray-300">
               A community of faith, hope, and love. Welcome home.
             </p>
@@ -136,7 +136,7 @@ export default function Footer() {
           animate="visible"
           transition={{ delay: 0.6 }}
         >
-          <p>&copy; {new Date().getFullYear()} El-Shaddai Revival Centre. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} The Church Of Pentecost. All rights reserved.</p>
         </motion.div>
       </div>
     </footer>
