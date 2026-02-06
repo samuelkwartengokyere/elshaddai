@@ -5,9 +5,20 @@ import { v4 as uuidv4 } from 'uuid'
 import connectDB from '@/lib/database'
 import Sermon from '@/models/Sermon'
 
+// Mark this route as dynamic to prevent static generation
+export const dynamic = 'force-dynamic'
+
 export async function POST(request: Request) {
   try {
-    await connectDB()
+    const dbConnection = await connectDB()
+    
+    // Check if database connection is available
+    if (!dbConnection) {
+      return NextResponse.json(
+        { error: 'Database connection not available. Please check your environment variables.' },
+        { status: 503 }
+      )
+    }
     
     const formData = await request.formData()
     const file = formData.get('file') as File

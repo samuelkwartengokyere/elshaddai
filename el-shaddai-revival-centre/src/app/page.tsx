@@ -49,6 +49,7 @@ const upcomingEvents = [
 ]
 
 export default function Home() {
+
   return (
     <>
       <Hero />

@@ -1,12 +1,10 @@
 import mongoose from 'mongoose'
 
-const MONGODB_URI = process.env.MONGODB_URI!
+const MONGODB_URI = process.env.MONGODB_URI
 
-if (!MONGODB_URI) {
-  throw new Error(
-    'Please define the MONGODB_URI environment variable inside .env.local'
-  )
-}
+// Check if we're in build/static generation time
+const isBuildTime = process.env.NODE_ENV === 'production' && 
+                    !process.env.MONGODB_URI
 
 interface MongooseCache {
   conn: typeof mongoose | null
@@ -23,7 +21,18 @@ if (!global.mongoose) {
   global.mongoose = cached
 }
 
-async function connectDB(): Promise<typeof mongoose> {
+async function connectDB(): Promise<typeof mongoose | null> {
+  // Skip database connection during build time
+  if (isBuildTime) {
+    console.warn('MONGODB_URI not defined, skipping database connection (build mode)')
+    return null
+  }
+
+  if (!MONGODB_URI) {
+    console.warn('MONGODB_URI not defined, skipping database connection')
+    return null
+  }
+
   if (cached.conn) {
     return cached.conn
   }
@@ -42,6 +51,7 @@ async function connectDB(): Promise<typeof mongoose> {
     cached.conn = await cached.promise
   } catch (e) {
     cached.promise = null
+    console.error('Database connection failed:', e)
     throw e
   }
 
@@ -49,3 +59,4 @@ async function connectDB(): Promise<typeof mongoose> {
 }
 
 export default connectDB
+

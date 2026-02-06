@@ -1,13 +1,46 @@
+
+'use client'
+
 import Link from 'next/link'
+import { motion, Variants } from 'framer-motion'
 import { Facebook, Instagram, Twitter, Youtube, MapPin, Phone, Mail } from 'lucide-react'
+
+// Animation variants
+const containerVariants: Variants = {
+  hidden: { opacity: 0 },
+  visible: {
+    opacity: 1,
+    transition: {
+      staggerChildren: 0.1,
+      delayChildren: 0.2,
+    },
+  },
+}
+
+const itemVariants: Variants = {
+  hidden: { opacity: 0, y: 20 },
+  visible: {
+    opacity: 1,
+    y: 0,
+    transition: {
+      duration: 0.5,
+      ease: 'easeOut',
+    },
+  },
+}
 
 export default function Footer() {
   return (
     <footer className="bg-primary text-white">
-      <div className="container mx-auto px-4 py-12">
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+      <div className="container mx-auto px-4 py-4">
+        <motion.div
+          className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8"
+          variants={containerVariants}
+          initial="hidden"
+          animate="visible"
+        >
           {/* Church Info */}
-          <div>
+          <motion.div variants={itemVariants}>
             <h3 className="text-2xl font-bold mb-4">El-Shaddai Revival Centre</h3>
             <p className="mb-4 text-gray-300">
               A community of faith, hope, and love. Welcome home.
@@ -26,10 +59,10 @@ export default function Footer() {
                 <Youtube className="h-6 w-6" />
               </a>
             </div>
-          </div>
+          </motion.div>
 
           {/* Quick Links */}
-          <div>
+          <motion.div variants={itemVariants}>
             <h4 className="text-lg font-bold mb-4">Quick Links</h4>
             <ul className="space-y-2">
               <li>
@@ -58,20 +91,20 @@ export default function Footer() {
                 </Link>
               </li>
             </ul>
-          </div>
+          </motion.div>
 
           {/* Service Times */}
-          <div>
+          <motion.div variants={itemVariants}>
             <h4 className="text-lg font-bold mb-4">Service Times</h4>
             <ul className="space-y-2 text-gray-300">
               <li>Sunday: 9:00 AM & 11:00 AM</li>
               <li>Wednesday: 7:00 PM Bible Study</li>
               <li>Friday: 7:00 PM Youth Service</li>
             </ul>
-          </div>
+          </motion.div>
 
           {/* Contact Info */}
-          <div>
+          <motion.div variants={itemVariants}>
             <h4 className="text-lg font-bold mb-4">Contact Us</h4>
             <ul className="space-y-3 text-gray-300">
               <li className="flex items-start">
@@ -87,15 +120,20 @@ export default function Footer() {
                 <span>info@gracechurch.com</span>
               </li>
             </ul>
-          </div>
-        </div>
+          </motion.div>
+        </motion.div>
 
         {/* Copyright */}
-        <div className="border-t border-gray-600 mt-8 pt-8 text-center text-gray-400">
+        <motion.div
+          className="border-t border-gray-600 mt-8 pt-8 text-center text-gray-400"
+          variants={itemVariants}
+          initial="hidden"
+          animate="visible"
+          transition={{ delay: 0.6 }}
+        >
           <p>&copy; {new Date().getFullYear()} El-Shaddai Revival Centre. All rights reserved.</p>
-        </div>
+        </motion.div>
       </div>
     </footer>
   )
 }
-

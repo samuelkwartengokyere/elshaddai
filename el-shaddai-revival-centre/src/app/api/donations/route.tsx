@@ -1,11 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/database'
-import Donation, { IDonation } from '@/models/Donation'
+import Donation from '@/models/Donation'
+
+// Make this route dynamic - don't attempt static generation
+export const dynamic = 'force-dynamic'
 
 export async function POST(request: NextRequest) {
   try {
-    await connectDB()
-
+    const dbConnection = await connectDB()
+    
+    // Check if database connection is available
+    if (!dbConnection) {
+      return NextResponse.json(
+        { error: 'Database connection not available. Please check your environment variables.' },
+        { status: 503 }
+      )
+    }
+    
     const body = await request.json()
     const { amount, frequency, firstName, lastName, email, timestamp } = body
 
@@ -49,8 +60,16 @@ export async function POST(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   try {
-    await connectDB()
-
+    const dbConnection = await connectDB()
+    
+    // Check if database connection is available
+    if (!dbConnection) {
+      return NextResponse.json(
+        { error: 'Database connection not available. Please check your environment variables.' },
+        { status: 503 }
+      )
+    }
+    
     const searchParams = request.nextUrl.searchParams
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')

@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import { motion, Variants } from 'framer-motion'
 
 export default function Hero() {
   const [isLive, setIsLive] = useState(false)
@@ -21,37 +22,88 @@ export default function Hero() {
     return () => clearInterval(interval)
   }, [])
 
+  // Animation variants
+  const containerVariants = {
+    hidden: { opacity: 0 },
+    visible: {
+      opacity: 1,
+      transition: {
+        staggerChildren: 0.2,
+        delayChildren: 0.3,
+      },
+    },
+  }
+
+  const itemVariants: Variants = {
+    hidden: { opacity: 0, y: 30 },
+    visible: {
+      opacity: 1,
+      y: 0,
+      transition: {
+        duration: 0.6,
+        ease: 'easeOut',
+      },
+    },
+  }
+
   return (
-    <section className="relative bg-gradient-to-r from-primary to-secondary text-white py-20">
-      <div className="container mx-auto px-4 text-center">
-        <h1 className="text-5xl md:text-6xl font-bold mb-6 !text-white">
+    <section className="relative bg-gradient-to-r from-primary to-secondary text-white py-20 min-h-[800px] flex flex-col justify-center items-center">
+      <motion.div
+        className="container mx-auto px-4 text-center"
+        variants={containerVariants}
+        initial="hidden"
+        animate="visible"
+      >
+        <motion.h1
+          className="text-5xl md:text-6xl font-bold mb-6 !text-white"
+          variants={itemVariants}
+        >
           Welcome to El-Shaddai Revival Centre
-        </h1>
-        <p className="text-xl mb-8 max-w-2xl mx-auto">
+        </motion.h1>
+        <motion.p
+          className="text-xl mb-8 max-w-2xl mx-auto"
+          variants={itemVariants}
+        >
           Join us as we worship, grow, and serve together in Christ's love
-        </p>
-        <div className="flex flex-col sm:flex-row gap-4 justify-center">
-          <Link 
-            href="/live" 
-            className="bg-accent text-white px-8 py-4 rounded-lg font-semibold hover:bg-red-700 transition duration-300 inline-block"
-          >
-            Join Us Live
-          </Link>
-          <Link 
-            href="/sermons" 
-            className="bg-white text-primary px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition duration-300 inline-block"
-          >
-            Watch Sermons
-          </Link>
-        </div>
+        </motion.p>
+        <motion.div
+          className="flex flex-col sm:flex-row gap-4 justify-center"
+          variants={itemVariants}
+        >
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Link
+              href="/live"
+              className="bg-accent text-white px-8 py-4 rounded-lg font-semibold hover:bg-red-700 transition duration-300 inline-block"
+            >
+              Join Us Live
+            </Link>
+          </motion.div>
+          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+            <Link
+              href="/sermons"
+              className="bg-white text-primary px-6 py-3 rounded-lg font-semibold hover:bg-gray-100 transition duration-300 inline-block"
+            >
+              Watch Sermons
+            </Link>
+          </motion.div>
+        </motion.div>
         
         {isLive && (
-          <div className="mt-6 inline-flex items-center px-4 py-2 bg-red-600 rounded-full animate-pulse">
-            <span className="h-2 w-2 bg-white rounded-full mr-2"></span>
+          <motion.div
+            className="mt-6 inline-flex items-center px-4 py-2 bg-red-600 rounded-full animate-pulse"
+            initial={{ opacity: 0, scale: 0.8 }}
+            animate={{ opacity: 1, scale: 1 }}
+            transition={{ delay: 0.8 }}
+          >
+            <motion.span
+              className="h-2 w-2 bg-white rounded-full mr-2"
+              animate={{ scale: [1, 1.2, 1] }}
+              transition={{ repeat: Infinity, duration: 1 }}
+            />
             Live Now
-          </div>
+          </motion.div>
         )}
-      </div>
+      </motion.div>
     </section>
   )
 }

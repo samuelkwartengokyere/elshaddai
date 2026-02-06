@@ -7,8 +7,16 @@ import Media, { IMedia } from '@/models/Media'
 
 export async function GET(request: NextRequest) {
   try {
-    await connectDB()
-
+    const dbConnection = await connectDB()
+    
+    // Check if database connection is available
+    if (!dbConnection) {
+      return NextResponse.json(
+        { error: 'Database connection not available. Please check your environment variables.' },
+        { status: 503 }
+      )
+    }
+    
     const searchParams = request.nextUrl.searchParams
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
@@ -63,8 +71,16 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    await connectDB()
-
+    const dbConnection = await connectDB()
+    
+    // Check if database connection is available
+    if (!dbConnection) {
+      return NextResponse.json(
+        { error: 'Database connection not available. Please check your environment variables.' },
+        { status: 503 }
+      )
+    }
+    
     const formData = await request.formData()
     const file = formData.get('file') as File
     const title = formData.get('title') as string
