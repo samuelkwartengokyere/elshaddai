@@ -1,0 +1,29 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Merriweather:wght@300;400;700&display=swap');
+
+@import 'tailwindcss';
+
+@theme {
+  --color-primary: #1a365d;
+  --color-secondary: #2d3748;
+  --color-accent: #e53e3e;
+  --font-sans: Inter, sans-serif;
+  --font-serif: Merriweather, serif;
+}
+
+:root {
+  --background: #f9fafb;
+  --foreground: #1f2937;
+}
+
+body {
+  font-family: var(--font-sans);
+  color: var(--foreground);
+  background-color: var(--background);
+}
+
+h1, h2, h3, h4 {
+  font-family: var(--font-serif);
+  font-weight: 700;
+  color: var(--color-primary);
+}
+
