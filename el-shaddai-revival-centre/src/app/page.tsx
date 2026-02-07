@@ -1,8 +1,9 @@
 import Hero from '@/components/Hero'
 import LiveStream from '@/components/LiveStream'
 import SermonCard from '@/components/SermonCard'
+import TestimonyCard from '@/components/TestimonyCard'
 import Link from 'next/link'
-import { Calendar, Users, Heart, HeartHandshake } from 'lucide-react'
+import { Calendar, Users, Heart, HeartHandshake, Quote } from 'lucide-react'
 
 // Mock data - replace with actual API calls
 const recentSermons = [
@@ -48,6 +49,36 @@ const upcomingEvents = [
   { title: 'Community Outreach', date: 'Jan 27', time: '9:00 AM' },
 ]
 
+const featuredTestimonies = [
+  {
+    id: '1',
+    name: 'Mary Akosua',
+    title: 'From Terminal Diagnosis to Complete Healing',
+    content: 'I came to El-Shaddai Revival Centre during one of the most challenging periods of my life. Doctors had diagnosed me with a terminal illness and had given me just months to live. Through the prayers of the prayer camp, I experienced a miraculous healing. Today, I stand here completely healed by the power of God.',
+    category: 'healing' as const,
+    date: '2024-01-10',
+    location: 'Nabewam',
+  },
+  {
+    id: '2',
+    name: 'John Mensah',
+    title: 'Financial Breakthrough After Years of Struggle',
+    content: 'For over five years, my family and I struggled financially. I had lost my job and was about to lose our home. Through the prayers at the prayer camp, everything changed. Within weeks, I got a better job and debts were paid. God blessed us abundantly beyond what we could imagine.',
+    category: 'breakthrough' as const,
+    date: '2024-01-08',
+    location: 'Kumasi',
+  },
+  {
+    id: '3',
+    name: 'Sarah Adomako',
+    title: 'Finding Christ at the Prayer Camp',
+    content: 'I grew up in a Christian home but never truly understood what it meant to have a personal relationship with Jesus. When I attended the prayer camp at El-Shaddai, something changed in my heart. That was three years ago and today I serve in the worship team.',
+    category: 'salvation' as const,
+    date: '2024-01-05',
+    location: 'Accra',
+  }
+]
+
 export default function Home() {
 
   return (
@@ -77,6 +108,41 @@ export default function Home() {
             {recentSermons.map((sermon) => (
               <SermonCard key={sermon.id} sermon={sermon} />
             ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Testimonies Section */}
+      <section className="py-16 bg-gradient-to-br from-primary to-secondary text-white">
+        <div className="container mx-auto px-4">
+          <div className="flex justify-between items-center mb-10">
+            <div>
+              <h2 className="text-4xl font-bold mb-2">Testimonies</h2>
+              <p className="text-gray-300">Real stories of God's power at our Prayer Camp</p>
+            </div>
+            <Link 
+              href="/testimonies" 
+              className="hidden md:inline-flex items-center bg-white text-primary px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition duration-300"
+            >
+              View All Testimonies
+              <Quote className="ml-2 h-4 w-4" />
+            </Link>
+          </div>
+          
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+            {featuredTestimonies.map((testimony) => (
+              <TestimonyCard key={testimony.id} testimony={testimony} />
+            ))}
+          </div>
+
+          <div className="mt-8 text-center md:hidden">
+            <Link 
+              href="/testimonies" 
+              className="inline-flex items-center bg-white text-primary px-6 py-3 rounded-lg font-medium hover:bg-gray-100 transition duration-300"
+            >
+              View All Testimonies
+              <Quote className="ml-2 h-4 w-4" />
+            </Link>
           </div>
         </div>
       </section>

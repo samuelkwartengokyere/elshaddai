@@ -16,6 +16,7 @@ export default function Header() {
     { name: 'Groups', href: '/groups' },
     { name: 'Give', href: '/give' },
     { name: 'Events', href: '/events' },
+    { name: 'Testimonies', href: '/testimonies' },
     { name: 'Counselling', href: '/counselling' },
     { name: 'Contact', href: '/contact' },
   ]
