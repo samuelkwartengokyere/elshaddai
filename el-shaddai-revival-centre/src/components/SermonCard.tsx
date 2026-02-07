@@ -9,7 +9,7 @@ interface SermonCardProps {
     title: string
     speaker: string
     date: string
-    description: string
+    description?: string
     thumbnail?: string
     audioUrl?: string
     videoUrl?: string
@@ -56,7 +56,7 @@ export default function SermonCard({ sermon }: SermonCardProps) {
         )}
         
         <h3 className="text-xl font-bold mb-2 line-clamp-2">{sermon.title}</h3>
-        <p className="text-gray-600 mb-4 line-clamp-2 text-sm">{sermon.description}</p>
+        <p className="text-gray-600 mb-4 line-clamp-2 text-sm">{sermon.description || 'No description available'}</p>
         
         <div className="flex items-center justify-between text-sm text-gray-500 mb-4">
           <div className="flex items-center space-x-4">

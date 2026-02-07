@@ -13,61 +13,103 @@ import {
   CheckCircle
 } from 'lucide-react'
 import Link from 'next/link'
+import Image from 'next/image'
 
-// Team members data
-const leadershipTeam = [
+interface TeamMember {
+  _id?: string
+  name: string
+  role: string
+  bio: string
+  image?: string
+  email?: string
+  phone?: string
+  department?: string
+  isLeadership: boolean
+  order?: number
+}
+
+interface CoreValue {
+  icon: string
+  title: string
+  description: string
+}
+
+interface ServiceTime {
+  day: string
+  times: string[]
+  description: string
+}
+
+async function getLeadershipTeam(): Promise<TeamMember[]> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+    const res = await fetch(`${baseUrl}/api/teams?limit=10&leadership=true`, {
+      cache: 'no-store'
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    return data.teamMembers || []
+  } catch {
+    return []
+  }
+}
+
+// Fallback data
+const fallbackTeam: TeamMember[] = [
   {
     name: 'Pastor John Smith',
     role: 'Senior Pastor',
     bio: 'Leading our congregation with wisdom and compassion for over 20 years.',
-    image: '/images/team/pastor-john.jpg'
+    image: '/images/team/pastor-john.jpg',
+    isLeadership: true
   },
   {
     name: 'Pastor Sarah Johnson',
     role: 'Associate Pastor',
     bio: 'Passionate about discipleship and community outreach.',
-    image: '/images/team/pastor-sarah.jpg'
+    image: '/images/team/pastor-sarah.jpg',
+    isLeadership: true
   },
   {
     name: 'David Williams',
     role: 'Worship Pastor',
     bio: 'Guiding our worship team to create meaningful worship experiences.',
-    image: '/images/team/david.jpg'
+    image: '/images/team/david.jpg',
+    isLeadership: true
   },
   {
     name: 'Mary Thompson',
     role: 'Children\'s Director',
     bio: 'Dedicated to nurturing the faith of the next generation.',
-    image: '/images/team/mary.jpg'
+    image: '/images/team/mary.jpg',
+    isLeadership: true
   }
 ]
 
-// Core values data
-const coreValues = [
+const coreValues: CoreValue[] = [
   {
-    icon: Heart,
+    icon: 'Heart',
     title: 'Love',
-    description: 'We believe in showing Christ&apos;s love to everyone, unconditionally'
+    description: 'We believe in showing Christ\'s love to everyone, unconditionally'
   },
   {
-    icon: Target,
+    icon: 'Target',
     title: 'Purpose',
     description: 'We exist to fulfill the Great Commission and make disciples'
   },
   {
-    icon: Users,
+    icon: 'Users',
     title: 'Community',
     description: 'We are family, supporting and caring for one another'
   },
   {
-    icon: Award,
+    icon: 'Award',
     title: 'Excellence',
     description: 'We strive for excellence in all we do, to honor God'
   }
 ]
 
-// Service times data
-const serviceTimes = [
+const serviceTimes: ServiceTime[] = [
   {
     day: 'Sunday',
     times: ['9:00 AM - Contemporary', '11:00 AM - Traditional'],
@@ -90,7 +132,18 @@ const serviceTimes = [
   }
 ]
 
-export default function AboutPage() {
+// Icon mapping helper
+const IconMap: Record<string, React.ComponentType<{ className?: string }>> = {
+  Heart,
+  Target,
+  Users,
+  Award
+}
+
+export default async function AboutPage() {
+  const leadershipTeam = await getLeadershipTeam()
+  const displayTeam = leadershipTeam.length > 0 ? leadershipTeam : fallbackTeam
+
   return (
     <>
       {/* Hero Section */}
@@ -136,8 +189,9 @@ export default function AboutPage() {
                     connections with others.
                   </p>
                 </div>
-                <div className="bg-gray-200 rounded-xl h-80 flex items-center justify-center">
-                  <span className="text-gray-400 text-lg">[Church History Image]</span>
+                <div className="bg-gray-200 rounded-xl h-80 flex items-center justify-center relative overflow-hidden">
+                  <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-secondary/20"></div>
+                  <span className="text-gray-400 text-lg relative z-10">[Church History Image]</span>
                 </div>
               </div>
             </div>
@@ -208,7 +262,7 @@ export default function AboutPage() {
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
               {coreValues.map((value, index) => {
-                const Icon = value.icon
+                const Icon = IconMap[value.icon] || Heart
                 return (
                   <div key={index} className="text-center p-6 rounded-xl hover:shadow-lg transition duration-300">
                     <div className="bg-accent/10 p-4 rounded-full inline-block mb-4">
@@ -237,10 +291,19 @@ export default function AboutPage() {
             </div>
             
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
-              {leadershipTeam.map((leader, index) => (
-                <div key={index} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition duration-300">
-                  <div className="bg-gray-200 h-64 flex items-center justify-center">
-                    <span className="text-gray-400 text-lg">[Photo: {leader.name}]</span>
+              {displayTeam.map((leader, index) => (
+                <div key={leader._id || index} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition duration-300">
+                  <div className="bg-gray-200 h-64 flex items-center justify-center relative overflow-hidden">
+                    {leader.image ? (
+                      <Image
+                        src={leader.image}
+                        alt={leader.name}
+                        fill
+                        className="object-cover"
+                      />
+                    ) : (
+                      <Users className="h-16 w-16 text-gray-400" />
+                    )}
                   </div>
                   <div className="p-6">
                     <h3 className="text-xl font-bold mb-1">{leader.name}</h3>

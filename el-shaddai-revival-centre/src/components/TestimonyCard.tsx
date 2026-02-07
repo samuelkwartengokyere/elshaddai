@@ -9,9 +9,10 @@ interface Testimony {
   name: string
   title: string
   content: string
-  category: 'healing' | 'salvation' | 'breakthrough' | 'family' | 'financial' | 'other'
+  category: 'healing' | 'salvation' | 'breakthrough' | 'deliverance' | 'provision' | 'other'
   date: string
   photo?: string
+  image?: string
   location?: string
 }
 
@@ -33,12 +34,15 @@ const cardVariants: Variants = {
 }
 
 export default function TestimonyCard({ testimony, featured = false }: TestimonyCardProps) {
-  const categoryColors = {
+  // Handle both API image field and component photo field
+  const photoUrl = testimony.image || testimony.photo
+
+  const categoryColors: Record<string, string> = {
     healing: 'bg-green-100 text-green-800',
     salvation: 'bg-blue-100 text-blue-800',
     breakthrough: 'bg-purple-100 text-purple-800',
-    family: 'bg-yellow-100 text-yellow-800',
-    financial: 'bg-emerald-100 text-emerald-800',
+    deliverance: 'bg-orange-100 text-orange-800',
+    provision: 'bg-emerald-100 text-emerald-800',
     other: 'bg-gray-100 text-gray-800',
   }
 
@@ -59,7 +63,7 @@ export default function TestimonyCard({ testimony, featured = false }: Testimony
 
       {/* Category Badge */}
       <div className="p-4 pb-0">
-        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${categoryColors[testimony.category]}`}>
+        <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium ${categoryColors[testimony.category] || 'bg-gray-100 text-gray-800'}`}>
           {testimony.category.charAt(0).toUpperCase() + testimony.category.slice(1)}
         </span>
       </div>
@@ -68,10 +72,10 @@ export default function TestimonyCard({ testimony, featured = false }: Testimony
       <div className="p-6">
         {/* Photo and Name */}
         <div className="flex items-center mb-4">
-          <div className="relative h-12 w-12 rounded-full overflow-hidden mr-4 bg-gray-200">
-            {testimony.photo ? (
+          <div className="relative h-12 w-12 rounded-full overflow-hidden mr-4 bg-gray-200 flex-shrink-0">
+            {photoUrl ? (
               <Image
-                src={testimony.photo}
+                src={photoUrl}
                 alt={testimony.name}
                 fill
                 className="object-cover"

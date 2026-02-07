@@ -1,0 +1,114 @@
+import { NextRequest, NextResponse } from 'next/server'
+import connectDB from '@/lib/database'
+import Event, { IEvent } from '@/models/Event'
+
+export async function GET(request: NextRequest) {
+  try {
+    const dbConnection = await connectDB()
+    
+    if (!dbConnection) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      )
+    }
+    
+    const searchParams = request.nextUrl.searchParams
+    const page = parseInt(searchParams.get('page') || '1')
+    const limit = parseInt(searchParams.get('limit') || '10')
+    const category = searchParams.get('category')
+    const upcoming = searchParams.get('upcoming') === 'true'
+    const search = searchParams.get('search')
+    const sort = searchParams.get('sort') || 'date'
+
+    const skip = (page - 1) * limit
+
+    // Build query
+    const query: Record<string, unknown> = { isPublished: true }
+
+    if (category && category !== 'all') {
+      query.category = category
+    }
+
+    if (upcoming) {
+      query.date = { $gte: new Date() }
+    }
+
+    if (search) {
+      query.$or = [
+        { title: { $regex: search, $options: 'i' } },
+        { description: { $regex: search, $options: 'i' } },
+        { location: { $regex: search, $options: 'i' } }
+      ]
+    }
+
+    // Execute query
+    const events = await Event.find(query)
+      .sort(sort === 'date' ? { date: 1 } : { createdAt: -1 })
+      .skip(skip)
+      .limit(limit)
+      .lean()
+
+    const total = await Event.countDocuments(query)
+    const totalPages = Math.ceil(total / limit)
+
+    return NextResponse.json({
+      success: true,
+      events,
+      pagination: {
+        page,
+        limit,
+        total,
+        totalPages,
+        hasNext: page < totalPages,
+        hasPrev: page > 1
+      }
+    })
+
+  } catch (error) {
+    console.error('Error fetching events:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch events' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const dbConnection = await connectDB()
+    
+    if (!dbConnection) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      )
+    }
+    
+    const body = await request.json()
+    
+    const event = new Event({
+      ...body,
+      date: new Date(body.date),
+      endDate: body.endDate ? new Date(body.endDate) : undefined,
+      createdAt: new Date(),
+      updatedAt: new Date()
+    })
+
+    await event.save()
+
+    return NextResponse.json({
+      success: true,
+      event,
+      message: 'Event created successfully'
+    }, { status: 201 })
+
+  } catch (error) {
+    console.error('Error creating event:', error)
+    return NextResponse.json(
+      { error: 'Failed to create event' },
+      { status: 500 }
+    )
+  }
+}
+

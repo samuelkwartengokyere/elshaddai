@@ -5,10 +5,10 @@ import { usePathname } from 'next/navigation'
 import { 
   LayoutDashboard, 
   Image, 
-  FileAudio, 
-  DollarSign, 
+  FileAudio,
+  Calendar,
+  MessageSquare,
   Users, 
-  Settings, 
   Menu, 
   X,
   LogOut,
@@ -17,11 +17,11 @@ import {
 
 const navItems = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+  { name: 'Events', href: '/admin/events', icon: Calendar },
+  { name: 'Testimonies', href: '/admin/testimonies', icon: MessageSquare },
+  { name: 'Teams', href: '/admin/teams', icon: Users },
   { name: 'Media Library', href: '/admin/media', icon: Image },
   { name: 'Sermons', href: '/admin/sermons', icon: FileAudio },
-  { name: 'Donations', href: '/admin/donations', icon: DollarSign },
-  { name: 'Users', href: '/admin/users', icon: Users },
-  { name: 'Settings', href: '/admin/settings', icon: Settings },
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {

@@ -5,81 +5,183 @@ import TestimonyCard from '@/components/TestimonyCard'
 import Link from 'next/link'
 import { Calendar, Users, Heart, HeartHandshake, Quote } from 'lucide-react'
 
-// Mock data - replace with actual API calls
-const recentSermons = [
-  {
-    id: '1',
-    title: 'The Power of Faith',
-    speaker: 'Pastor John Smith',
-    date: '2024-01-14',
-    description: 'Exploring how faith transforms our lives and circumstances',
-    thumbnail: '/images/sermon1.jpg',
-    audioUrl: '/sermons/sermon1.mp3',
-    duration: '45:30',
-    series: 'Living by Faith'
-  },
-  {
-    id: '2',
-    title: 'Love Thy Neighbor',
-    speaker: 'Pastor Sarah Johnson',
-    date: '2024-01-07',
-    description: 'Practical ways to show Christ\'s love in our community',
-    thumbnail: '/images/sermon2.jpg',
-    audioUrl: '/sermons/sermon2.mp3',
-    duration: '38:45',
-    series: 'Community Matters'
-  },
-  {
-    id: '3',
-    title: 'Hope in Hard Times',
-    speaker: 'Guest Speaker David Lee',
-    date: '2023-12-31',
-    description: 'Finding hope and peace during life\'s challenges',
-    thumbnail: '/images/sermon3.jpg',
-    audioUrl: '/sermons/sermon3.mp3',
-    duration: '52:15',
-    series: 'New Year, New Hope'
+interface Sermon {
+  _id?: string
+  id?: string
+  title: string
+  speaker: string
+  date: string
+  description?: string
+  thumbnail?: string
+  audioUrl?: string
+  videoUrl?: string
+  duration?: string
+  series?: string
+  biblePassage?: string
+  tags?: string[]
+}
+
+interface Event {
+  _id?: string
+  title: string
+  description?: string
+  date: string
+  time: string
+  location: string
+  category?: string
+  recurring?: boolean
+}
+
+interface Testimony {
+  _id?: string
+  id?: string
+  name: string
+  title: string
+  content: string
+  category: 'healing' | 'breakthrough' | 'salvation' | 'deliverance' | 'provision' | 'other'
+  date: string
+  location: string
+  image?: string
+  isFeatured?: boolean
+}
+
+async function getRecentSermons(): Promise<Sermon[]> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+    const res = await fetch(`${baseUrl}/api/sermons?limit=3`, {
+      cache: 'no-store'
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    return data.sermons || []
+  } catch {
+    return []
   }
-]
+}
 
-const upcomingEvents = [
-  { title: 'Men\'s Breakfast', date: 'Jan 20', time: '8:00 AM' },
-  { title: 'Youth Night', date: 'Jan 21', time: '6:00 PM' },
-  { title: 'Prayer Meeting', date: 'Jan 24', time: '7:00 PM' },
-  { title: 'Community Outreach', date: 'Jan 27', time: '9:00 AM' },
-]
-
-const featuredTestimonies = [
-  {
-    id: '1',
-    name: 'Mary Akosua',
-    title: 'From Terminal Diagnosis to Complete Healing',
-    content: 'I came to El-Shaddai Revival Centre during one of the most challenging periods of my life. Doctors had diagnosed me with a terminal illness and had given me just months to live. Through the prayers of the prayer camp, I experienced a miraculous healing. Today, I stand here completely healed by the power of God.',
-    category: 'healing' as const,
-    date: '2024-01-10',
-    location: 'Nabewam',
-  },
-  {
-    id: '2',
-    name: 'John Mensah',
-    title: 'Financial Breakthrough After Years of Struggle',
-    content: 'For over five years, my family and I struggled financially. I had lost my job and was about to lose our home. Through the prayers at the prayer camp, everything changed. Within weeks, I got a better job and debts were paid. God blessed us abundantly beyond what we could imagine.',
-    category: 'breakthrough' as const,
-    date: '2024-01-08',
-    location: 'Kumasi',
-  },
-  {
-    id: '3',
-    name: 'Sarah Adomako',
-    title: 'Finding Christ at the Prayer Camp',
-    content: 'I grew up in a Christian home but never truly understood what it meant to have a personal relationship with Jesus. When I attended the prayer camp at El-Shaddai, something changed in my heart. That was three years ago and today I serve in the worship team.',
-    category: 'salvation' as const,
-    date: '2024-01-05',
-    location: 'Accra',
+async function getUpcomingEvents(): Promise<Event[]> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+    const res = await fetch(`${baseUrl}/api/events?limit=4&upcoming=true`, {
+      cache: 'no-store'
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    return data.events || []
+  } catch {
+    return []
   }
-]
+}
 
-export default function Home() {
+async function getFeaturedTestimonies(): Promise<Testimony[]> {
+  try {
+    const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+    const res = await fetch(`${baseUrl}/api/testimonies?limit=3&featured=true`, {
+      cache: 'no-store'
+    })
+    if (!res.ok) return []
+    const data = await res.json()
+    return data.testimonies || []
+  } catch {
+    return []
+  }
+}
+
+export default async function Home() {
+  const [recentSermons, upcomingEvents, featuredTestimonies] = await Promise.all([
+    getRecentSermons(),
+    getUpcomingEvents(),
+    getFeaturedTestimonies()
+  ])
+
+  // Fallback mock data if API fails
+  const mockSermons: Sermon[] = [
+    {
+      id: '1',
+      title: 'The Power of Faith',
+      speaker: 'Pastor John Smith',
+      date: '2024-01-14',
+      description: 'Exploring how faith transforms our lives and circumstances',
+      thumbnail: '/images/sermon1.jpg',
+      audioUrl: '/sermons/sermon1.mp3',
+      duration: '45:30',
+      series: 'Living by Faith'
+    },
+    {
+      id: '2',
+      title: 'Love Thy Neighbor',
+      speaker: 'Pastor Sarah Johnson',
+      date: '2024-01-07',
+      description: 'Practical ways to show Christ\'s love in our community',
+      thumbnail: '/images/sermon2.jpg',
+      audioUrl: '/sermons/sermon2.mp3',
+      duration: '38:45',
+      series: 'Community Matters'
+    },
+    {
+      id: '3',
+      title: 'Hope in Hard Times',
+      speaker: 'Guest Speaker David Lee',
+      date: '2023-12-31',
+      description: 'Finding hope and peace during life\'s challenges',
+      thumbnail: '/images/sermon3.jpg',
+      audioUrl: '/sermons/sermon3.mp3',
+      duration: '52:15',
+      series: 'New Year, New Hope'
+    }
+  ]
+
+  const mockEvents: Event[] = [
+    { title: 'Men\'s Breakfast', date: 'Jan 20', time: '8:00 AM', location: 'Fellowship Hall' },
+    { title: 'Youth Night', date: 'Jan 21', time: '6:00 PM', location: 'Youth Center' },
+    { title: 'Prayer Meeting', date: 'Jan 24', time: '7:00 PM', location: 'Main Sanctuary' },
+    { title: 'Community Outreach', date: 'Jan 27', time: '9:00 AM', location: 'Community Center' },
+  ]
+
+  const mockTestimonies: Testimony[] = [
+    {
+      id: '1',
+      name: 'Mary Akosua',
+      title: 'From Terminal Diagnosis to Complete Healing',
+      content: 'I came to El-Shaddai Revival Centre during one of the most challenging periods of my life. Doctors had diagnosed me with a terminal illness and had given me just months to live. Through the prayers of the prayer camp, I experienced a miraculous healing. Today, I stand here completely healed by the power of God.',
+      category: 'healing',
+      date: '2024-01-10',
+      location: 'Nabewam',
+    },
+    {
+      id: '2',
+      name: 'John Mensah',
+      title: 'Financial Breakthrough After Years of Struggle',
+      content: 'For over five years, my family and I struggled financially. I had lost my job and was about to lose our home. Through the prayers at the prayer camp, everything changed. Within weeks, I got a better job and debts were paid. God blessed us abundantly beyond what we could imagine.',
+      category: 'breakthrough',
+      date: '2024-01-08',
+      location: 'Kumasi',
+    },
+    {
+      id: '3',
+      name: 'Sarah Adomako',
+      title: 'Finding Christ at the Prayer Camp',
+      content: 'I grew up in a Christian home but never truly understood what it meant to have a personal relationship with Jesus. When I attended the prayer camp at El-Shaddai, something changed in my heart. That was three years ago and today I serve in the worship team.',
+      category: 'salvation',
+      date: '2024-01-05',
+      location: 'Accra',
+    }
+  ]
+
+  // Use API data if available, otherwise fall back to mock data
+  const displaySermons = recentSermons.length > 0 ? recentSermons : mockSermons
+  const displayEvents = upcomingEvents.length > 0 
+    ? upcomingEvents.map(e => ({
+        title: e.title,
+        date: new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+        time: e.time
+      }))
+    : mockEvents.map(e => ({
+        title: e.title,
+        date: e.date,
+        time: e.time
+      }))
+  const displayTestimonies = featuredTestimonies.length > 0 ? featuredTestimonies : mockTestimonies
 
   return (
     <>
@@ -105,8 +207,8 @@ export default function Home() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {recentSermons.map((sermon) => (
-              <SermonCard key={sermon.id} sermon={sermon} />
+            {displaySermons.map((sermon, index) => (
+              <SermonCard key={sermon._id || sermon.id || index} sermon={sermon} />
             ))}
           </div>
         </div>
@@ -130,8 +232,8 @@ export default function Home() {
           </div>
           
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-            {featuredTestimonies.map((testimony) => (
-              <TestimonyCard key={testimony.id} testimony={testimony} />
+            {displayTestimonies.map((testimony, index) => (
+              <TestimonyCard key={testimony._id || testimony.id || index} testimony={testimony} />
             ))}
           </div>
 
@@ -150,11 +252,22 @@ export default function Home() {
       {/* Upcoming Events */}
       <section className="py-16 bg-gray-50">
         <div className="container mx-auto px-4">
-          <h2 className="text-4xl font-bold text-center mb-10">Upcoming Events</h2>
+          <div className="flex justify-between items-center mb-10">
+            <div>
+              <h2 className="text-4xl font-bold">Upcoming Events</h2>
+              <p className="text-gray-600 mt-2">Join us at our upcoming events</p>
+            </div>
+            <Link 
+              href="/events" 
+              className="text-accent hover:text-red-600 font-medium flex items-center"
+            >
+              View All Events →
+            </Link>
+          </div>
 
           <div className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-            {upcomingEvents.map((event, index) => (
-              <div key={index} className="card text-center hover:shadow-xl transition duration-300">
+            {displayEvents.map((event, index) => (
+              <div key={index} className="card text-center hover:shadow-xl transition duration-300 bg-white rounded-lg shadow-md p-6">
                 <Calendar className="h-12 w-12 text-accent mx-auto mb-4" />
                 <h3 className="text-xl font-bold mb-2">{event.title}</h3>
                 <div className="text-gray-600">
@@ -220,7 +333,7 @@ export default function Home() {
             <div className="text-center p-8">
               <Calendar className="h-12 w-12 mx-auto mb-4" />
               <h3 className="text-2xl font-bold mb-4">Plan Your Visit</h3>
-              <p className="mb-6">We'd love to welcome you this Sunday</p>
+              <p className="mb-6">We&apos;d love to welcome you this Sunday</p>
               <Link
                 href="/plan-your-visit"
                 className="border-2 border-white text-white px-6 py-3 rounded-lg hover:bg-white hover:text-primary transition duration-300 inline-block"
@@ -246,3 +359,4 @@ export default function Home() {
     </>
   )
 }
+
