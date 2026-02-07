@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
     const skip = (page - 1) * limit
 
     // Build query
-    let query: Record<string, unknown> = {}
+    const query: Record<string, unknown> = {}
 
     if (speaker) {
       query.speaker = { $regex: speaker, $options: 'i' }

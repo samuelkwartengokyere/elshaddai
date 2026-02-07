@@ -26,28 +26,28 @@ const ministryContacts = [
     icon: Users,
     title: 'Pastoral Care',
     email: 'pastoralcare@elshaddai.com',
-    phone: '(555) 123-4568',
+    phone: '+233 50 123 4568',
     description: 'Prayer requests, counseling, pastoral visits'
   },
   {
     icon: Calendar,
     title: 'Events & Ministries',
     email: 'events@elshaddai.com',
-    phone: '(555) 123-4569',
+    phone: '+233 50 123 4569',
     description: 'Event bookings, ministry partnerships'
   },
   {
     icon: Heart,
     title: 'Benevolence & Outreach',
     email: 'outreach@elshaddai.com',
-    phone: '(555) 123-4570',
+    phone: '+233 50 123 4570',
     description: 'Community outreach, assistance programs'
   },
   {
     icon: Headphones,
     title: 'Technical Support',
     email: 'support@elshaddai.com',
-    phone: '(555) 123-4571',
+    phone: '+233 50 123 4571',
     description: 'Live stream issues, website support'
   }
 ]
@@ -60,7 +60,7 @@ const faqs = [
   },
   {
     question: 'Where are you located?',
-    answer: 'We\'re located at 123 Church Street, City, State 12345. There\'s plenty of parking available on-site.'
+    answer: 'We&apos;re located at El-Shaddai Revival Centre, Nabewam, Ghana. There&apos;s plenty of parking available on-site.'
   },
   {
     question: 'Is there parking available?',
@@ -68,7 +68,7 @@ const faqs = [
   },
   {
     question: 'What should I wear?',
-    answer: 'Come as you are! We have no dress code. Some people dress casually, others dress up. You\'ll feel welcome either way.'
+    answer: 'Come as you are! We have no dress code. Some people dress casually, others dress up. You&apos;ll feel welcome either way.'
   },
   {
     question: 'Is there childcare available?',
@@ -76,7 +76,7 @@ const faqs = [
   },
   {
     question: 'How can I get involved in ministry?',
-    answer: 'We\'d love to help you find your place! Visit our Welcome Center after any service or contact us to discuss your interests and gifts.'
+    answer: 'We&apos;d love to help you find your place! Visit our Welcome Center after any service or contact us to discuss your interests and gifts.'
   }
 ]
 
@@ -142,7 +142,7 @@ function ContactForm() {
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div>
-          <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
+            <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
             Phone Number
           </label>
           <input
@@ -151,7 +151,7 @@ function ContactForm() {
             value={formData.phone}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent transition duration-300"
-            placeholder="(555) 123-4567"
+            placeholder="+233 50 123 4567"
           />
         </div>
         <div>
@@ -282,31 +282,31 @@ export default function ContactPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {/* Address */}
               <div className="text-center p-6 rounded-xl bg-gray-50 hover:shadow-lg transition duration-300">
-                <div className="bg-accent bg-opacity-10 p-4 rounded-full inline-block mb-4">
+                <div className="bg-accent/10 p-4 rounded-full inline-block mb-4">
                   <MapPin className="h-8 w-8 text-accent" />
                 </div>
                 <h3 className="text-xl font-bold mb-3">Visit Us</h3>
                 <p className="text-gray-600">
-                  123 Church Street<br />
-                  City, State 12345
+                  El-Shaddai Revival Centre<br />
+                  Nabewam, Ghana
                 </p>
               </div>
               
               {/* Phone */}
               <div className="text-center p-6 rounded-xl bg-gray-50 hover:shadow-lg transition duration-300">
-                <div className="bg-primary bg-opacity-10 p-4 rounded-full inline-block mb-4">
+                <div className="bg-primary/10 p-4 rounded-full inline-block mb-4">
                   <Phone className="h-8 w-8 text-primary" />
                 </div>
                 <h3 className="text-xl font-bold mb-3">Call Us</h3>
                 <p className="text-gray-600">
-                  (555) 123-4567<br />
+                  +233 50 123 4567<br />
                   Mon-Fri: 9AM-5PM
                 </p>
               </div>
               
               {/* Email */}
               <div className="text-center p-6 rounded-xl bg-gray-50 hover:shadow-lg transition duration-300">
-                <div className="bg-accent bg-opacity-10 p-4 rounded-full inline-block mb-4">
+                <div className="bg-accent/10 p-4 rounded-full inline-block mb-4">
                   <Mail className="h-8 w-8 text-accent" />
                 </div>
                 <h3 className="text-xl font-bold mb-3">Email Us</h3>
@@ -318,7 +318,7 @@ export default function ContactPage() {
               
               {/* Service Times */}
               <div className="text-center p-6 rounded-xl bg-gray-50 hover:shadow-lg transition duration-300">
-                <div className="bg-primary bg-opacity-10 p-4 rounded-full inline-block mb-4">
+                <div className="bg-primary/10 p-4 rounded-full inline-block mb-4">
                   <Clock className="h-8 w-8 text-primary" />
                 </div>
                 <h3 className="text-xl font-bold mb-3">Service Times</h3>
@@ -351,7 +351,7 @@ export default function ContactPage() {
                     key={index} 
                     className="bg-white p-6 rounded-xl shadow-sm hover:shadow-lg transition duration-300 flex items-start space-x-4"
                   >
-                    <div className="bg-accent bg-opacity-10 p-3 rounded-lg flex-shrink-0">
+                    <div className="bg-accent/10 p-3 rounded-lg flex-shrink-0">
                       <Icon className="h-6 w-6 text-accent" />
                     </div>
                     <div className="flex-grow">
@@ -407,13 +407,18 @@ export default function ContactPage() {
                   </p>
                 </div>
                 
-                {/* Map Placeholder */}
-                <div className="bg-gray-200 rounded-xl h-80 flex items-center justify-center mb-8">
-                  <div className="text-center">
-                    <MapPin className="h-12 w-12 text-gray-400 mx-auto mb-4" />
-                    <p className="text-gray-500 font-medium">Google Maps Integration</p>
-                    <p className="text-gray-400 text-sm">123 Church Street, City, State 12345</p>
-                  </div>
+                {/* Google Maps Embed */}
+                <div className="rounded-xl overflow-hidden h-80 mb-8 shadow-lg">
+                  <iframe
+                    src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d3963.315478688!2d-1.2754906!3d6.6171429!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0xfdbe34a2f57f947%3A0xa0acf09db386e2c5!2sEl-Shaddai%20Revival%20Centre!5e0!3m2!1sen!2sgh!4v1700000000000!5m2!1sen!2sgh"
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    allowFullScreen
+                    loading="lazy"
+                    referrerPolicy="no-referrer-when-downgrade"
+                    title="El-Shaddai Revival Centre Location"
+                  />
                 </div>
                 
                 {/* Directions */}
@@ -422,19 +427,19 @@ export default function ContactPage() {
                   <ul className="space-y-3 text-gray-600">
                     <li className="flex items-start">
                       <span className="bg-accent text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-3 mt-0.5">1</span>
-                      <span>Take Highway 45 to Exit 12</span>
+                      <span>From Kumasi, take the Accra-Kumasi highway towards Nkawkaw</span>
                     </li>
                     <li className="flex items-start">
                       <span className="bg-accent text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-3 mt-0.5">2</span>
-                      <span>Turn left onto Church Street</span>
+                      <span>Look for signs to Nabewam town centre</span>
                     </li>
                     <li className="flex items-start">
                       <span className="bg-accent text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-3 mt-0.5">3</span>
-                      <span>We&apos;re on the right side, across from the park</span>
+                      <span>El-Shaddai Revival Centre is located near the main junction</span>
                     </li>
                     <li className="flex items-start">
                       <span className="bg-accent text-white rounded-full w-6 h-6 flex items-center justify-center text-sm mr-3 mt-0.5">4</span>
-                      <span>Follow signs to Visitor Parking</span>
+                      <span>Follow signs to the church grounds with ample parking</span>
                     </li>
                   </ul>
                 </div>
@@ -500,10 +505,10 @@ export default function ContactPage() {
             <div className="text-center mt-8">
               <p className="text-gray-600 mb-4">Still have questions?</p>
               <Link 
-                href="tel:+15551234567"
+                href="tel:+233501234567"
                 className="inline-flex items-center text-accent hover:text-red-600 font-semibold"
               >
-                Call us at (555) 123-4567 <ArrowRight className="ml-2 h-5 w-5" />
+                Call us at +233 50 123 4567 <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </div>
           </div>
@@ -528,7 +533,7 @@ export default function ContactPage() {
                 Submit Prayer Request
               </Link>
               <a 
-                href="tel:+15551234568"
+                href="tel:+233501234568"
                 className="border-2 border-white text-white px-8 py-4 rounded-lg font-semibold hover:bg-white hover:text-primary transition duration-300 inline-block"
               >
                 Call Prayer Line
@@ -574,7 +579,7 @@ export default function ContactPage() {
                   key={index} 
                   className="bg-gray-50 p-8 rounded-xl hover:shadow-lg transition duration-300 text-center"
                 >
-                  <div className={`${item.color} bg-opacity-10 p-4 rounded-full inline-block mb-4`}>
+                  <div className={`${item.color}/10 p-4 rounded-full inline-block mb-4`}>
                     <ArrowRight className={`h-8 w-8 ${item.color === 'bg-accent' ? 'text-accent' : 'text-primary'}`} />
                   </div>
                   <h3 className="text-xl font-bold mb-3">{item.title}</h3>

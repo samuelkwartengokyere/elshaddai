@@ -326,7 +326,7 @@ function generateConfirmationEmailHTML(
     <div style="background: #059669; border-radius: 8px; padding: 20px; margin: 20px 0; text-align: center;">
       <h3 style="color: white; margin-top: 0;">Visit Our Centre</h3>
       <p style="color: white; margin: 0;">El-Shaddai Revival Centre</p>
-      <p style="color: white; margin: 5px 0 0 0;">123 Church Street, Accra, Ghana</p>
+      <p style="color: white; margin: 5px 0 0 0;">Nabewam, Ghana</p>
     </div>
     `}
 

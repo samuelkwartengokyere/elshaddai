@@ -41,7 +41,7 @@ export default function Footer() {
         >
           {/* Church Info */}
           <motion.div variants={itemVariants}>
-            <h3 className="text-2xl font-bold mb-4">The Church Of Pentecost</h3>
+            <h3 className="text-2xl font-bold mb-4">El-Shaddai Revival Centre</h3>
             <p className="mb-4 text-gray-300">
               A community of faith, hope, and love. Welcome home.
             </p>
@@ -114,15 +114,15 @@ export default function Footer() {
             <ul className="space-y-3 text-gray-300">
               <li className="flex items-start">
                 <MapPin className="h-5 w-5 mr-2 mt-0.5" />
-                <span>123 Church Street, City, State 12345</span>
+                <span>Nabewam, Ghana</span>
               </li>
               <li className="flex items-center">
                 <Phone className="h-5 w-5 mr-2" />
-                <span>(555) 123-4567</span>
+                <span>+233 50 123 4567</span>
               </li>
               <li className="flex items-center">
                 <Mail className="h-5 w-5 mr-2" />
-                <span>info@gracechurch.com</span>
+                <span>info@elshaddai.com</span>
               </li>
             </ul>
           </motion.div>

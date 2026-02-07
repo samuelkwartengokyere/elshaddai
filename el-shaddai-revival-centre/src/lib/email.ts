@@ -204,7 +204,7 @@ export async function sendBookingConfirmation(
     <div style="background: linear-gradient(135deg, #059669 0%, #10b981 100%); border-radius: 12px; padding: 30px; margin: 30px 0; text-align: center;">
       <h3 style="color: white; margin: 0 0 15px 0; font-size: 20px;">📍 Visit Our Centre</h3>
       <p style="color: white; margin: 0 0 10px 0; font-size: 16px;">El-Shaddai Revival Centre</p>
-      <p style="color: rgba(255,255,255,0.9); margin: 0; font-size: 14px;">123 Church Street, Accra, Ghana</p>
+      <p style="color: rgba(255,255,255,0.9); margin: 0; font-size: 14px;">Nabewam, Ghana</p>
       <p style="color: rgba(255,255,255,0.9); margin: 15px 0 0 0; font-size: 13px;">Please arrive 10 minutes early for check-in</p>
     </div>
     `}

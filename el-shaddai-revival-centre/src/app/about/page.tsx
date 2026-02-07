@@ -47,7 +47,7 @@ const coreValues = [
   {
     icon: Heart,
     title: 'Love',
-    description: 'We believe in showing Christ\'s love to everyone, unconditionally'
+    description: 'We believe in showing Christ&apos;s love to everyone, unconditionally'
   },
   {
     icon: Target,
@@ -121,7 +121,7 @@ export default function AboutPage() {
                   <h3 className="text-2xl font-bold mb-4">Humble Beginnings</h3>
                   <p className="text-gray-600 mb-4">
                     El-Shaddai Revival Centre was founded in 1985 by a small group of believers who had a vision 
-                    to create a place where everyone could experience God's love and grace. 
+                    to create a place where everyone could experience God&apos;s love and grace. 
                     What started as a Bible study in a local living room has grown into a vibrant 
                     community of thousands.
                   </p>
@@ -318,8 +318,7 @@ export default function AboutPage() {
                 <MapPin className="h-10 w-10 text-accent mx-auto mb-4" />
                 <h3 className="text-xl font-bold mb-2">Location</h3>
                 <p className="text-gray-600">
-                  123 Faith Street<br />
-                  Your City, State 12345
+                  Nabewam, Ghana
                 </p>
               </div>
               
@@ -367,7 +366,7 @@ export default function AboutPage() {
               {[
                 {
                   title: 'Warm Welcome',
-                  description: 'You\'ll be greeted by our friendly welcome team who will help you feel at home'
+                  description: 'You&apos;ll be greeted by our friendly welcome team who will help you feel at home'
                 },
                 {
                   title: 'Contemporary Worship',
@@ -383,7 +382,7 @@ export default function AboutPage() {
                 },
                 {
                   title: 'No Pressure',
-                  description: 'There\'s no dress code, no expecting you to give, or know all the answers. Just come as you are!'
+                  description: 'There&apos;s no dress code, no expecting you to give, or know all the answers. Just come as you are!'
                 }
               ].map((item, index) => (
                 <div key={index} className="flex items-start space-x-4 bg-white p-6 rounded-xl shadow-sm">

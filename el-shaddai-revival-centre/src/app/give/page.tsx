@@ -76,8 +76,7 @@ export default function GivePage() {
               <p className="text-gray-600">
                 Send checks payable to:<br />
                 <strong>El-Shaddai Revival Centre</strong><br />
-                123 Faith Street<br />
-                Your City, State 12345
+                Nabewam, Ghana
               </p>
             </div>
           </div>

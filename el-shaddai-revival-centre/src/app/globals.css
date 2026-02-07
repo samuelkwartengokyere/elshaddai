@@ -10,6 +10,31 @@
   --font-serif: Merriweather, serif;
 }
 
+/* Tailwind v4 doesn't support bg-opacity-* directly, use arbitrary values or layer utilities */
+@utility bg-primary-10 {
+  background-color: rgb(26 54 93 / 0.1);
+}
+
+@utility bg-primary-20 {
+  background-color: rgb(26 54 93 / 0.2);
+}
+
+@utility bg-primary-30 {
+  background-color: rgb(26 54 93 / 0.3);
+}
+
+@utility bg-accent-10 {
+  background-color: rgb(229 62 62 / 0.1);
+}
+
+@utility bg-accent-20 {
+  background-color: rgb(229 62 62 / 0.2);
+}
+
+@utility bg-accent-30 {
+  background-color: rgb(229 62 62 / 0.3);
+}
+
 :root {
   --background: #f9fafb;
   --foreground: #1f2937;

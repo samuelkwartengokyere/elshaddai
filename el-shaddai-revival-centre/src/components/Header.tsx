@@ -46,13 +46,13 @@ export default function Header() {
                 className="text-xl md:text-2xl font-bold text-primary leading-tight"
                 whileHover={{ scale: 1.02 }}
               >
-                The Church Of Pentecost
+                El-Shaddai Revival Centre
               </motion.span>
               <motion.span
                 className="text-sm md:text-base font-medium text-gray-500"
                 whileHover={{ scale: 1.02 }}
               >
-                El-Shaddai Revival Centre
+                The Church Of Pentecost
               </motion.span>
             </div>
           </Link>
