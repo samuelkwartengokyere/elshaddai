@@ -143,9 +143,12 @@ export default function Home() {
               <Users className="h-12 w-12 mx-auto mb-4" />
               <h3 className="text-2xl font-bold mb-4">Join a Group</h3>
               <p className="mb-6">Connect with others in community groups</p>
-              <button className="border-2 border-white text-white px-6 py-3 rounded-lg hover:bg-white hover:text-primary transition duration-300">
+              <Link
+                href="/groups"
+                className="inline-block border-2 border-white text-white px-6 py-3 rounded-lg hover:bg-white hover:text-primary transition duration-300"
+              >
                 Find a Group
-              </button>
+              </Link>
             </div>
             
             <div className="text-center p-8">

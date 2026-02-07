@@ -13,6 +13,7 @@ export default function Header() {
     { name: 'About Us', href: '/about' },
     { name: 'Sermons', href: '/sermons' },
     { name: 'Live Stream', href: '/live' },
+    { name: 'Groups', href: '/groups' },
     { name: 'Give', href: '/give' },
     { name: 'Events', href: '/events' },
     { name: 'Counselling', href: '/counselling' },
