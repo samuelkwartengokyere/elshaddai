@@ -448,30 +448,46 @@ export default function ContactPage() {
                 <div>
                   <h3 className="text-xl font-bold mb-4">Connect With Us</h3>
                   <div className="flex space-x-4">
-                    <a 
-                      href="#" 
-                      className="bg-primary text-white p-3 rounded-full hover:bg-accent transition duration-300"
-                    >
-                      <Facebook className="h-6 w-6" />
-                    </a>
-                    <a 
-                      href="#" 
-                      className="bg-primary text-white p-3 rounded-full hover:bg-accent transition duration-300"
-                    >
-                      <Instagram className="h-6 w-6" />
-                    </a>
-                    <a 
-                      href="#" 
-                      className="bg-primary text-white p-3 rounded-full hover:bg-accent transition duration-300"
-                    >
-                      <Twitter className="h-6 w-6" />
-                    </a>
-                    <a 
-                      href="#" 
-                      className="bg-primary text-white p-3 rounded-full hover:bg-accent transition duration-300"
-                    >
-                      <Youtube className="h-6 w-6" />
-                    </a>
+                    {process.env.NEXT_PUBLIC_FACEBOOK_URL && (
+                      <a 
+                        href={process.env.NEXT_PUBLIC_FACEBOOK_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-primary text-white p-3 rounded-full hover:bg-accent transition duration-300"
+                      >
+                        <Facebook className="h-6 w-6" />
+                      </a>
+                    )}
+                    {process.env.NEXT_PUBLIC_INSTAGRAM_URL && (
+                      <a 
+                        href={process.env.NEXT_PUBLIC_INSTAGRAM_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-primary text-white p-3 rounded-full hover:bg-accent transition duration-300"
+                      >
+                        <Instagram className="h-6 w-6" />
+                      </a>
+                    )}
+                    {process.env.NEXT_PUBLIC_TWITTER_URL && (
+                      <a 
+                        href={process.env.NEXT_PUBLIC_TWITTER_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-primary text-white p-3 rounded-full hover:bg-accent transition duration-300"
+                      >
+                        <Twitter className="h-6 w-6" />
+                      </a>
+                    )}
+                    {process.env.NEXT_PUBLIC_YOUTUBE_URL && (
+                      <a 
+                        href={process.env.NEXT_PUBLIC_YOUTUBE_URL}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="bg-primary text-white p-3 rounded-full hover:bg-accent transition duration-300"
+                      >
+                        <Youtube className="h-6 w-6" />
+                      </a>
+                    )}
                   </div>
                 </div>
               </div>

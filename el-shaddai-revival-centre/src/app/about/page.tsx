@@ -157,7 +157,7 @@ export default function AboutPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <div className="bg-white p-8 rounded-xl shadow-lg">
                 <div className="flex items-center mb-6">
-                  <div className="bg-accent bg-opacity-10 p-3 rounded-full mr-4">
+                  <div className="bg-accent/10 p-3 rounded-full mr-4">
                     <Target className="h-8 w-8 text-accent" />
                   </div>
                   <h3 className="text-2xl font-bold">Our Mission</h3>
@@ -174,7 +174,7 @@ export default function AboutPage() {
               
               <div className="bg-white p-8 rounded-xl shadow-lg">
                 <div className="flex items-center mb-6">
-                  <div className="bg-primary bg-opacity-10 p-3 rounded-full mr-4">
+                  <div className="bg-primary/10 p-3 rounded-full mr-4">
                     <Users className="h-8 w-8 text-primary" />
                   </div>
                   <h3 className="text-2xl font-bold">Our Vision</h3>
@@ -211,7 +211,7 @@ export default function AboutPage() {
                 const Icon = value.icon
                 return (
                   <div key={index} className="text-center p-6 rounded-xl hover:shadow-lg transition duration-300">
-                    <div className="bg-accent bg-opacity-10 p-4 rounded-full inline-block mb-4">
+                    <div className="bg-accent/10 p-4 rounded-full inline-block mb-4">
                       <Icon className="h-8 w-8 text-accent" />
                     </div>
                     <h3 className="text-xl font-bold mb-3">{value.title}</h3>
@@ -326,7 +326,7 @@ export default function AboutPage() {
                 <Phone className="h-10 w-10 text-accent mx-auto mb-4" />
                 <h3 className="text-xl font-bold mb-2">Phone</h3>
                 <p className="text-gray-600">
-                  (555) 123-4567
+                  +233 50 123 4567
                 </p>
               </div>
               
@@ -334,7 +334,7 @@ export default function AboutPage() {
                 <Mail className="h-10 w-10 text-accent mx-auto mb-4" />
                 <h3 className="text-xl font-bold mb-2">Email</h3>
                 <p className="text-gray-600">
-                  info@gracechurch.com
+                  info@elshaddai.com
                 </p>
               </div>
             </div>

@@ -221,9 +221,12 @@ export default function Home() {
               <Calendar className="h-12 w-12 mx-auto mb-4" />
               <h3 className="text-2xl font-bold mb-4">Plan Your Visit</h3>
               <p className="mb-6">We'd love to welcome you this Sunday</p>
-              <button className="border-2 border-white text-white px-6 py-3 rounded-lg hover:bg-white hover:text-primary transition duration-300">
+              <Link
+                href="/plan-your-visit"
+                className="border-2 border-white text-white px-6 py-3 rounded-lg hover:bg-white hover:text-primary transition duration-300 inline-block"
+              >
                 Visit Info
-              </button>
+              </Link>
             </div>
             
             <div className="text-center p-8">

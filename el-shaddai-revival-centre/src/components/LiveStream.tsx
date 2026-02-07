@@ -38,10 +38,11 @@ export default function LiveStream() {
             {/* Video Player */}
             <div className="relative pt-[56.25%]"> {/* 16:9 Aspect Ratio */}
               <iframe
-                src="https://www.youtube.com/embed/live_stream?channel=YOUR_CHANNEL_ID"
+                src={`https://www.youtube.com/embed/${process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || 'live_stream?channel=YOUR_CHANNEL_ID'}`}
                 className="absolute top-0 left-0 w-full h-full"
                 allowFullScreen
                 title="Live Stream"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
               />
             </div>
 

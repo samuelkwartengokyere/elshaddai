@@ -46,18 +46,46 @@ export default function Footer() {
               A community of faith, hope, and love. Welcome home.
             </p>
             <div className="flex space-x-4">
-              <a href="#" className="text-gray-300 hover:text-white transition duration-300">
-                <Facebook className="h-6 w-6" />
-              </a>
-              <a href="#" className="text-gray-300 hover:text-white transition duration-300">
-                <Instagram className="h-6 w-6" />
-              </a>
-              <a href="#" className="text-gray-300 hover:text-white transition duration-300">
-                <Twitter className="h-6 w-6" />
-              </a>
-              <a href="#" className="text-gray-300 hover:text-white transition duration-300">
-                <Youtube className="h-6 w-6" />
-              </a>
+              {process.env.NEXT_PUBLIC_FACEBOOK_URL && (
+                <a 
+                  href={process.env.NEXT_PUBLIC_FACEBOOK_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-300 hover:text-white transition duration-300"
+                >
+                  <Facebook className="h-6 w-6" />
+                </a>
+              )}
+              {process.env.NEXT_PUBLIC_INSTAGRAM_URL && (
+                <a 
+                  href={process.env.NEXT_PUBLIC_INSTAGRAM_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-300 hover:text-white transition duration-300"
+                >
+                  <Instagram className="h-6 w-6" />
+                </a>
+              )}
+              {process.env.NEXT_PUBLIC_TWITTER_URL && (
+                <a 
+                  href={process.env.NEXT_PUBLIC_TWITTER_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-300 hover:text-white transition duration-300"
+                >
+                  <Twitter className="h-6 w-6" />
+                </a>
+              )}
+              {process.env.NEXT_PUBLIC_YOUTUBE_URL && (
+                <a 
+                  href={process.env.NEXT_PUBLIC_YOUTUBE_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-300 hover:text-white transition duration-300"
+                >
+                  <Youtube className="h-6 w-6" />
+                </a>
+              )}
             </div>
           </motion.div>
 
@@ -93,6 +121,11 @@ export default function Footer() {
               <li>
                 <Link href="/contact" className="text-gray-300 hover:text-white transition duration-300">
                   Contact
+                </Link>
+              </li>
+              <li>
+                <Link href="/plan-your-visit" className="text-gray-300 hover:text-white transition duration-300">
+                  Plan Your Visit
                 </Link>
               </li>
             </ul>
