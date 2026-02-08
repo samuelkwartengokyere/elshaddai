@@ -12,7 +12,8 @@ import {
   Clock,
   ArrowUpRight,
   ArrowDownRight,
-  Plus
+  Plus,
+  AlertCircle
 } from 'lucide-react'
 
 interface Stats {
@@ -38,30 +39,115 @@ interface DashboardData {
   recentTestimonies: RecentItem[]
 }
 
+// Fallback data when database is not connected
+const fallbackData: DashboardData = {
+  stats: { totalSermons: 0, totalMedia: 0, totalEvents: 0, totalTestimonies: 0 },
+  recentSermons: [],
+  recentMedia: [],
+  recentEvents: [],
+  recentTestimonies: []
+}
+
+// Timeout for each individual API request
+const API_TIMEOUT_MS = 5000
+// Maximum time to wait before showing the page with fallback data
+const MAX_LOAD_TIME_MS = 10000
+
 export default function AdminDashboard() {
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [connectionStatus, setConnectionStatus] = useState<'connected' | 'disconnected' | 'unknown'>('unknown')
 
   useEffect(() => {
     fetchDashboardData()
   }, [])
 
+  // Helper function to fetch with timeout
+  const fetchWithTimeout = async (url: string, timeout: number): Promise<Response> => {
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), timeout)
+    
+    try {
+      const response = await fetch(url, { signal: controller.signal })
+      clearTimeout(timeoutId)
+      return response
+    } catch (error) {
+      clearTimeout(timeoutId)
+      throw error
+    }
+  }
+
   const fetchDashboardData = async () => {
     setLoading(true)
-    try {
-      // Fetch all data in parallel
-      const [sermonsRes, mediaRes, eventsRes, testimoniesRes] = await Promise.all([
-        fetch('/api/sermons?limit=5'),
-        fetch('/api/media?limit=5'),
-        fetch('/api/events?limit=5'),
-        fetch('/api/testimonies?limit=5')
-      ])
+    const errors: string[] = []
+    let hasTimeout = false
 
-      const sermonsData = await sermonsRes.json()
-      const mediaData = await mediaRes.json()
-      const eventsData = await eventsRes.json()
-      const testimoniesData = await testimoniesRes.json()
+    // Set up a timeout to show the page even if data is still loading
+    const maxLoadTimeout = setTimeout(() => {
+      if (loading) {
+        console.warn('Dashboard load timeout - showing fallback data')
+        setError('Database connection timed out. Showing limited data.')
+        setData(fallbackData)
+        setConnectionStatus('disconnected')
+        setLoading(false)
+      }
+    }, MAX_LOAD_TIME_MS)
+
+    try {
+      // Fetch all data in parallel with individual timeouts
+      const fetchPromises = [
+        fetchWithTimeout('/api/sermons?limit=5', API_TIMEOUT_MS)
+          .then(res => res.json())
+          .then(data => ({ type: 'sermons', data }))
+          .catch(err => {
+            console.warn('Sermons fetch failed:', err)
+            errors.push('Sermons unavailable')
+            hasTimeout = true
+            return { type: 'sermons', data: { pagination: { total: 0 }, sermons: [] } }
+          }),
+        fetchWithTimeout('/api/media?limit=5', API_TIMEOUT_MS)
+          .then(res => res.json())
+          .then(data => ({ type: 'media', data }))
+          .catch(err => {
+            console.warn('Media fetch failed:', err)
+            errors.push('Media unavailable')
+            hasTimeout = true
+            return { type: 'media', data: { pagination: { total: 0 }, media: [] } }
+          }),
+        fetchWithTimeout('/api/events?limit=5', API_TIMEOUT_MS)
+          .then(res => res.json())
+          .then(data => ({ type: 'events', data }))
+          .catch(err => {
+            console.warn('Events fetch failed:', err)
+            errors.push('Events unavailable')
+            hasTimeout = true
+            return { type: 'events', data: { pagination: { total: 0 }, events: [] } }
+          }),
+        fetchWithTimeout('/api/testimonies?limit=5', API_TIMEOUT_MS)
+          .then(res => res.json())
+          .then(data => ({ type: 'testimonies', data }))
+          .catch(err => {
+            console.warn('Testimonies fetch failed:', err)
+            errors.push('Testimonies unavailable')
+            hasTimeout = true
+            return { type: 'testimonies', data: { pagination: { total: 0 }, testimonies: [] } }
+          })
+      ]
+
+      const results = await Promise.all(fetchPromises)
+
+      // Clear the max load timeout since we got responses
+      clearTimeout(maxLoadTimeout)
+
+      // Process results
+      const sermonsData = results.find(r => r.type === 'sermons')?.data || {}
+      const mediaData = results.find(r => r.type === 'media')?.data || {}
+      const eventsData = results.find(r => r.type === 'events')?.data || {}
+      const testimoniesData = results.find(r => r.type === 'testimonies')?.data || {}
+
+      // Check if any API returned an error (not just timeout)
+      const hasErrors = results.some(r => r.data.error)
 
       setData({
         stats: {
@@ -75,17 +161,23 @@ export default function AdminDashboard() {
         recentEvents: eventsData.events || [],
         recentTestimonies: testimoniesData.testimonies || []
       })
+
+      // Set error message if there were issues
+      if (errors.length > 0) {
+        setError(`Some data could not be loaded: ${errors.join(', ')}`)
+        setConnectionStatus('disconnected')
+      } else if (hasTimeout) {
+        setError('Database connection timed out. Some data may be incomplete.')
+        setConnectionStatus('disconnected')
+      } else {
+        setConnectionStatus('connected')
+      }
+
     } catch (err) {
       console.error('Error fetching dashboard data:', err)
-      setError('Failed to load dashboard data')
-      // Set default empty data
-      setData({
-        stats: { totalSermons: 0, totalMedia: 0, totalEvents: 0, totalTestimonies: 0 },
-        recentSermons: [],
-        recentMedia: [],
-        recentEvents: [],
-        recentTestimonies: []
-      })
+      setError('Failed to load dashboard data. Showing demo mode.')
+      setData(fallbackData)
+      setConnectionStatus('disconnected')
     } finally {
       setLoading(false)
     }
@@ -379,9 +471,11 @@ export default function AdminDashboard() {
       <div className="mt-8 bg-white rounded-xl shadow-md p-6">
         <h2 className="text-xl font-bold text-gray-800 mb-4">System Status</h2>
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-          <div className="flex items-center p-4 bg-green-50 rounded-lg">
-            <div className="h-3 w-3 bg-green-500 rounded-full mr-3 animate-pulse"></div>
-            <span className="text-green-700 font-medium">Database Connected</span>
+          <div className={`flex items-center p-4 ${connectionStatus === 'connected' ? 'bg-green-50' : 'bg-yellow-50'} rounded-lg`}>
+            <div className={`h-3 w-3 ${connectionStatus === 'connected' ? 'bg-green-500' : 'bg-yellow-500'} rounded-full mr-3 ${connectionStatus === 'connected' ? 'animate-pulse' : ''}`}></div>
+            <span className={`${connectionStatus === 'connected' ? 'text-green-700' : 'text-yellow-700'} font-medium`}>
+              {connectionStatus === 'connected' ? 'Database Connected' : 'Database Disconnected'}
+            </span>
           </div>
           <div className="flex items-center p-4 bg-green-50 rounded-lg">
             <div className="h-3 w-3 bg-green-500 rounded-full mr-3 animate-pulse"></div>
@@ -392,6 +486,22 @@ export default function AdminDashboard() {
             <span className="text-green-700 font-medium">Storage Available</span>
           </div>
         </div>
+        {connectionStatus === 'disconnected' && (
+          <div className="mt-4 p-4 bg-yellow-50 border border-yellow-200 rounded-lg flex items-start">
+            <AlertCircle className="h-5 w-5 text-yellow-500 mr-3 mt-0.5" />
+            <div>
+              <p className="text-yellow-700 font-medium">Database connection issue detected</p>
+              <p className="text-yellow-600 text-sm mt-1">
+                The admin panel is running in demo mode. To connect the database:
+              </p>
+              <ul className="text-yellow-600 text-sm mt-2 list-disc list-inside">
+                <li>Add MONGODB_URI to your .env.local file</li>
+                <li>Restart the development server</li>
+                <li>Or use the admin panel to manage content without database persistence</li>
+              </ul>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

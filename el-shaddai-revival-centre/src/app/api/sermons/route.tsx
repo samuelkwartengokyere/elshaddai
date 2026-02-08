@@ -2,12 +2,19 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/database'
 import Sermon, { ISermon } from '@/models/Sermon'
 
+// Add AbortController for timeout
+const TIMEOUT_MS = 5000
+
 export async function GET(request: NextRequest) {
+  const controller = new AbortController()
+  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  
   try {
     const dbConnection = await connectDB()
     
     // Check if database connection is available
     if (!dbConnection) {
+      clearTimeout(timeoutId)
       return NextResponse.json(
         { error: 'Database connection not available. Please check your environment variables.' },
         { status: 503 }
@@ -44,15 +51,21 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    // Execute query
+    // Execute query with abort signal
     const sermons = await Sermon.find(query)
       .sort(sort as string)
       .skip(skip)
       .limit(limit)
       .lean()
+      .collation({ locale: 'en', strength: 2 })
+      .maxTimeMS(TIMEOUT_MS - 1000)
 
     const total = await Sermon.countDocuments(query)
+      .maxTimeMS(TIMEOUT_MS - 1000)
+    
     const totalPages = Math.ceil(total / limit)
+    
+    clearTimeout(timeoutId)
 
     return NextResponse.json({
       success: true,
@@ -68,6 +81,14 @@ export async function GET(request: NextRequest) {
     })
 
   } catch (error) {
+    clearTimeout(timeoutId)
+    if (error instanceof Error && error.name === 'AbortError') {
+      console.error('Sermons API request timed out')
+      return NextResponse.json(
+        { error: 'Request timed out. Database connection may be slow.' },
+        { status: 503 }
+      )
+    }
     console.error('Error fetching sermons:', error)
     return NextResponse.json(
       { error: 'Failed to fetch sermons' },

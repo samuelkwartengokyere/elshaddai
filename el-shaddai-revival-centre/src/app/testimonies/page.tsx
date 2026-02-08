@@ -56,7 +56,7 @@ That was three years ago. Today, I serve in the worship team and have led many o
 The men of El-Shaddai took me under their wing and began to pray for me and my marriage. They taught me about forgiveness and becoming the husband God wanted me to be.
 
 After six months of prayer and transformation in my own life, my wife noticed the change. She came back, and today our marriage is stronger than ever. We now serve together in the couples ministry.`,
-    category: 'family' as const,
+    category: 'other' as const,
     date: '2024-01-03',
     location: 'Nabewam',
   },
@@ -82,7 +82,7 @@ I stood up and walked without assistance for the first time in years. The doctor
 The prayer camp at El-Shaddai was my last hope. During the intercessory prayer sessions, the prophets spoke directly to my situation. They told me God was about to restore everything that had been lost.
 
 Within three months, my business not only recovered but expanded beyond what I could have imagined. I was able to pay all my debts and even start a foundation to help others in similar situations.`,
-    category: 'financial' as const,
+    category: 'breakthrough' as const,
     date: '2023-12-25',
     location: 'Cape Coast',
   },
@@ -93,8 +93,7 @@ const categories = [
   { name: 'Healing', icon: Heart, color: 'bg-green-100 text-green-800' },
   { name: 'Salvation', icon: Cross, color: 'bg-blue-100 text-blue-800' },
   { name: 'Breakthrough', icon: Sparkles, color: 'bg-purple-100 text-purple-800' },
-  { name: 'Family', icon: User, color: 'bg-yellow-100 text-yellow-800' },
-  { name: 'Financial', color: 'bg-emerald-100 text-emerald-800' },
+  { name: 'Other', icon: User, color: 'bg-yellow-100 text-yellow-800' },
 ]
 
 export default function TestimoniesPage() {
