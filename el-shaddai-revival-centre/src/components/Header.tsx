@@ -1,12 +1,49 @@
 'use client'
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Menu, X } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 
+interface Settings {
+  churchName: string
+  churchTagline: string
+  logoUrl: string
+}
+
+const defaultSettings: Settings = {
+  churchName: 'El-Shaddai Revival Centre',
+  churchTagline: 'The Church Of Pentecost',
+  logoUrl: 'https://pentecost.ca/wp-content/uploads/2025/03/The-Church-Pentecost-Logo-1.png'
+}
+
+const LOCAL_LOGO = 'https://pentecost.ca/wp-content/uploads/2025/03/The-Church-Pentecost-Logo-1.png'
+
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
+  const [settings, setSettings] = useState<Settings>(defaultSettings)
+  const [loading, setLoading] = useState(true)
+  const [logoError, setLogoError] = useState(false)
+
+  useEffect(() => {
+    fetchSettings()
+  }, [])
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch('/api/settings')
+      const data = await response.json()
+      
+      if (data.success && data.settings) {
+        setSettings(data.settings)
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error)
+      // Use default settings on error
+    } finally {
+      setLoading(false)
+    }
+  }
 
   const navItems = [
     { name: 'Home', href: '/' },
@@ -36,11 +73,13 @@ export default function Header() {
               transition={{ duration: 0.3 }}
             >
               <Image
-                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcSe_YoU1bk4RMRlaDKr1eBRH0OmKxr2O3ybRm-kuH_EAA&s"
-                alt="The Church Of Pentecost Logo"
+                src={logoError ? LOCAL_LOGO : (settings.logoUrl || defaultSettings.logoUrl)}
+                alt={settings.churchName || 'Church Logo'}
                 width={50}
                 height={50}
                 className="object-contain"
+                priority
+                onError={() => setLogoError(true)}
               />
             </motion.div>
             <div className="flex flex-col">
@@ -48,13 +87,13 @@ export default function Header() {
                 className="text-xl md:text-2xl font-bold text-primary leading-tight"
                 whileHover={{ scale: 1.02 }}
               >
-                El-Shaddai Revival Centre
+                {settings.churchName || defaultSettings.churchName}
               </motion.span>
               <motion.span
                 className="text-sm md:text-base font-medium text-gray-500"
                 whileHover={{ scale: 1.02 }}
               >
-                The Church Of Pentecost
+                {settings.churchTagline || defaultSettings.churchTagline}
               </motion.span>
             </div>
           </Link>
