@@ -277,7 +277,9 @@ export default function AdminSettings() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto">
+    <div className="relative">
+      {/* Main content */}
+      <div className={`max-w-6xl mx-auto transition-all duration-300 ${showAdminModal ? 'pointer-events-none select-none opacity-50' : ''}`}>
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800 flex items-center">
           <SettingsIcon className="h-8 w-8 mr-3 text-accent" />
@@ -611,10 +613,15 @@ export default function AdminSettings() {
           </button>
         </div>
       )}
+      </div>
 
+      {/* Modal - OUTSIDE the blurred content */}
       {showAdminModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-md mx-4">
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          {/* Backdrop - transparent with blur effect */}
+          <div className="absolute inset-0 backdrop-blur-sm" />
+          {/* Modal form - not blurred */}
+          <div className="relative bg-white rounded-xl shadow-lg p-6 w-full max-w-md mx-4 z-10">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-gray-800">
                 {editingAdmin ? 'Edit Admin' : 'Add New Admin'}
