@@ -14,7 +14,10 @@ import {
   Edit,
   Trash2,
   Shield,
-  X
+  X,
+  User,
+  Camera,
+  Upload
 } from 'lucide-react'
 
 interface Settings {
@@ -36,7 +39,9 @@ interface AdminUser {
 interface CurrentUser {
   adminId: string
   email: string
+  name: string
   role: string
+  profileImage?: string
 }
 
 const defaultSettings: Settings = {
@@ -45,7 +50,19 @@ const defaultSettings: Settings = {
   logoUrl: 'https://pentecost.ca/wp-content/uploads/2025/03/The-Church-Pentecost-Logo-1.png'
 }
 
-type Tab = 'branding' | 'admins'
+// Pre-defined avatar options
+const AVATAR_OPTIONS = [
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka',
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=Bob',
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=Charlie',
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=Diana',
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=Eve',
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=Frank',
+  'https://api.dicebear.com/7.x/avataaars/svg?seed=Grace',
+]
+
+type Tab = 'branding' | 'profile' | 'admins'
 
 export default function AdminSettings() {
   const [activeTab, setActiveTab] = useState<Tab>('branding')
@@ -57,6 +74,13 @@ export default function AdminSettings() {
   const [adminsLoading, setAdminsLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   const [logoPreview, setLogoPreview] = useState<string>(defaultSettings.logoUrl)
+  
+  // Profile state
+  const [profileImage, setProfileImage] = useState<string>('')
+  const [profileSaving, setProfileSaving] = useState(false)
+  const [profileName, setProfileName] = useState<string>('')
+  const [showCustomUrlInput, setShowCustomUrlInput] = useState(false)
+  const [customUrl, setCustomUrl] = useState('')
   
   const [showAdminModal, setShowAdminModal] = useState(false)
   const [editingAdmin, setEditingAdmin] = useState<AdminUser | null>(null)
@@ -106,6 +130,8 @@ export default function AdminSettings() {
       
       if (data.success && data.user) {
         setCurrentUser(data.user)
+        setProfileImage(data.user.profileImage || '')
+        setProfileName(data.user.name || '')
       }
     } catch (error) {
       console.error('Error fetching current user:', error)
@@ -167,6 +193,54 @@ export default function AdminSettings() {
     setActiveTab(tab)
     if (tab === 'admins' && admins.length === 0) {
       fetchAdmins()
+    }
+  }
+
+  const handleSaveProfile = async () => {
+    if (!currentUser) return
+    
+    setProfileSaving(true)
+    setMessage(null)
+
+    try {
+      const response = await fetch(`/api/admins/${currentUser.adminId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          name: profileName,
+          profileImage: profileImage
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setMessage({ type: 'success', text: 'Profile updated successfully!' })
+        // Update current user state
+        setCurrentUser({ ...currentUser, name: profileName, profileImage })
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to update profile' })
+      }
+    } catch (error) {
+      console.error('Error saving profile:', error)
+      setMessage({ type: 'error', text: 'Failed to update profile' })
+    } finally {
+      setProfileSaving(false)
+    }
+  }
+
+  const handleSelectAvatar = (avatarUrl: string) => {
+    setProfileImage(avatarUrl)
+    setShowCustomUrlInput(false)
+    setCustomUrl('')
+  }
+
+  const handleCustomUrlSubmit = () => {
+    if (customUrl.trim()) {
+      setProfileImage(customUrl.trim())
+      setShowCustomUrlInput(false)
     }
   }
 
@@ -300,6 +374,17 @@ export default function AdminSettings() {
           >
             <ImageIcon className="inline h-4 w-4 mr-2" />
             Branding
+          </button>
+          <button
+            onClick={() => handleTabChange('profile')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'profile'
+                ? 'border-accent text-accent'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <User className="inline h-4 w-4 mr-2" />
+            Profile
           </button>
           <button
             onClick={() => handleTabChange('admins')}
@@ -455,6 +540,209 @@ export default function AdminSettings() {
               </div>
             </div>
           </div>
+        </div>
+      )}
+
+      {activeTab === 'profile' && currentUser && (
+        <div className="max-w-4xl mx-auto">
+          {currentUser.role === 'super_admin' ? (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
+              <div className="flex items-start">
+                <Shield className="h-5 w-5 text-yellow-500 mr-3 mt-0.5" />
+                <div>
+                  <h3 className="text-sm font-medium text-yellow-700">Super Admin Account</h3>
+                  <p className="text-sm text-yellow-600 mt-1">
+                    As a super admin, your profile is managed centrally and cannot be modified here.
+                    Your name is displayed as "Admin" across the system.
+                  </p>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="bg-white rounded-xl shadow-md p-6">
+              <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
+                <User className="h-5 w-5 mr-2 text-accent" />
+                Profile Settings
+              </h2>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-800 mb-4">Profile Information</h3>
+                  
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Display Name
+                    </label>
+                    <input
+                      type="text"
+                      value={profileName}
+                      onChange={(e) => setProfileName(e.target.value)}
+                      placeholder="Your Display Name"
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">
+                      This name will be displayed in the admin panel header
+                    </p>
+                  </div>
+
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Email Address
+                    </label>
+                    <input
+                      type="email"
+                      value={currentUser.email}
+                      disabled
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100 text-gray-500 cursor-not-allowed"
+                    />
+                    <p className="text-sm text-gray-500 mt-1">
+                      Email cannot be changed
+                    </p>
+                  </div>
+
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Role
+                    </label>
+                    <div className="w-full px-4 py-2 border border-gray-300 rounded-lg bg-gray-100">
+                      <span className={`inline-flex items-center px-2 py-0.5 rounded text-sm font-medium ${
+                        currentUser.role === 'super_admin' 
+                          ? 'bg-purple-100 text-purple-700'
+                          : currentUser.role === 'admin'
+                          ? 'bg-blue-100 text-blue-700'
+                          : 'bg-gray-100 text-gray-700'
+                      }`}>
+                        <Shield className="h-3 w-3 mr-1" />
+                        {currentUser.role.replace('_', ' ')}
+                      </span>
+                    </div>
+                    <p className="text-sm text-gray-500 mt-1">
+                      Contact a super admin to change your role
+                    </p>
+                  </div>
+                </div>
+
+                <div>
+                  <h3 className="text-lg font-medium text-gray-800 mb-4">Profile Picture</h3>
+                  
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Current Profile Image
+                    </label>
+                    <div className="flex items-center justify-center bg-gray-100 rounded-lg p-6 min-h-[150px]">
+                      {profileImage ? (
+                        <div className="relative">
+                          <Image
+                            src={profileImage}
+                            alt="Profile Image"
+                            width={120}
+                            height={120}
+                            className="rounded-full object-cover"
+                            onError={() => {
+                              setProfileImage('')
+                            }}
+                          />
+                        </div>
+                      ) : (
+                        <div className="w-24 h-24 bg-accent rounded-full flex items-center justify-center text-white">
+                          <span className="text-3xl font-bold">
+                            {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'A'}
+                          </span>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-3">
+                      Choose an Avatar
+                    </label>
+                    <div className="grid grid-cols-4 gap-3">
+                      {AVATAR_OPTIONS.map((avatar, index) => (
+                        <button
+                          key={index}
+                          onClick={() => handleSelectAvatar(avatar)}
+                          className={`relative w-16 h-16 rounded-full overflow-hidden border-2 transition duration-200 ${
+                            profileImage === avatar
+                              ? 'border-accent ring-2 ring-accent ring-opacity-50'
+                              : 'border-transparent hover:border-gray-300'
+                          }`}
+                        >
+                          <Image
+                            src={avatar}
+                            alt={`Avatar ${index + 1}`}
+                            width={64}
+                            height={64}
+                            className="object-cover"
+                          />
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+
+                  <div className="mb-6">
+                    <button
+                      onClick={() => setShowCustomUrlInput(!showCustomUrlInput)}
+                      className="flex items-center text-sm text-accent hover:text-red-600 font-medium"
+                    >
+                      <Upload className="h-4 w-4 mr-1" />
+                      {showCustomUrlInput ? 'Cancel custom URL' : 'Use custom image URL'}
+                    </button>
+                    
+                    {showCustomUrlInput && (
+                      <div className="mt-3 flex space-x-2">
+                        <input
+                          type="url"
+                          value={customUrl}
+                          onChange={(e) => setCustomUrl(e.target.value)}
+                          placeholder="https://example.com/your-image.jpg"
+                          className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
+                        />
+                        <button
+                          onClick={handleCustomUrlSubmit}
+                          disabled={!customUrl.trim()}
+                          className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          Apply
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {profileImage && (
+                    <div className="mb-6">
+                      <button
+                        onClick={() => setProfileImage('')}
+                        className="text-sm text-red-600 hover:text-red-700 font-medium"
+                      >
+                        Remove profile image
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="mt-8 pt-6 border-t border-gray-200">
+                <button
+                  onClick={handleSaveProfile}
+                  disabled={profileSaving}
+                  className="flex items-center px-6 py-3 bg-accent text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  {profileSaving ? (
+                    <>
+                      <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                      Saving...
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-5 w-5 mr-2" />
+                      Save Profile
+                    </>
+                  )}
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
 

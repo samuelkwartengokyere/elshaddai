@@ -7,6 +7,7 @@ export interface IAdmin extends Document {
   name: string
   role: 'super_admin' | 'admin' | 'editor'
   isActive: boolean
+  profileImage?: string
   lastLogin?: Date
   createdAt: Date
   updatedAt: Date
@@ -39,6 +40,10 @@ const AdminSchema = new Schema<IAdmin>({
   isActive: {
     type: Boolean,
     default: true
+  },
+  profileImage: {
+    type: String,
+    default: ''
   },
   lastLogin: {
     type: Date

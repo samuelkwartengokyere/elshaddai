@@ -58,6 +58,7 @@ export async function GET(request: NextRequest) {
         name: fullAdmin.name,
         role: fullAdmin.role,
         isActive: fullAdmin.isActive,
+        profileImage: fullAdmin.profileImage,
         lastLogin: fullAdmin.lastLogin,
         createdAt: fullAdmin.createdAt
       }

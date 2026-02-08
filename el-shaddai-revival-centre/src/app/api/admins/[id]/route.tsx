@@ -111,7 +111,7 @@ export async function PUT(
     }
     
     const body = await request.json()
-    const { name, role, isActive, currentPassword, newPassword } = body
+    const { name, role, isActive, currentPassword, newPassword, profileImage } = body
     
     const admin = await Admin.findById(id)
     
@@ -130,10 +130,26 @@ export async function PUT(
       )
     }
     
+    // Check if updating own profile or being updated by super_admin
+    const isOwnProfile = currentAdmin.adminId === id
+    const isSuperAdmin = currentAdmin.role === 'super_admin'
+    
+    // Only allow non-super_admin users to update their own profile image
+    if (profileImage !== undefined) {
+      if (isOwnProfile && admin.role !== 'super_admin') {
+        admin.profileImage = profileImage
+      } else if (!isSuperAdmin) {
+        return NextResponse.json(
+          { success: false, error: 'You can only update your own profile image' },
+          { status: 403 }
+        )
+      }
+    }
+    
     // Update fields
     if (name) admin.name = name
     if (role && admin.role !== 'super_admin') admin.role = role
-    if (typeof isActive === 'boolean') admin.isActive = isActive
+    if (typeof isActive === 'boolean' && isSuperAdmin) admin.isActive = isActive
     
     // Password change requires current password verification
     if (newPassword) {
@@ -166,6 +182,7 @@ export async function PUT(
         name: admin.name,
         role: admin.role,
         isActive: admin.isActive,
+        profileImage: admin.profileImage,
         lastLogin: admin.lastLogin,
         createdAt: admin.createdAt
       }

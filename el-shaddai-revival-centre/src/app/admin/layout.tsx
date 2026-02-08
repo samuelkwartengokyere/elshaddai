@@ -29,6 +29,7 @@ interface User {
   email: string
   name: string
   role: string
+  profileImage?: string
 }
 
 const defaultSettings: Settings = {
@@ -188,20 +189,36 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </ul>
         </nav>
 
-        <div className="p-4 border-t border-gray-700">
+        <div className="p-4 border-t border-gray-700 mb-6">
           {user && (
             <div className={`flex items-center ${isSidebarOpen ? 'space-x-3' : 'justify-center'} mb-2`}>
-              <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center text-white">
-                {user.name ? (
-                  <span className="text-sm font-bold">{user.name.charAt(0).toUpperCase()}</span>
-                ) : (
-                  <User className="h-4 w-4" />
-                )}
-              </div>
+              {user.role === 'super_admin' ? (
+                <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center text-white">
+                  <span className="text-sm font-bold">A</span>
+                </div>
+              ) : user.profileImage ? (
+                <div className="w-8 h-8 rounded-full overflow-hidden">
+                  <Image
+                    src={user.profileImage}
+                    alt={user.name}
+                    width={32}
+                    height={32}
+                    className="object-cover"
+                  />
+                </div>
+              ) : (
+                <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center text-white">
+                  {user.name ? (
+                    <span className="text-sm font-bold">{user.name.charAt(0).toUpperCase()}</span>
+                  ) : (
+                    <User className="h-4 w-4" />
+                  )}
+                </div>
+              )}
               {isSidebarOpen && (
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate">
-                    {user.name || user.email}
+                    {user.role === 'super_admin' ? 'Admin' : (user.name || user.email)}
                   </p>
                   <p className="text-xs text-gray-400 capitalize">
                     {user.role.replace('_', ' ')}
@@ -225,23 +242,41 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           isSidebarOpen ? 'ml-64' : 'ml-20'
         }`}
       >
-        <header className="bg-white shadow-md p-4 flex justify-between items-center sticky top-0 z-20">
+        <header className="bg-white shadow-md px-4 py-3 flex justify-between items-center sticky top-0 z-20">
           <h1 className="text-2xl font-bold text-gray-800">
             {navItems.find(item => pathname.startsWith(item.href))?.name || 'Admin Panel'}
           </h1>
           <div className="flex items-center space-x-4">
             {user && (
               <div className="flex items-center space-x-3">
-                <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center text-white font-bold">
-                  {user.name ? (
-                    user.name.charAt(0).toUpperCase()
-                  ) : (
-                    <User className="h-5 w-5" />
-                  )}
-                </div>
+                {user.role === 'super_admin' ? (
+                  <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center text-white font-bold shrink-0">
+                    A
+                  </div>
+                ) : user.profileImage ? (
+                  <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 mb-1">
+                    <Image
+                      src={user.profileImage}
+                      alt={user.name}
+                      width={40}
+                      height={40}
+                      className="object-cover"
+                    />
+                  </div>
+                ) : (
+                  <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center text-white font-bold shrink-0 mb-1">
+                    {user.name ? (
+                      user.name.charAt(0).toUpperCase()
+                    ) : (
+                      <User className="h-5 w-5" />
+                    )}
+                  </div>
+                )}
                 <div className="hidden md:block">
-                  <p className="text-sm font-medium text-gray-800">{user.name}</p>
-                  <p className="text-xs text-gray-500">{user.email}</p>
+                  <p className="text-sm font-medium text-gray-800 leading-none">
+                    {user.role === 'super_admin' ? 'Admin' : user.name}
+                  </p>
+                  <p className="text-xs text-gray-500 leading-none mt-0.5">{user.email}</p>
                 </div>
               </div>
             )}
