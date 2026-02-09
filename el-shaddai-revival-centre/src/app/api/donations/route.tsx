@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/database'
 import Donation from '@/models/Donation'
 import { initializeTransaction, verifyTransaction, generateReference } from '@/lib/paystack'
+import { createCheckoutSession } from '@/lib/stripe'
+import { convertCurrency } from '@/lib/currency'
 
 // Make this route dynamic - don't attempt static generation
 export const dynamic = 'force-dynamic'
 
 /**
- * POST /api/donations - Initialize a Paystack transaction
+ * POST /api/donations - Initialize a donation payment
  */
 export async function POST(request: NextRequest) {
   try {
@@ -22,7 +24,20 @@ export async function POST(request: NextRequest) {
     }
     
     const body = await request.json()
-    const { amount, frequency, firstName, lastName, email } = body
+    const {
+      amount,
+      currency = 'USD',
+      frequency,
+      firstName,
+      lastName,
+      email,
+      phone,
+      country,
+      donationType,
+      paymentChannel = 'paystack',
+      isAnonymous = false,
+      notes,
+    } = body
 
     // Validate required fields
     if (!amount || !frequency || !firstName || !lastName || !email) {
@@ -32,43 +47,77 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate unique reference for this transaction
-    const reference = generateReference('donation')
+    // Validate payment channel
+    const validChannels = ['paystack', 'stripe', 'bank_transfer', 'mobile_money', 'manual']
+    if (!validChannels.includes(paymentChannel)) {
+      return NextResponse.json(
+        { error: 'Invalid payment channel' },
+        { status: 400 }
+      )
+    }
 
-    // Initialize Paystack transaction
-    const paystackResponse = await initializeTransaction({
-      email,
-      amount: parseFloat(amount),
-      firstName,
-      lastName,
-      frequency,
-      reference
-    })
+    const donorName = `${firstName} ${lastName}`
+    const amountUSD = convertCurrency(parseFloat(amount), currency as 'USD', 'USD')
 
-    // Create pending donation record
-    const donation = new Donation({
-      amount: parseFloat(amount),
-      currency: 'USD',
-      frequency,
-      donorName: `${firstName} ${lastName}`,
-      donorEmail: email,
-      paymentMethod: 'paystack',
-      status: 'pending',
-      paystackReference: reference,
-      createdAt: new Date(),
-      receiptSent: false
-    })
+    // Handle different payment channels
+    switch (paymentChannel) {
+      case 'paystack':
+      case 'mobile_money': {
+        return await initializePaystackPayment({
+          amount,
+          currency,
+          frequency,
+          donorName,
+          email,
+          phone,
+          country,
+          donationType,
+          paymentChannel,
+          isAnonymous,
+          notes,
+        })
+      }
 
-    await donation.save()
+      case 'stripe': {
+        return await initializeStripePayment({
+          amount,
+          currency,
+          frequency,
+          donorName,
+          email,
+          phone,
+          country,
+          donationType,
+          paymentChannel,
+          isAnonymous,
+          notes,
+        })
+      }
 
-    // Return the authorization URL for the frontend to redirect to
-    return NextResponse.json({
-      success: true,
-      authorizationUrl: paystackResponse.data.authorization_url,
-      reference: paystackResponse.data.reference,
-      donationId: donation._id,
-      message: 'Payment initialized successfully'
-    }, { status: 201 })
+      case 'bank_transfer':
+      case 'manual': {
+        return await createManualDonation({
+          amount,
+          currency,
+          amountUSD,
+          frequency,
+          donorName,
+          email,
+          phone,
+          country,
+          donationType,
+          paymentChannel,
+          isAnonymous,
+          notes,
+        })
+      }
+
+      default:
+        return NextResponse.json(
+          { error: 'Unsupported payment channel' },
+          { status: 400 }
+        )
+    }
 
   } catch (error) {
     console.error('Error initializing donation:', error)
@@ -80,6 +129,252 @@ export async function POST(request: NextRequest) {
   }
 }
 
+/**
+ * Initialize Paystack payment (including mobile money)
+ */
+async function initializePaystackPayment(params: {
+  amount: string
+  currency: string
+  frequency: string
+  donorName: string
+  email: string
+  phone?: string
+  country?: string
+  donationType?: string
+  paymentChannel: string
+  isAnonymous: boolean
+  notes?: string
+}) {
+  const {
+    amount,
+    currency,
+    frequency,
+    donorName,
+    email,
+    phone,
+    country,
+    donationType,
+    paymentChannel,
+    isAnonymous,
+    notes,
+  } = params
+
+  // Generate unique reference for this transaction
+  const reference = generateReference('donation')
+
+  // Split donorName to get first and last name
+  const nameParts = donorName.split(' ')
+  const firstName = nameParts[0] || ''
+  const lastName = nameParts.slice(1).join(' ') || ''
+
+  // Initialize Paystack transaction
+  const paystackResponse = await initializeTransaction({
+    email,
+    amount: parseFloat(amount),
+    firstName,
+    lastName,
+    frequency,
+    reference
+  })
+
+  // Create pending donation record
+  const donation = new Donation({
+    amount: parseFloat(amount),
+    amountUSD: convertCurrency(parseFloat(amount), currency as 'USD', 'USD'),
+    currency,
+    exchangeRate: 1,
+    frequency,
+    donorName,
+    donorEmail: email,
+    donorPhone: phone,
+    donorCountry: country,
+    paymentMethod: 'online',
+    paymentChannel: paymentChannel as 'paystack' | 'mobile_money',
+    status: 'pending',
+    paystackReference: reference,
+    donationType,
+    isAnonymous,
+    notes,
+    createdAt: new Date(),
+    receiptSent: false
+  })
+
+  await donation.save()
+
+  // Return the authorization URL for the frontend to redirect to
+  return NextResponse.json({
+    success: true,
+    paymentChannel: 'paystack',
+    authorizationUrl: paystackResponse.data.authorization_url,
+    reference: paystackResponse.data.reference,
+    donationId: donation._id,
+    message: 'Payment initialized successfully'
+  }, { status: 201 })
+}
+
+/**
+ * Initialize Stripe payment
+ */
+async function initializeStripePayment(params: {
+  amount: string
+  currency: string
+  frequency: string
+  donorName: string
+  email: string
+  phone?: string
+  country?: string
+  donationType?: string
+  paymentChannel: string
+  isAnonymous: boolean
+  notes?: string
+}) {
+  const {
+    amount,
+    currency,
+    frequency,
+    donorName,
+    email,
+    phone,
+    country,
+    donationType,
+    paymentChannel,
+    isAnonymous,
+    notes,
+  } = params
+
+  // Generate unique reference for this transaction
+  const reference = generateReference('stripe')
+
+  // Create Stripe checkout session
+  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
+  
+  const session = await createCheckoutSession({
+    amount: parseFloat(amount),
+    currency,
+    email,
+    name: donorName,
+    successUrl: `${baseUrl}/give?stripe_success=true&session_id={CHECKOUT_SESSION_ID}`,
+    cancelUrl: `${baseUrl}/give?stripe_cancelled=true`,
+    metadata: {
+      frequency,
+      donorName,
+      donationType: donationType || 'general',
+      country: country || '',
+      isAnonymous: isAnonymous.toString(),
+      notes: notes || '',
+    },
+  })
+
+  // Create pending donation record
+  const donation = new Donation({
+    amount: parseFloat(amount),
+    amountUSD: convertCurrency(parseFloat(amount), currency as 'USD', 'USD'),
+    currency,
+    exchangeRate: 1,
+    frequency,
+    donorName,
+    donorEmail: email,
+    donorPhone: phone,
+    donorCountry: country,
+    paymentMethod: 'card',
+    paymentChannel: 'stripe',
+    status: 'pending',
+    stripePaymentIntentId: session.payment_intent as string || `cs_${Date.now()}`,
+    donationType,
+    isAnonymous,
+    notes,
+    createdAt: new Date(),
+    receiptSent: false
+  })
+
+  await donation.save()
+
+  return NextResponse.json({
+    success: true,
+    paymentChannel: 'stripe',
+    checkoutUrl: session.url,
+    sessionId: session.id,
+    reference,
+    donationId: donation._id,
+    message: 'Stripe checkout session created successfully'
+  }, { status: 201 })
+}
+
+/**
+ * Create manual donation record (bank transfer, etc.)
+ */
+async function createManualDonation(params: {
+  amount: string
+  currency: string
+  amountUSD: number
+  frequency: string
+  donorName: string
+  email: string
+  phone?: string
+  country?: string
+  donationType?: string
+  paymentChannel: string
+  isAnonymous: boolean
+  notes?: string
+}) {
+  const {
+    amount,
+    currency,
+    amountUSD,
+    frequency,
+    donorName,
+    email,
+    phone,
+    country,
+    donationType,
+    paymentChannel,
+    isAnonymous,
+    notes,
+  } = params
+
+  // Generate reference for tracking
+  const reference = generateReference('manual')
+
+  // Create pending donation record
+  const donation = new Donation({
+    amount: parseFloat(amount),
+    amountUSD,
+    currency,
+    exchangeRate: 1,
+    frequency,
+    donorName,
+    donorEmail: email,
+    donorPhone: phone,
+    donorCountry: country,
+    paymentMethod: 'manual',
+    paymentChannel: paymentChannel as 'bank_transfer' | 'manual',
+    status: 'pending',
+    transactionReference: reference,
+    donationType,
+    isAnonymous,
+    notes,
+    createdAt: new Date(),
+    receiptSent: false
+  })
+
+  await donation.save()
+
+  return NextResponse.json({
+    success: true,
+    paymentChannel: 'manual',
+    donationId: donation._id,
+    reference,
+    message: 'Donation recorded. Please complete your bank transfer and email us at finance@elshaddai.org with your transfer details.',
+    bankDetails: {
+      currency,
+      instructions: 'Please include your name and email in the transfer reference.',
+    }
+  }, { status: 201 })
+}
+
+/**
+ * GET /api/donations - Fetch donations with filtering and pagination
+ */
 export async function GET(request: NextRequest) {
   try {
     const dbConnection = await connectDB()
@@ -97,6 +392,8 @@ export async function GET(request: NextRequest) {
     const limit = parseInt(searchParams.get('limit') || '10')
     const status = searchParams.get('status')
     const frequency = searchParams.get('frequency')
+    const paymentChannel = searchParams.get('paymentChannel')
+    const currency = searchParams.get('currency')
     const sort = searchParams.get('sort') || '-createdAt'
 
     const skip = (page - 1) * limit
@@ -112,6 +409,14 @@ export async function GET(request: NextRequest) {
       query.frequency = frequency
     }
 
+    if (paymentChannel) {
+      query.paymentChannel = paymentChannel
+    }
+
+    if (currency) {
+      query.currency = currency
+    }
+
     // Execute query
     const donations = await Donation.find(query)
       .sort(sort as string)
@@ -122,9 +427,22 @@ export async function GET(request: NextRequest) {
     const total = await Donation.countDocuments(query)
     const totalPages = Math.ceil(total / limit)
 
+    // Calculate totals by currency
+    const totals = await Donation.aggregate([
+      { $match: { status: 'completed' } },
+      {
+        $group: {
+          _id: '$currency',
+          total: { $sum: '$amountUSD' },
+          count: { $sum: 1 }
+        }
+      }
+    ])
+
     return NextResponse.json({
       success: true,
       donations,
+      totals,
       pagination: {
         page,
         limit,
