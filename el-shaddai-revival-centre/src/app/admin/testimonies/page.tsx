@@ -412,8 +412,9 @@ export default function TestimoniesPage() {
 
       {/* Create/Edit Modal */}
       {showCreateModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="absolute inset-0 backdrop-blur-sm" />
+          <div className="relative bg-transparent rounded-xl shadow-xl border border-gray-200/50 w-full max-w-lg mx-4 z-10">
             <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white">
               <h2 className="text-xl font-bold">
                 {modalMode === 'create' ? 'Add New Testimony' : 'Edit Testimony'}

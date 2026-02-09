@@ -130,7 +130,7 @@ export default function UploadSermonPage() {
   }
 
   return (
-    <div className="max-w-4xl mx-auto">
+    <div className="w-full">
       {/* Header */}
       <div className="flex items-center mb-6">
         <Link 
@@ -142,6 +142,9 @@ export default function UploadSermonPage() {
         </Link>
         <h1 className="text-2xl font-bold text-gray-800">Upload New Sermon</h1>
       </div>
+
+      {/* Form Container with Shadow */}
+      <div className="bg-transparent rounded-xl shadow-xl border border-gray-200/50 p-6">
 
       {/* Error/Success Messages */}
       {error && (
@@ -381,6 +384,7 @@ export default function UploadSermonPage() {
           </button>
         </div>
       </form>
+      </div>
     </div>
   )
 }

@@ -909,7 +909,7 @@ export default function AdminSettings() {
           {/* Backdrop - transparent with blur effect */}
           <div className="absolute inset-0 backdrop-blur-sm" />
           {/* Modal form - not blurred */}
-          <div className="relative bg-white rounded-xl shadow-lg p-6 w-full max-w-md mx-4 z-10">
+          <div className="relative bg-transparent rounded-xl shadow-xl border border-gray-200/50 p-6 w-full max-w-md mx-4 z-10">
             <div className="flex justify-between items-center mb-6">
               <h3 className="text-xl font-bold text-gray-800">
                 {editingAdmin ? 'Edit Admin' : 'Add New Admin'}
