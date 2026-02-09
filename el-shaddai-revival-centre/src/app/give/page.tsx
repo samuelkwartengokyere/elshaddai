@@ -44,7 +44,7 @@ export default function GivePage() {
               const Icon = option.icon
               return (
                 <div key={index} className="card text-center hover:shadow-xl transition duration-300">
-                  <div className="inline-flex items-center justify-center w-16 h-16 bg-accent bg-opacity-10 rounded-full mb-4">
+                  <div className="inline-flex items-center justify-center w-16 h-16 bg-accent-10 rounded-full mb-4">
                     <Icon className="h-8 w-8 text-accent" />
                   </div>
                   <h3 className="text-xl font-bold mb-2">{option.title}</h3>

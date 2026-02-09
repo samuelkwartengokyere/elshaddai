@@ -312,7 +312,7 @@ export default function EventsPage() {
                       className={`p-2 text-center rounded-lg min-h-[60px] ${
                         isCurrentMonth 
                           ? hasEvent 
-                            ? 'bg-accent bg-opacity-10 cursor-pointer hover:bg-opacity-20' 
+                            ? 'bg-accent-10 cursor-pointer hover:bg-opacity-20' 
                             : 'hover:bg-gray-50'
                           : 'text-gray-300'
                       }`}

@@ -298,7 +298,7 @@ export default function SermonsPage() {
                             className="h-12 w-12 rounded-lg object-cover mr-4"
                           />
                         ) : (
-                          <div className="h-12 w-12 rounded-lg bg-accent bg-opacity-10 flex items-center justify-center mr-4">
+                          <div className="h-12 w-12 rounded-lg bg-accent-10 flex items-center justify-center mr-4">
                             <FileAudio className="h-6 w-6 text-accent" />
                           </div>
                         )}
