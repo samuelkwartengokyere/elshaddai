@@ -181,6 +181,14 @@ export default async function AboutPage() {
                   <p className="text-gray-600 mb-4">The Centre welcomes Christians of all denominations and people of good will.</p>
                   <p className="text-gray-600">The El-Shaddai Revival Centre is located at Ohene Nkwanta, about 8 kilometres from Konongo, on the Accra- Kumasi highway. It is situated about 100 metres on the right hand side off the highway from Konongo.</p>
                 </div>
+                <div className="relative h-[800px] w-[500px] rounded-xl overflow-hidden shadow-lg bg-gray-200 group">
+                  <Image
+                    src="https://images.pexels.com/photos/2323799/pexels-photo-2323799.jpeg"
+                    alt="El-Shaddai Revival Centre"
+                    fill
+                    className="object-cover group-hover:scale-105 transition duration-500"
+                  />
+                </div>
               </div>
             </div>
           </div>
