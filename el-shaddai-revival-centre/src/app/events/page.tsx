@@ -362,6 +362,8 @@ export default function EventsPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
               {[
                 { day: 'Sunday', time: '9:00 AM & 11:00 AM', name: 'Worship Services' },
+                { day: 'Monday', time: '9:00 AM - 2:00 PM', name: 'Prayer Meeting' },
+                { day: 'Tuesday', time: '9:00 AM - 12:00 Noon', name: 'One-on-One Meeting' },
                 { day: 'Wednesday', time: '7:00 PM', name: 'Bible Study & Prayer' },
                 { day: 'Friday', time: '7:00 PM', name: 'Youth Group' },
                 { day: 'Saturday', time: '6:00 PM', name: 'Contemporary Service' },
@@ -371,6 +373,12 @@ export default function EventsPage() {
                     <h3 className="text-xl font-bold text-primary">{schedule.day}</h3>
                     {schedule.name.includes('Youth') && (
                       <Users className="h-5 w-5 text-purple-500" />
+                    )}
+                    {schedule.name.includes('Prayer') && (
+                      <Calendar className="h-5 w-5 text-accent" />
+                    )}
+                    {schedule.name.includes('One-on-One') && (
+                      <Users className="h-5 w-5 text-primary" />
                     )}
                   </div>
                   <p className="text-lg text-accent font-semibold mb-1">{schedule.time}</p>

@@ -10,7 +10,10 @@ import {
   Phone, 
   Mail,
   ArrowRight,
-  CheckCircle
+  CheckCircle,
+  Calendar,
+  Sun,
+  Moon
 } from 'lucide-react'
 import Link from 'next/link'
 import Image from 'next/image'
@@ -178,9 +181,110 @@ export default async function AboutPage() {
                   <p className="text-gray-600 mb-4">The Centre welcomes Christians of all denominations and people of good will.</p>
                   <p className="text-gray-600">The El-Shaddai Revival Centre is located at Ohene Nkwanta, about 8 kilometres from Konongo, on the Accra- Kumasi highway. It is situated about 100 metres on the right hand side off the highway from Konongo.</p>
                 </div>
-                <div className="bg-gray-200 rounded-xl h-140 flex items-center justify-center relative overflow-hidden">
-                  <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-secondary/20"></div>
-                  <span className="text-gray-400 text-lg relative z-10">[Church History Image]</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/*
+       * Our Activities and Programmes
+       */}
+      <section className="py-16 bg-white">
+        <div className="container mx-auto px-4">
+          <div className="max-w-4xl mx-auto">
+            <div className="text-center mb-12">
+              <Calendar className="h-12 w-12 text-accent mx-auto mb-4" />
+              <h2 className="text-4xl font-bold mb-4">Our Activities & Programmes</h2>
+              <p className="text-gray-600 text-lg">
+                Join us for our regular programmes designed to strengthen your spiritual journey
+              </p>
+            </div>
+            
+            {/* Weekly Programmes */}
+            <div className="mb-12">
+              <div className="flex items-center justify-center mb-8">
+                <Sun className="h-8 w-8 text-accent mr-3" />
+                <h3 className="text-3xl font-bold text-primary">Weekly Programmes</h3>
+              </div>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Monday Prayer Meeting */}
+                <div className="bg-gradient-to-br from-primary to-secondary text-white rounded-xl p-6 hover:shadow-xl transition duration-300">
+                  <div className="flex items-center mb-4">
+                    <div className="bg-white/20 p-3 rounded-full mr-4">
+                      <Moon className="h-8 w-8" />
+                    </div>
+                    <div>
+                      <h4 className="text-xl font-bold">Prayer Meeting</h4>
+                      <p className="text-accent font-medium">Mondays</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center mb-3">
+                    <Clock className="h-5 w-5 mr-2 text-yellow-300" />
+                    <span className="font-semibold">9:00 AM - 2:00 PM</span>
+                  </div>
+                  <p className="text-gray-100 text-sm">
+                    Join us for powerful prayer sessions as we seek God's face together. 
+                    Experience the presence of the Holy Spirit as we intercede for our nation, 
+                    families, and personal needs.
+                  </p>
+                </div>
+                
+                {/* Tuesday One-on-one Meeting */}
+                <div className="bg-gradient-to-br from-primary to-secondary text-white rounded-xl p-6 hover:shadow-xl transition duration-300">
+                  <div className="flex items-center mb-4">
+                    <div className="bg-white/20 p-3 rounded-full mr-4">
+                      <Users className="h-8 w-8" />
+                    </div>
+                    <div>
+                      <h4 className="text-xl font-bold">One-on-One Meeting</h4>
+                      <p className="text-accent font-medium">Tuesdays</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center mb-3">
+                    <Clock className="h-5 w-5 mr-2 text-yellow-300" />
+                    <span className="font-semibold">9:00 AM - 12:00 Noon</span>
+                  </div>
+                  <p className="text-gray-100 text-sm">
+                    Personal counseling and prayer sessions with our ministers. 
+                    Receive individual guidance, prayer, and spiritual direction 
+                    tailored to your specific needs.
+                  </p>
+                </div>
+              </div>
+            </div>
+            
+            {/* Monthly Programmes */}
+            <div>
+              <div className="flex items-center justify-center mb-8">
+                <Calendar className="h-8 w-8 text-accent mr-3" />
+                <h3 className="text-3xl font-bold text-primary">Monthly Programmes</h3>
+              </div>
+              
+              <div className="bg-gray-50 rounded-xl p-8 border-l-4 border-accent">
+                <div className="flex items-start">
+                  <div className="bg-accent/10 p-3 rounded-full mr-4">
+                    <Sun className="h-8 w-8 text-accent" />
+                  </div>
+                  <div className="flex-1">
+                    <h4 className="text-2xl font-bold mb-3">Revival Service</h4>
+                    <div className="flex items-center mb-4">
+                      <Calendar className="h-5 w-5 text-accent mr-2" />
+                      <span className="text-gray-600 font-medium">Specific dates indicated on the Calendar</span>
+                    </div>
+                    <p className="text-gray-600 mb-4">
+                      Experience fresh moves of the Holy Spirit at our monthly Revival Services. 
+                      These special services are dedicated to seeking God's presence, receiving 
+                      fresh anointing, and witnessing miraculous transformations in lives.
+                    </p>
+                    <Link 
+                      href="/calendar"
+                      className="inline-flex items-center text-accent hover:text-red-600 font-medium"
+                    >
+                      View Calendar for Dates <ArrowRight className="ml-2 h-5 w-5" />
+                    </Link>
+                  </div>
                 </div>
               </div>
             </div>
