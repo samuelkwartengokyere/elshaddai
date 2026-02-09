@@ -4,6 +4,7 @@
 import Link from 'next/link'
 import { motion, Variants } from 'framer-motion'
 import { Facebook, Instagram, Twitter, Youtube, MapPin, Phone, Mail } from 'lucide-react'
+import { FaTiktok } from 'react-icons/fa'
 
 // Animation variants
 const containerVariants: Variants = {
@@ -84,6 +85,16 @@ export default function Footer() {
                   className="text-gray-300 hover:text-white transition duration-300"
                 >
                   <Youtube className="h-6 w-6" />
+                </a>
+              )}
+              {process.env.NEXT_PUBLIC_TIKTOK_URL && (
+                <a 
+                  href={process.env.NEXT_PUBLIC_TIKTOK_URL}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-gray-300 hover:text-white transition duration-300"
+                >
+                  <FaTiktok className="h-6 w-6" />
                 </a>
               )}
             </div>
