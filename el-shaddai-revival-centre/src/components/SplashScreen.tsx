@@ -1,153 +1,23 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
-import { motion, AnimatePresence, Variants } from 'framer-motion'
+import { useState, useEffect } from 'react'
+import { motion, AnimatePresence } from 'framer-motion'
 
 interface SplashScreenProps {
   onComplete: () => void
   duration?: number
 }
 
-// ==================== ANIMATION VARIANTS ====================
-
-// Background logo animation
-const bgLogoVariants: Variants = {
-  animate: {
-    rotate: 360,
-    scale: [1, 1.05, 1],
-    opacity: [0.08, 0.12, 0.08],
-    transition: {
-      duration: 40,
-      repeat: Infinity,
-      ease: "linear",
-    },
-  },
-}
-
-// Secondary background logo animation
-const secondaryBgLogoVariants: Variants = {
-  animate: (i: number) => ({
-    rotate: -360,
-    scale: [0.7, 0.8, 0.7],
-    opacity: [0.03, 0.06, 0.03],
-    x: [0, Math.sin(i) * 50, 0],
-    y: [0, Math.cos(i) * 30, 0],
-    transition: {
-      duration: 50 + i * 10,
-      repeat: Infinity,
-      ease: "easeInOut",
-      delay: i * 2,
-    },
-  }),
-}
-
-// Wave animation for main content
-const waveVariants: Variants = {
-  animate: (i: number) => ({
-    x: [0, -100, -200, -100, 0],
-    y: [0, Math.sin(i) * 15, Math.cos(i) * 10, 0],
-    scale: [1, 1.02, 1.05, 1.02, 1],
-    transition: {
-      duration: 25 + i * 5,
-      repeat: Infinity,
-      ease: "easeInOut",
-    },
-  }),
-}
-
-// Particle animation
-const particleVariants: Variants = {
-  animate: (i: number) => ({
-    y: [0, -100, -200],
-    x: [0, Math.sin(i) * 30, Math.cos(i) * 20],
-    opacity: [0, 0.5, 0],
-    scale: [0, 1, 0],
-    rotate: [0, 180, 360],
-    transition: {
-      duration: 8 + Math.random() * 5,
-      repeat: Infinity,
-      delay: i * 0.3,
-      ease: "linear",
-    },
-  }),
-}
-
-// Text reveal animation
-const textRevealVariants: Variants = {
-  hidden: {
-    opacity: 0,
-    y: 20,
-    filter: 'blur(10px)',
-  },
-  visible: (i: number) => ({
-    opacity: 1,
-    y: 0,
-    filter: 'blur(0px)',
-    transition: {
-      duration: 0.8,
-      delay: i * 0.15,
-      ease: [0.34, 1.56, 0.64, 1],
-    },
-  }),
-}
-
-// Main logo float animation
-const mainLogoFloatVariants: Variants = {
-  animate: {
-    y: [0, -10, 0],
-    scale: [1, 1.03, 1],
-    transition: {
-      duration: 4,
-      repeat: Infinity,
-      ease: "easeInOut",
-    },
-  },
-}
-
-// Progress bar animation
-const progressVariants: Variants = {
-  initial: { width: '0%' },
-  animate: {
-    width: '100%',
-    transition: {
-      duration: 2.5,
-      ease: "easeInOut",
-    },
-  },
-}
-
 const churchName = 'El-Shaddai Revival Centre'
 const words = churchName.split(' ')
 
-export default function SplashScreenWithBgLogo({ onComplete, duration = 5000 }: SplashScreenProps) {
+export default function ModernWaveSplashScreen({ onComplete, duration = 5000 }: SplashScreenProps) {
   const [isMounted, setIsMounted] = useState(false)
-  const [progress, setProgress] = useState(0)
-  const progressInterval = useRef<ReturnType<typeof setInterval> | null>(null)
 
   useEffect(() => {
     setIsMounted(true)
-    
-    // Smooth progress animation
-    const startTime = Date.now()
-    progressInterval.current = setInterval(() => {
-      const elapsed = Date.now() - startTime
-      const newProgress = Math.min((elapsed / duration) * 100, 100)
-      setProgress(newProgress)
-    }, 50)
-
-    const timer = setTimeout(() => {
-      if (progressInterval.current) {
-        clearInterval(progressInterval.current)
-      }
-      onComplete()
-    }, duration)
-
-    return () => {
-      clearTimeout(timer)
-      if (progressInterval.current) {
-        clearInterval(progressInterval.current)
-      }
-    }
+    const timer = setTimeout(() => onComplete(), duration)
+    return () => clearTimeout(timer)
   }, [duration, onComplete])
 
   if (!isMounted) return null
@@ -155,364 +25,205 @@ export default function SplashScreenWithBgLogo({ onComplete, duration = 5000 }: 
   return (
     <AnimatePresence mode="wait">
       <motion.div
-        key="splash-with-bg-logo"
-        className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden"
+        key="wave-splash"
+        className="fixed inset-0 z-50 flex items-center justify-center overflow-hidden bg-gradient-to-br from-slate-900 via-blue-900 to-blue-700"
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
-        transition={{ duration: 0.6 }}
       >
-        {/* Main Background with Gradient */}
+        {/* ===== ANIMATED WAVE BACKGROUND (Inspired by the image) ===== */}
         <div className="absolute inset-0">
-          {/* Primary Gradient Background */}
+          {/* Deep Base Layer */}
+          <div className="absolute inset-0 bg-gradient-to-b from-slate-950/80 to-blue-950/40" />
+
+          {/* Animated Wave Layer 1 - Largest, Slowest */}
           <motion.div
-            className="absolute inset-0"
-            style={{
-              background: 'linear-gradient(135deg, #0a1a3a 0%, #1a3a6e 25%, #4169E1 50%, #87CEEB 75%, #a8d8ff 100%)',
-            }}
+            className="absolute bottom-0 left-1/4 w-[150%] h-3/4 rounded-t-[50%] bg-gradient-to-t from-blue-600/15 via-cyan-400/10 to-transparent"
             animate={{
-              background: [
-                'linear-gradient(135deg, #0a1a3a 0%, #1a3a6e 25%, #4169E1 50%, #87CEEB 75%, #a8d8ff 100%)',
-                'linear-gradient(135deg, #1a3a6e 0%, #4169E1 25%, #87CEEB 50%, #a8d8ff 75%, #e0f2ff 100%)',
-                'linear-gradient(135deg, #0a1a3a 0%, #1a3a6e 25%, #4169E1 50%, #87CEEB 75%, #a8d8ff 100%)',
-              ],
-            }}
-            transition={{ duration: 10, repeat: Infinity, ease: "easeInOut" }}
-          />
-          
-          {/* BACKGROUND LOGOS (Subtle, behind everything) */}
-          
-          {/* Large Central Background Logo */}
-          <motion.div
-            className="absolute"
-            style={{
-              width: '80vw',
-              height: '80vw',
-              maxWidth: '800px',
-              maxHeight: '800px',
-              left: '50%',
-              top: '50%',
-              transform: 'translate(-50%, -50%)',
-              zIndex: 1,
-              opacity: 0.1,
-              filter: 'blur(8px)',
-            }}
-            variants={bgLogoVariants}
-            initial="initial"
-            animate="animate"
-          >
-            <img
-              src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQjUB1_TkZ-4rXae4XmkoCpfPj14_Emd5JNNQ&s"
-              alt="Background Logo"
-              className="w-full h-full object-contain"
-              style={{
-                filter: 'brightness(0) invert(1) opacity(0.6)',
-              }}
-            />
-          </motion.div>
-          
-          {/* Secondary Background Logos */}
-          {[...Array(4)].map((_, i) => (
-            <motion.div
-              key={`secondary-bg-logo-${i}`}
-              className="absolute"
-              style={{
-                width: `${30 + i * 10}vw`,
-                height: `${30 + i * 10}vw`,
-                left: `${i % 2 === 0 ? '20%' : '60%'}`,
-                top: `${i < 2 ? '25%' : '65%'}`,
-                zIndex: 1,
-                opacity: 0.05,
-                filter: 'blur(6px)',
-              }}
-              variants={secondaryBgLogoVariants}
-              initial="initial"
-              animate="animate"
-              custom={i}
-            >
-              <img
-                src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQjUB1_TkZ-4rXae4XmkoCpfPj14_Emd5JNNQ&s"
-                alt="Background Logo"
-                className="w-full h-full object-contain"
-                style={{
-                  filter: 'brightness(0) invert(1) opacity(0.4)',
-                }}
-              />
-            </motion.div>
-          ))}
-          
-          {/* Wave Overlays on top of logos */}
-          <motion.div
-            className="absolute inset-0"
-            style={{
-              background: 'linear-gradient(45deg, rgba(10, 26, 58, 0.3) 0%, transparent 50%, rgba(135, 206, 235, 0.2) 100%)',
-              borderRadius: '40% 60% 60% 40% / 50% 40% 60% 50%',
-              filter: 'blur(20px)',
-              zIndex: 2,
-            }}
-            variants={waveVariants}
-            animate="animate"
-            custom={0}
-          />
-          
-          <motion.div
-            className="absolute inset-0"
-            style={{
-              background: 'linear-gradient(135deg, transparent 0%, rgba(65, 105, 225, 0.2) 50%, rgba(168, 216, 255, 0.1) 100%)',
-              borderRadius: '60% 40% 50% 50% / 40% 60% 40% 60%',
-              filter: 'blur(15px)',
-              zIndex: 2,
-            }}
-            variants={waveVariants}
-            animate="animate"
-            custom={1}
-          />
-          
-          {/* Floating Particles */}
-          {[...Array(20)].map((_, i) => (
-            <motion.div
-              key={`particle-${i}`}
-              className="absolute rounded-full"
-              style={{
-                width: 2 + Math.random() * 4,
-                height: 2 + Math.random() * 4,
-                background: `radial-gradient(circle, rgba(255, 255, 255, ${0.3 + Math.random() * 0.3}) 0%, rgba(135, 206, 235, ${0.1 + Math.random() * 0.2}) 100%)`,
-                left: `${Math.random() * 100}%`,
-                top: '100%',
-                zIndex: 3,
-                boxShadow: '0 0 6px rgba(255, 255, 255, 0.3)',
-              }}
-              variants={particleVariants}
-              initial="initial"
-              animate="animate"
-              custom={i}
-            />
-          ))}
-          
-          {/* Light Shimmer Effect */}
-          <motion.div
-            className="absolute inset-0"
-            style={{
-              background: 'linear-gradient(90deg, transparent 30%, rgba(255, 255, 255, 0.05) 50%, transparent 70%)',
-              backgroundSize: '200% 100%',
-              zIndex: 3,
-            }}
-            animate={{
-              backgroundPosition: ['0% 50%', '100% 50%'],
+              x: ['0%', '-5%', '0%'],
+              y: ['0%', '1%', '0%'],
             }}
             transition={{
-              duration: 6,
+              duration: 25,
               repeat: Infinity,
-              ease: "linear",
+              ease: "easeInOut",
+            }}
+          />
+
+          {/* Animated Wave Layer 2 */}
+          <motion.div
+            className="absolute bottom-0 left-0 w-[140%] h-2/3 rounded-t-[45%] bg-gradient-to-t from-blue-500/20 via-sky-300/15 to-transparent blur-[1px]"
+            animate={{
+              x: ['0%', '-8%', '0%'],
+              y: ['0%', '2%', '0%'],
+            }}
+            transition={{
+              duration: 20,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 0.5,
+            }}
+          />
+
+          {/* Animated Wave Layer 3 - Most prominent white wave */}
+          <motion.div
+            className="absolute bottom-0 -left-10 w-[130%] h-1/2 rounded-t-[40%] bg-gradient-to-t from-white/30 via-white/20 to-transparent blur-[2px]"
+            animate={{
+              x: ['0%', '-10%', '0%'],
+              y: ['0%', '3%', '0%'],
+            }}
+            transition={{
+              duration: 15,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 1,
+            }}
+          />
+
+          {/* Animated Wave Layer 4 - Top highlight */}
+          <motion.div
+            className="absolute bottom-0 -left-5 w-[120%] h-2/5 rounded-t-[35%] bg-gradient-to-t from-white/40 via-white/25 to-transparent blur-[1px]"
+            animate={{
+              x: ['0%', '-12%', '0%'],
+              y: ['0%', '4%', '0%'],
+            }}
+            transition={{
+              duration: 12,
+              repeat: Infinity,
+              ease: "easeInOut",
+              delay: 1.5,
+            }}
+          />
+
+          {/* Subtle Grain/Texture Overlay */}
+          <div 
+            className="absolute inset-0 opacity-[0.02]"
+            style={{
+              backgroundImage: `url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noiseFilter'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noiseFilter)'/%3E%3C/svg%3E")`,
             }}
           />
         </div>
 
-        {/* Main Content Container */}
-        <div className="relative z-10 flex flex-col items-center justify-center min-h-screen px-4">
-          {/* Foreground Logo */}
+        {/* ===== FOREGROUND CONTENT ===== */}
+        <div className="relative z-10 flex flex-col items-center text-center px-4">
+          
+          {/* Logo with Subtle Float */}
           <motion.div
-            className="relative mb-8"
-            initial={{ scale: 0, opacity: 0, rotateY: -180 }}
-            animate={{ scale: 1, opacity: 1, rotateY: 0 }}
-            transition={{ duration: 1.2, ease: "easeOut" }}
+            className="mb-10"
+            initial={{ y: 20, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            transition={{ delay: 0.3, duration: 0.8 }}
           >
-            {/* Glow Effect */}
             <motion.div
-              className="absolute inset-0 rounded-full"
+              className="relative rounded-2xl overflow-hidden border-2 border-white/20 bg-gradient-to-br from-white/10 to-white/5 backdrop-blur-sm p-4"
+              animate={{ y: [0, -8, 0] }}
+              transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
               style={{
-                background: 'radial-gradient(circle, rgba(255, 255, 255, 0.3) 0%, rgba(135, 206, 235, 0.2) 50%, transparent 70%)',
-                filter: 'blur(20px)',
-                width: '160px',
-                height: '160px',
-                left: '50%',
-                top: '50%',
-                transform: 'translate(-50%, -50%)',
+                width: '140px',
+                height: '140px',
+                boxShadow: '0 20px 40px rgba(0, 0, 50, 0.3), inset 0 1px 0 rgba(255, 255, 255, 0.2)'
               }}
-              animate={{
-                scale: [1, 1.1, 1],
-                opacity: [0.4, 0.7, 0.4],
-              }}
-              transition={{ duration: 3, repeat: Infinity }}
-            />
-            
-            {/* Main Logo */}
-            <motion.div
-              className="relative rounded-full overflow-hidden border-4 backdrop-blur-sm"
-              style={{
-                width: 120,
-                height: 120,
-                borderColor: 'rgba(255, 255, 255, 0.3)',
-                background: 'linear-gradient(135deg, rgba(255, 255, 255, 0.1), rgba(135, 206, 235, 0.2))',
-                boxShadow: '0 10px 30px rgba(0, 0, 0, 0.3), inset 0 0 20px rgba(255, 255, 255, 0.2)',
-              }}
-              variants={mainLogoFloatVariants}
-              animate="animate"
             >
               <img
                 src="https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcQjUB1_TkZ-4rXae4XmkoCpfPj14_Emd5JNNQ&s"
                 alt="El-Shaddai Revival Centre Logo"
-                className="w-full h-full object-cover p-3"
+                className="w-full h-full object-contain"
               />
             </motion.div>
           </motion.div>
 
           {/* Church Name */}
-          <div className="text-center mb-6">
-            <motion.div
-              className="inline-flex flex-wrap justify-center gap-x-3 gap-y-2"
-              initial="hidden"
-              animate="visible"
-            >
-              {words.map((word, wordIndex) => (
+          <motion.div
+            className="mb-6"
+            initial="hidden"
+            animate="visible"
+          >
+            <div className="inline-flex flex-wrap justify-center gap-x-3 gap-y-2">
+              {words.map((word, idx) => (
                 <motion.span
-                  key={wordIndex}
-                  custom={wordIndex}
-                  variants={textRevealVariants}
-                  className="relative inline-block font-serif font-bold"
+                  key={idx}
+                  className="font-serif font-bold text-4xl md:text-5xl lg:text-6xl"
+                  initial={{ y: 30, opacity: 0 }}
+                  animate={{ y: 0, opacity: 1 }}
+                  transition={{ delay: 0.5 + idx * 0.1, duration: 0.7 }}
                   style={{
-                    fontSize: 'clamp(2rem, 5vw, 3rem)',
-                    background: 'linear-gradient(135deg, #ffffff 0%, #a8d8ff 50%, #4169E1 100%)',
+                    background: 'linear-gradient(to bottom, #ffffff, #dbeafe)',
                     WebkitBackgroundClip: 'text',
                     WebkitTextFillColor: 'transparent',
                     backgroundClip: 'text',
-                    letterSpacing: '0.05em',
-                    textShadow: '0 2px 20px rgba(65, 105, 225, 0.3)',
+                    textShadow: '0 4px 20px rgba(0, 0, 0, 0.2)'
                   }}
                 >
                   {word}
                 </motion.span>
               ))}
-            </motion.div>
+            </div>
+          </motion.div>
 
-            {/* Tagline */}
-            <motion.p
-              className="font-sans uppercase tracking-[0.3em] mt-8"
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ delay: 0.8, duration: 0.6 }}
-              style={{
-                fontSize: 'clamp(0.8rem, 1.8vw, 1rem)',
-                color: 'rgba(255, 255, 255, 0.9)',
-                fontWeight: 300,
-                letterSpacing: '0.3em',
-                textShadow: '0 1px 10px rgba(135, 206, 235, 0.5)',
-              }}
-            >
-              The Church of Pentecost
-            </motion.p>
-          </div>
-
-          {/* Loading Indicator */}
-          <motion.div
-            className="flex flex-col items-center gap-8 mt-12"
+          {/* Tagline */}
+          <motion.p
+            className="text-blue-100/90 font-sans uppercase tracking-[0.3em] text-sm md:text-base mb-12"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
-            transition={{ delay: 1.2 }}
+            transition={{ delay: 1.1, duration: 0.8 }}
           >
-            {/* Progress Bar */}
-            <div className="w-80 h-1.5 rounded-full overflow-hidden bg-white/10 backdrop-blur-sm">
-              <motion.div
-                className="h-full rounded-full"
-                style={{
-                  background: 'linear-gradient(90deg, #4169E1, #87CEEB, #a8d8ff, #ffffff)',
-                  boxShadow: '0 0 15px rgba(135, 206, 235, 0.5)',
-                  width: `${progress}%`,
-                }}
-                variants={progressVariants}
-                initial="initial"
-                animate="animate"
+            The Church of Pentecost
+          </motion.p>
+
+          {/* Loading Indicator */}
+          <motion.div 
+            className="w-64 flex flex-col items-center gap-6"
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            transition={{ delay: 1.4 }}
+          >
+            <div className="w-full h-1 bg-white/10 rounded-full overflow-hidden">
+              <motion.div 
+                className="h-full bg-gradient-to-r from-cyan-300/80 to-blue-400"
+                initial={{ width: '0%' }}
+                animate={{ width: '100%' }}
+                transition={{ duration: duration / 1000, ease: "linear" }}
               />
             </div>
-
-            {/* Loading Text */}
-            <motion.div
-              className="text-sm uppercase tracking-[0.4em] font-light"
-              animate={{
-                opacity: [0.4, 1, 0.4],
-              }}
+            <motion.span 
+              className="text-sm text-cyan-100/80 tracking-widest"
+              animate={{ opacity: [0.6, 1, 0.6] }}
               transition={{ duration: 2, repeat: Infinity }}
-              style={{
-                color: '#a8d8ff',
-                textShadow: '0 0 8px rgba(135, 206, 235, 0.5)',
-              }}
             >
               ENTERING DIVINE PRESENCE
-            </motion.div>
-
-            {/* Loading Dots */}
-            <div className="flex items-center gap-4">
-              {[0, 1, 2].map((i) => (
-                <motion.div
-                  key={i}
-                  className="w-2 h-2 rounded-full"
-                  style={{
-                    background: 'radial-gradient(circle, #ffffff, #87CEEB)',
-                    boxShadow: '0 0 10px #87CEEB',
-                  }}
-                  animate={{
-                    scale: [1, 1.4, 1],
-                    opacity: [0.3, 1, 0.3],
-                  }}
-                  transition={{
-                    duration: 1.2,
-                    delay: i * 0.15,
-                    repeat: Infinity,
-                  }}
-                />
-              ))}
-            </div>
+            </motion.span>
           </motion.div>
 
-          {/* Cross Decorations */}
-          <motion.div
-            className="absolute top-6 left-6 text-2xl"
-            initial={{ rotate: -45, scale: 0, opacity: 0 }}
-            animate={{ rotate: 0, scale: 1, opacity: 0.5 }}
-            transition={{ delay: 1.5, duration: 0.8 }}
-            style={{ color: '#ffffff' }}
-          >
-            ✞
-          </motion.div>
-          <motion.div
-            className="absolute top-6 right-6 text-2xl"
-            initial={{ rotate: 45, scale: 0, opacity: 0 }}
-            animate={{ rotate: 0, scale: 1, opacity: 0.5 }}
-            transition={{ delay: 1.7, duration: 0.8 }}
-            style={{ color: '#87CEEB' }}
-          >
-            †
-          </motion.div>
-          <motion.div
-            className="absolute bottom-6 left-6 text-3xl"
-            initial={{ rotate: -45, scale: 0, opacity: 0 }}
-            animate={{ rotate: 0, scale: 1, opacity: 0.5 }}
-            transition={{ delay: 1.9, duration: 0.8 }}
-            style={{ color: '#a8d8ff' }}
-          >
-            ✝
-          </motion.div>
-          <motion.div
-            className="absolute bottom-6 right-6 text-2xl"
-            initial={{ rotate: 45, scale: 0, opacity: 0 }}
-            animate={{ rotate: 0, scale: 1, opacity: 0.5 }}
-            transition={{ delay: 2.1, duration: 0.8 }}
-            style={{ color: '#ffffff' }}
-          >
-            ✟
-          </motion.div>
         </div>
 
-        {/* Footer */}
-        <motion.div
-          className="absolute bottom-4 text-xs text-white/40 tracking-widest"
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 2.5 }}
-        >
-          © {new Date().getFullYear()} El-Shaddai Revival Centre
-        </motion.div>
+        {/* Subtle Cross Decorations */}
+        <CrossDecoration position="topLeft" delay={1.6} />
+        <CrossDecoration position="topRight" delay={1.8} />
+        <CrossDecoration position="bottomLeft" delay={2.0} />
+        <CrossDecoration position="bottomRight" delay={2.2} />
+
       </motion.div>
     </AnimatePresence>
+  )
+}
+
+// Helper component for cross decorations
+function CrossDecoration({ position, delay }: { position: string, delay: number }) {
+  const positions: any = {
+    topLeft: 'top-6 left-6',
+    topRight: 'top-6 right-6',
+    bottomLeft: 'bottom-6 left-6',
+    bottomRight: 'bottom-6 right-6'
+  }
+
+  return (
+    <motion.div
+      className={`absolute text-2xl text-white/30 ${positions[position]}`}
+      initial={{ scale: 0, rotate: -45 }}
+      animate={{ scale: 1, rotate: 0 }}
+      transition={{ delay, duration: 0.7, type: 'spring' }}
+    >
+      ✞
+    </motion.div>
   )
 }
