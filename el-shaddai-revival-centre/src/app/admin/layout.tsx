@@ -51,7 +51,7 @@ const navItems = [
 ]
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true)
+  const [isSidebarOpen, setIsSidebarOpen] = useState(true) // Default to open
   const [settings, setSettings] = useState<Settings>(defaultSettings)
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -81,16 +81,22 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
   const fetchUser = async () => {
     try {
-      const response = await fetch('/api/auth/me')
+      const response = await fetch('/api/auth/me', {
+        credentials: 'include' // Ensure cookies are sent
+      })
       const data = await response.json()
       
       if (data.success && data.user) {
         setUser(data.user)
       } else {
+        // Clear any stale state and redirect
+        setUser(null)
         router.push('/admin/login')
       }
     } catch (error) {
       console.error('Error fetching user:', error)
+      // On network error, still redirect to login
+      setUser(null)
       router.push('/admin/login')
     } finally {
       setUserLoading(false)
@@ -100,10 +106,12 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const handleLogout = async () => {
     try {
       await fetch('/api/auth/logout', { method: 'POST' })
-      router.push('/admin/login')
-      router.refresh()
+      // Use window.location for full page reload to clear cookies properly
+      window.location.href = '/admin/login'
     } catch (error) {
       console.error('Logout error:', error)
+      // Fallback to redirect even on error
+      window.location.href = '/admin/login'
     }
   }
 
@@ -123,9 +131,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       <aside 
         className={`${
           isSidebarOpen ? 'w-64' : 'w-20'
-        } bg-primary text-white transition-all duration-300 fixed h-full z-30 flex flex-col`}
+        } bg-primary text-white transition-all duration-300 fixed h-full z-30 flex flex-col overflow-hidden`}
       >
-        <div className="p-4 border-b border-gray-700">
+        <div className="p-4 border-b border-gray-700 flex-shrink-0">
           <div className="flex items-center justify-between">
             {isSidebarOpen && (
               <Link href="/admin" className="flex items-center space-x-2">
@@ -165,7 +173,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </div>
         </div>
 
-        <nav className="flex-1 p-4">
+        <nav className="flex-1 overflow-y-auto p-4">
           <ul className="space-y-2">
             {navItems.map((item) => {
               const isActive = pathname === item.href || 
@@ -189,7 +197,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           </ul>
         </nav>
 
-        <div className="p-4 border-t border-gray-700 mb-6">
+        <div className="p-4 border-t border-gray-700 flex-shrink-0 bg-primary mb-18">
           {user && (
             <div className={`flex items-center ${isSidebarOpen ? 'space-x-3' : 'justify-center'} mb-2`}>
               {user.role === 'super_admin' ? (
@@ -230,6 +238,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <button
             onClick={handleLogout}
             className="flex items-center space-x-3 p-3 w-full text-gray-300 hover:text-white hover:bg-gray-700 rounded-lg transition duration-300"
+            title="Logout"
           >
             <LogOut className="h-5 w-5" />
             {isSidebarOpen && <span>Logout</span>}

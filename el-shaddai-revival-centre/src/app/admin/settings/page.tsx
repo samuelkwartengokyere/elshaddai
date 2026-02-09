@@ -17,13 +17,27 @@ import {
   X,
   User,
   Camera,
-  Upload
+  Upload,
+  Youtube,
+  RefreshCw,
+  ExternalLink
 } from 'lucide-react'
 
 interface Settings {
   churchName: string
   churchTagline: string
   logoUrl: string
+  youtube?: {
+    channelId: string
+    channelName: string
+    channelUrl: string
+    apiKey: string
+    autoSync: boolean
+    syncInterval: number
+    lastSync: Date | null
+    syncStatus: 'idle' | 'syncing' | 'success' | 'error'
+    syncError?: string
+  }
 }
 
 interface AdminUser {
@@ -62,7 +76,7 @@ const AVATAR_OPTIONS = [
   'https://api.dicebear.com/7.x/avataaars/svg?seed=Grace',
 ]
 
-type Tab = 'branding' | 'profile' | 'admins'
+type Tab = 'branding' | 'profile' | 'admins' | 'youtube'
 
 export default function AdminSettings() {
   const [activeTab, setActiveTab] = useState<Tab>('branding')
@@ -74,6 +88,21 @@ export default function AdminSettings() {
   const [adminsLoading, setAdminsLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   const [logoPreview, setLogoPreview] = useState<string>(defaultSettings.logoUrl)
+  
+  // YouTube settings state
+  const [youtubeSettings, setYoutubeSettings] = useState({
+    channelId: '',
+    channelName: '',
+    channelUrl: '',
+    apiKey: '',
+    autoSync: false,
+    syncInterval: 6,
+    lastSync: null as Date | null,
+    syncStatus: 'idle' as 'idle' | 'syncing' | 'success' | 'error',
+    syncError: ''
+  })
+  const [syncing, setSyncing] = useState(false)
+  const [syncMessage, setSyncMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   
   // Profile state
   const [profileImage, setProfileImage] = useState<string>('')
@@ -114,6 +143,21 @@ export default function AdminSettings() {
       if (data.success && data.settings) {
         setSettings(data.settings)
         setLogoPreview(data.settings.logoUrl || defaultSettings.logoUrl)
+        
+        // Set YouTube settings
+        if (data.settings.youtube) {
+          setYoutubeSettings({
+            channelId: data.settings.youtube.channelId || '',
+            channelName: data.settings.youtube.channelName || '',
+            channelUrl: data.settings.youtube.channelUrl || '',
+            apiKey: data.settings.youtube.apiKey || '',
+            autoSync: data.settings.youtube.autoSync || false,
+            syncInterval: data.settings.youtube.syncInterval || 6,
+            lastSync: data.settings.youtube.lastSync || null,
+            syncStatus: data.settings.youtube.syncStatus || 'idle',
+            syncError: data.settings.youtube.syncError || ''
+          })
+        }
       }
     } catch (error) {
       console.error('Error fetching settings:', error)
@@ -165,7 +209,10 @@ export default function AdminSettings() {
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify(settings)
+        body: JSON.stringify({
+          ...settings,
+          youtube: youtubeSettings
+        })
       })
 
       const data = await response.json()
@@ -181,6 +228,50 @@ export default function AdminSettings() {
       setMessage({ type: 'error', text: 'Failed to save settings' })
     } finally {
       setSaving(false)
+    }
+  }
+
+  // Sync YouTube videos
+  const handleSyncYouTube = async () => {
+    setSyncing(true)
+    setSyncMessage(null)
+
+    try {
+      const response = await fetch('/api/sermons/youtube', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          channelId: youtubeSettings.channelId,
+          channelUrl: youtubeSettings.channelUrl,
+          apiKey: youtubeSettings.apiKey
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setSyncMessage({
+          type: 'success',
+          text: `Successfully synced ${data.videosSynced} videos from YouTube`
+        })
+        // Refresh settings to get updated sync status
+        fetchSettings()
+      } else {
+        setSyncMessage({
+          type: 'error',
+          text: data.error || 'Failed to sync YouTube videos'
+        })
+      }
+    } catch (error) {
+      console.error('Error syncing YouTube:', error)
+      setSyncMessage({
+        type: 'error',
+        text: 'Failed to sync YouTube videos'
+      })
+    } finally {
+      setSyncing(false)
     }
   }
 
@@ -376,6 +467,17 @@ export default function AdminSettings() {
             Branding
           </button>
           <button
+            onClick={() => handleTabChange('youtube')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'youtube'
+                ? 'border-accent text-accent'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Youtube className="inline h-4 w-4 mr-2" />
+            YouTube
+          </button>
+          <button
             onClick={() => handleTabChange('profile')}
             className={`py-4 px-1 border-b-2 font-medium text-sm ${
               activeTab === 'profile'
@@ -539,6 +641,242 @@ export default function AdminSettings() {
                 </div>
               </div>
             </div>
+          </div>
+        </div>
+      )}
+
+      {activeTab === 'youtube' && (
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <div className="flex items-center mb-6">
+            <Youtube className="h-6 w-6 text-red-600 mr-3" />
+            <h2 className="text-xl font-bold text-gray-800">
+              YouTube Channel Settings
+            </h2>
+          </div>
+
+          <p className="text-gray-600 mb-6">
+            Configure your YouTube channel to automatically import sermons to your website.
+            Videos from your channel will appear alongside manually uploaded sermons.
+          </p>
+
+          {/* Sync Status */}
+          <div className={`mb-6 p-4 rounded-lg ${
+            youtubeSettings.syncStatus === 'success' ? 'bg-green-50 border border-green-200' :
+            youtubeSettings.syncStatus === 'error' ? 'bg-red-50 border border-red-200' :
+            youtubeSettings.syncStatus === 'syncing' ? 'bg-blue-50 border border-blue-200' :
+            'bg-gray-50 border border-gray-200'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center">
+                {youtubeSettings.syncStatus === 'success' && (
+                  <CheckCircle className="h-5 w-5 text-green-500 mr-2" />
+                )}
+                {youtubeSettings.syncStatus === 'error' && (
+                  <AlertCircle className="h-5 w-5 text-red-500 mr-2" />
+                )}
+                {youtubeSettings.syncStatus === 'syncing' && (
+                  <Loader2 className="h-5 w-5 text-blue-500 mr-2 animate-spin" />
+                )}
+                {youtubeSettings.syncStatus === 'idle' && (
+                  <Youtube className="h-5 w-5 text-gray-400 mr-2" />
+                )}
+                <div>
+                  <p className="font-medium">
+                    {youtubeSettings.syncStatus === 'success' && 'YouTube videos synced successfully'}
+                    {youtubeSettings.syncStatus === 'error' && 'Sync failed'}
+                    {youtubeSettings.syncStatus === 'syncing' && 'Syncing videos...'}
+                    {youtubeSettings.syncStatus === 'idle' && 'Not synced yet'}
+                  </p>
+                  {youtubeSettings.lastSync && (
+                    <p className="text-sm text-gray-500">
+                      Last sync: {new Date(youtubeSettings.lastSync).toLocaleString()}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <button
+                onClick={handleSyncYouTube}
+                disabled={syncing || !youtubeSettings.channelId}
+                className="flex items-center px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50 disabled:cursor-not-allowed transition duration-300"
+              >
+                {syncing ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Syncing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-4 w-4 mr-2" />
+                    Sync Now
+                  </>
+                )}
+              </button>
+            </div>
+            {youtubeSettings.syncError && (
+              <p className="text-red-600 text-sm mt-2">{youtubeSettings.syncError}</p>
+            )}
+          </div>
+
+          {/* Sync Message */}
+          {syncMessage && (
+            <div className={`mb-6 p-4 rounded-lg ${
+              syncMessage.type === 'success' ? 'bg-green-50 border border-green-200' : 'bg-red-50 border border-red-200'
+            }`}>
+              <p className={syncMessage.type === 'success' ? 'text-green-700' : 'text-red-700'}>
+                {syncMessage.text}
+              </p>
+            </div>
+          )}
+
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            {/* Channel Configuration */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-800 mb-4">Channel Configuration</h3>
+              
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  YouTube Channel URL *
+                </label>
+                <input
+                  type="url"
+                  value={youtubeSettings.channelUrl}
+                  onChange={(e) => setYoutubeSettings({ ...youtubeSettings, channelUrl: e.target.value })}
+                  placeholder="https://www.youtube.com/@ChannelName"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Enter your YouTube channel URL (e.g., @ChannelName or channel ID)
+                </p>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Channel Name
+                </label>
+                <input
+                  type="text"
+                  value={youtubeSettings.channelName}
+                  onChange={(e) => setYoutubeSettings({ ...youtubeSettings, channelName: e.target.value })}
+                  placeholder="Your Church Channel"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Display name for your channel (auto-detected after sync)
+                </p>
+              </div>
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  API Key (Optional)
+                </label>
+                <input
+                  type="text"
+                  value={youtubeSettings.apiKey}
+                  onChange={(e) => setYoutubeSettings({ ...youtubeSettings, apiKey: e.target.value })}
+                  placeholder="Your YouTube Data API v3 Key"
+                  className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
+                />
+                <p className="text-sm text-gray-500 mt-1">
+                  Optional: Add an API key for more reliable syncing.
+                  <a 
+                    href="https://developers.google.com/youtube/v3/getting-started" 
+                    target="_blank" 
+                    rel="noopener noreferrer"
+                    className="text-accent hover:underline ml-1 inline-flex items-center"
+                  >
+                    Get API Key <ExternalLink className="h-3 w-3 ml-1" />
+                  </a>
+                </p>
+              </div>
+
+              <div className="mb-4">
+                <label className="flex items-center">
+                  <input
+                    type="checkbox"
+                    checked={youtubeSettings.autoSync}
+                    onChange={(e) => setYoutubeSettings({ ...youtubeSettings, autoSync: e.target.checked })}
+                    className="h-4 w-4 text-accent focus:ring-accent border-gray-300 rounded"
+                  />
+                  <span className="ml-2 text-sm text-gray-700">Enable automatic syncing</span>
+                </label>
+              </div>
+
+              {youtubeSettings.autoSync && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Sync Interval (hours)
+                  </label>
+                  <select
+                    value={youtubeSettings.syncInterval}
+                    onChange={(e) => setYoutubeSettings({ ...youtubeSettings, syncInterval: parseInt(e.target.value) })}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
+                  >
+                    <option value={1}>Every hour</option>
+                    <option value={6}>Every 6 hours</option>
+                    <option value={12}>Every 12 hours</option>
+                    <option value={24}>Once a day</option>
+                    <option value={168}>Once a week</option>
+                  </select>
+                </div>
+              )}
+            </div>
+
+            {/* Help Section */}
+            <div>
+              <h3 className="text-lg font-medium text-gray-800 mb-4">How to Find Your Channel</h3>
+              
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <h4 className="font-medium mb-2">Option 1: Using Channel URL</h4>
+                <ol className="text-sm text-gray-600 list-decimal list-inside space-y-1">
+                  <li>Go to your YouTube channel page</li>
+                  <li>Copy the URL from your browser</li>
+                  <li>Paste it in the Channel URL field above</li>
+                </ol>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg p-4 mb-4">
+                <h4 className="font-medium mb-2">Option 2: Using Channel ID</h4>
+                <ol className="text-sm text-gray-600 list-decimal list-inside space-y-1">
+                  <li>Go to your YouTube channel</li>
+                  <li>Click "About" tab</li>
+                  <li>Click "Share" then "Copy channel ID"</li>
+                  <li>Paste the ID in the Channel URL field</li>
+                </ol>
+              </div>
+
+              <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
+                <div className="flex items-start">
+                  <AlertCircle className="h-5 w-5 text-blue-500 mr-2 mt-0.5" />
+                  <div>
+                    <h4 className="font-medium text-blue-700">Note</h4>
+                    <p className="text-sm text-blue-600 mt-1">
+                      Without an API key, YouTube's rate limits may apply. For best results,
+                      we recommend obtaining a free YouTube Data API v3 key.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="flex items-center px-6 py-3 bg-accent text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? (
+                <>
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="h-5 w-5 mr-2" />
+                  Save YouTube Settings
+                </>
+              )}
+            </button>
           </div>
         </div>
       )}

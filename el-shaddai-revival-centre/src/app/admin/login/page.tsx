@@ -3,19 +3,25 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
-import { Lock, Mail, Loader2, AlertCircle } from 'lucide-react'
+import { Lock, Mail, Loader2, AlertCircle, Info } from 'lucide-react'
+
+interface LoginError {
+  message: string
+  code?: string
+}
 
 export default function AdminLogin() {
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
-  const [error, setError] = useState('')
+  const [error, setError] = useState<LoginError | null>(null)
+  const [showDevInfo, setShowDevInfo] = useState(false)
   const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setError('')
+    setError(null)
 
     try {
       const response = await fetch('/api/auth/login', {
@@ -29,13 +35,32 @@ export default function AdminLogin() {
       const data = await response.json()
 
       if (data.success) {
-        router.push('/admin')
-        router.refresh()
+        // Use window.location for a full page reload to ensure cookies and user state are properly set
+        window.location.href = '/admin'
       } else {
-        setError(data.error || 'Login failed')
+        // Handle specific error codes
+        if (data.code === 'AUTH_003') {
+          setError({
+            message: 'Your account has been deactivated. Please contact a super administrator.',
+            code: data.code
+          })
+        } else if (data.code === 'AUTH_004') {
+          setError({
+            message: 'Service temporarily unavailable. Please try again later.',
+            code: data.code
+          })
+        } else {
+          setError({
+            message: data.error || 'Login failed. Please check your credentials.',
+            code: data.code
+          })
+        }
       }
     } catch (err) {
-      setError('An error occurred. Please try again.')
+      setError({
+        message: 'An error occurred. Please check your connection and try again.',
+        code: 'NETWORK_ERROR'
+      })
       console.error('Login error:', err)
     } finally {
       setLoading(false)
@@ -59,11 +84,36 @@ export default function AdminLogin() {
         </div>
 
         {error && (
-          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-center text-red-700">
-            <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0" />
-            <span className="text-sm">{error}</span>
+          <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg flex items-start text-red-700">
+            <AlertCircle className="h-5 w-5 mr-3 flex-shrink-0 mt-0.5" />
+            <div>
+              <span className="text-sm font-medium">{error.message}</span>
+              {error.code && (
+                <span className="text-xs text-red-500 block mt-1">
+                  Error code: {error.code}
+                </span>
+              )}
+            </div>
           </div>
         )}
+
+        {/* Development mode info */}
+        <div className="mb-6 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+          <button
+            type="button"
+            onClick={() => setShowDevInfo(!showDevInfo)}
+            className="flex items-center text-blue-700 text-sm hover:text-blue-800"
+          >
+            <Info className="h-4 w-4 mr-2" />
+            {showDevInfo ? 'Hide' : 'Show'} development info
+          </button>
+          {showDevInfo && (
+            <div className="mt-2 text-xs text-blue-600">
+              <p>Development credentials:</p>
+              <p className="font-mono mt-1">admin@elshaddai.com / admin123</p>
+            </div>
+          )}
+        </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           <div>

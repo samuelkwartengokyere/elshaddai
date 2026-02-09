@@ -23,6 +23,22 @@ export async function GET(request: NextRequest) {
       )
     }
     
+    // Check if this is a development mode token (non-MongoDB ObjectId)
+    const isDevToken = admin.adminId === 'dev-admin-id' || admin.adminId.length !== 24
+    
+    if (isDevToken) {
+      // In development mode with hardcoded credentials - return basic info from token
+      return NextResponse.json({
+        success: true,
+        user: {
+          adminId: admin.adminId,
+          email: admin.email,
+          role: admin.role
+        },
+        isInMemoryMode: true
+      })
+    }
+    
     const dbConnection = await connectDB()
     
     if (!dbConnection) {

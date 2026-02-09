@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import SermonCard from '@/components/SermonCard'
-import { Search, Filter, Loader2 } from 'lucide-react'
+import { Search, Filter, Loader2, Youtube, Database } from 'lucide-react'
 
 interface Sermon {
   _id: string
@@ -16,6 +16,9 @@ interface Sermon {
   duration?: string
   series?: string
   biblePassage?: string
+  isYouTube?: boolean
+  embedUrl?: string
+  source?: 'youtube' | 'database'
 }
 
 export default function SermonsPage() {
@@ -30,6 +33,9 @@ export default function SermonsPage() {
     total: 0,
     totalPages: 0
   })
+  const [youtubeCount, setYoutubeCount] = useState(0)
+  const [databaseCount, setDatabaseCount] = useState(0)
+  const [youtubeConfigured, setYoutubeConfigured] = useState(false)
 
   const fetchSermons = async () => {
     setLoading(true)
@@ -51,6 +57,8 @@ export default function SermonsPage() {
           total: data.pagination.total,
           totalPages: data.pagination.totalPages
         }))
+        setYoutubeCount(data.youtubeCount || 0)
+        setDatabaseCount(data.databaseCount || 0)
       }
     } catch (error) {
       console.error('Error fetching sermons:', error)
@@ -62,6 +70,20 @@ export default function SermonsPage() {
   useEffect(() => {
     fetchSermons()
   }, [pagination.page])
+
+  // Check YouTube configuration
+  useEffect(() => {
+    const checkYoutubeConfig = async () => {
+      try {
+        const response = await fetch('/api/sermons/youtube')
+        const data = await response.json()
+        setYoutubeConfigured(data.configured !== false)
+      } catch {
+        setYoutubeConfigured(false)
+      }
+    }
+    checkYoutubeConfig()
+  }, [])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -79,6 +101,36 @@ export default function SermonsPage() {
             Explore our collection of messages to grow in faith and understanding
           </p>
         </div>
+
+        {/* Stats Bar */}
+        {(youtubeCount > 0 || databaseCount > 0) && (
+          <div className="max-w-4xl mx-auto mb-8 flex justify-center gap-6">
+            {youtubeCount > 0 && (
+              <div className="flex items-center bg-red-50 text-red-700 px-4 py-2 rounded-full">
+                <Youtube className="h-5 w-5 mr-2" />
+                <span className="font-medium">{youtubeCount} YouTube</span>
+              </div>
+            )}
+            {databaseCount > 0 && (
+              <div className="flex items-center bg-blue-50 text-blue-700 px-4 py-2 rounded-full">
+                <Database className="h-5 w-5 mr-2" />
+                <span className="font-medium">{databaseCount} Uploaded</span>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* YouTube Not Configured Warning */}
+        {!youtubeConfigured && (
+          <div className="max-w-4xl mx-auto mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
+            <p className="text-yellow-700 text-center">
+              YouTube channel not configured.{' '}
+              <a href="/admin/settings" className="underline font-medium">
+                Configure in Admin Settings
+              </a>
+            </p>
+          </div>
+        )}
 
         {/* Search and Filter */}
         <div className="max-w-4xl mx-auto mb-12">
@@ -130,7 +182,11 @@ export default function SermonsPage() {
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {sermons.map((sermon) => (
-                <SermonCard key={sermon._id || sermon.id} sermon={sermon} />
+                <SermonCard 
+                  key={sermon._id || sermon.id} 
+                  sermon={sermon} 
+                  source={sermon.source}
+                />
               ))}
             </div>
 
