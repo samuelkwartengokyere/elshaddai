@@ -43,7 +43,8 @@ const months = [
   'July', 'August', 'September', 'October', 'November', 'December'
 ]
 
-const years = [2025, 2026, 2027, 2028, 2029, 2030]
+// Generate years from 2020 to 2099
+const years = Array.from({ length: 80 }, (_, i) => 2020 + i)
 
 export default function AdminCalendarPage() {
   const [events, setEvents] = useState<CalendarEvent[]>([])
@@ -496,8 +497,9 @@ export default function AdminCalendarPage() {
 
       {/* Add/Edit Event Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="absolute inset-0 backdrop-blur-sm" />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto z-10">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold">
@@ -658,8 +660,9 @@ export default function AdminCalendarPage() {
 
       {/* Import CSV Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
-          <div className="bg-white rounded-xl shadow-xl w-full max-w-lg">
+        <div className="fixed inset-0 flex items-center justify-center z-50">
+          <div className="absolute inset-0 backdrop-blur-sm" />
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg z-10">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold">Import Events from CSV</h2>

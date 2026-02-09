@@ -413,7 +413,7 @@ export default function TeamsPage() {
       {showCreateModal && (
         <div className="fixed inset-0 flex items-center justify-center z-50">
           <div className="absolute inset-0 backdrop-blur-sm" />
-          <div className="relative bg-transparent rounded-xl shadow-xl border border-gray-200/50 w-full max-w-lg mx-4 z-10">
+          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 z-10">
             <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white">
               <h2 className="text-xl font-bold">
                 {modalMode === 'create' ? 'Add Team Member' : 'Edit Team Member'}
