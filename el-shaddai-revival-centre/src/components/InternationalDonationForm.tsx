@@ -27,17 +27,13 @@ const presetAmountsUSD = [25, 50, 100, 250, 500]
 // Helper to derive payment channel from payment method
 const getPaymentChannelFromMethod = (methodId: PaymentMethodType): PaymentChannel => {
   const methodChannelMap: Record<PaymentMethodType, PaymentChannel> = {
-    card: 'stripe', // Default card to stripe for international donations
+    card: 'paystack', // Card payments via Paystack
     mobile_money: 'paystack',
     bank_transfer: 'manual',
     ussd: 'paystack',
     qr_code: 'paystack',
-    apple_pay: 'stripe',
-    google_pay: 'stripe',
-    sepa_debit: 'stripe',
-    ach_debit: 'stripe',
   }
-  return methodChannelMap[methodId] || 'stripe'
+  return methodChannelMap[methodId] || 'paystack'
 }
 
 // Get preset amounts for selected currency
@@ -79,16 +75,6 @@ interface FormData {
   // Bank Transfer specific
   accountHolderName?: string
   bankName?: string
-  
-  // ACH Direct Debit specific
-  routingNumber?: string
-  accountNumber?: string
-  accountType?: 'checking' | 'savings'
-  
-  // SEPA Direct Debit specific
-  iban?: string
-  bic?: string
-  sepaAccountHolderName?: string
 }
 
 interface FormErrors {
@@ -102,12 +88,6 @@ interface FormErrors {
   mobileMoneyProvider?: string
   accountHolderName?: string
   bankName?: string
-  routingNumber?: string
-  accountNumber?: string
-  accountType?: string
-  iban?: string
-  bic?: string
-  sepaAccountHolderName?: string
 }
 
 export default function InternationalDonationForm() {
@@ -122,7 +102,7 @@ export default function InternationalDonationForm() {
     phone: '',
     country: '',
     paymentMethod: 'card',
-    paymentChannel: 'stripe',
+    paymentChannel: 'paystack',
     donationType: 'general',
     isAnonymous: false,
     notes: '',
@@ -130,12 +110,6 @@ export default function InternationalDonationForm() {
     mobileMoneyProvider: '',
     accountHolderName: '',
     bankName: '',
-    routingNumber: '',
-    accountNumber: '',
-    accountType: undefined,
-    iban: '',
-    bic: '',
-    sepaAccountHolderName: ''
   })
   
   const [errors, setErrors] = useState<FormErrors>({})
@@ -201,13 +175,11 @@ export default function InternationalDonationForm() {
       const urlParams = new URLSearchParams(window.location.search)
       const reference = urlParams.get('reference')
       const status = urlParams.get('status')
-      const stripeSuccess = urlParams.get('stripe_success')
-      const sessionId = urlParams.get('session_id')
 
-      if ((reference && status === 'success') || stripeSuccess) {
+      if (reference && status === 'success') {
         setIsLoading(true)
         try {
-          const response = await fetch(`/api/donations/verify?reference=${reference || sessionId}&status=${status || 'success'}`)
+          const response = await fetch(`/api/donations/verify?reference=${reference}&status=${status}`)
           const data = await response.json()
 
           if (data.success) {
@@ -303,34 +275,6 @@ export default function InternationalDonationForm() {
       }
     }
 
-    // ACH Direct Debit validation
-    if (formData.paymentMethod === 'ach_debit') {
-      if (!formData.routingNumber?.trim()) {
-        newErrors.routingNumber = 'Routing number is required'
-      } else if (!/^\d{9}$/.test(formData.routingNumber)) {
-        newErrors.routingNumber = 'Routing number must be 9 digits'
-      }
-      if (!formData.accountNumber?.trim()) {
-        newErrors.accountNumber = 'Account number is required'
-      }
-      if (!formData.accountType) {
-        newErrors.accountType = 'Please select account type'
-      }
-    }
-
-    // SEPA Direct Debit validation
-    if (formData.paymentMethod === 'sepa_debit') {
-      if (!formData.iban?.trim()) {
-        newErrors.iban = 'IBAN is required'
-      }
-      if (!formData.bic?.trim()) {
-        newErrors.bic = 'BIC/SWIFT code is required'
-      }
-      if (!formData.sepaAccountHolderName?.trim()) {
-        newErrors.sepaAccountHolderName = 'Account holder name is required'
-      }
-    }
-
     setErrors(newErrors)
     return Object.keys(newErrors).length === 0
   }
@@ -396,51 +340,6 @@ export default function InternationalDonationForm() {
         setSuccess(true)
         setShowBankDetails(true)
         setVerificationResult(data)
-        return
-      }
-
-      // For Stripe payments, redirect to checkout
-      if (formData.paymentChannel === 'stripe') {
-        const response = await fetch('/api/donations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount: finalAmount,
-            currency: formData.currency,
-            frequency: formData.frequency,
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            email: formData.email,
-            phone: formData.phone,
-            country: formData.country,
-            donationType: formData.donationType,
-            paymentChannel: formData.paymentChannel,
-            paymentMethod: formData.paymentMethod,
-            isAnonymous: formData.isAnonymous,
-            notes: formData.notes,
-            // Method-specific fields
-            mobileMoneyProvider: formData.paymentMethod === 'mobile_money' ? formData.mobileMoneyProvider : undefined,
-            accountHolderName: formData.paymentMethod === 'bank_transfer' ? formData.accountHolderName : 
-                              formData.paymentMethod === 'sepa_debit' ? formData.sepaAccountHolderName : undefined,
-            bankName: formData.paymentMethod === 'bank_transfer' ? formData.bankName : undefined,
-            routingNumber: formData.paymentMethod === 'ach_debit' ? formData.routingNumber : undefined,
-            accountNumber: formData.paymentMethod === 'ach_debit' ? formData.accountNumber : undefined,
-            accountType: formData.paymentMethod === 'ach_debit' ? formData.accountType : undefined,
-            iban: formData.paymentMethod === 'sepa_debit' ? formData.iban : undefined,
-            bic: formData.paymentMethod === 'sepa_debit' ? formData.bic : undefined,
-          }),
-        })
-
-        const data = await response.json()
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to initialize payment')
-        }
-
-        // Redirect to Stripe checkout
-        if (data.checkoutUrl) {
-          window.location.href = data.checkoutUrl
-        }
         return
       }
 
@@ -530,7 +429,7 @@ export default function InternationalDonationForm() {
       phone: '',
       country: '',
       paymentMethod: 'card',
-      paymentChannel: 'stripe',
+      paymentChannel: 'paystack',
       donationType: 'general',
       isAnonymous: false,
       notes: '',
@@ -538,12 +437,6 @@ export default function InternationalDonationForm() {
       mobileMoneyProvider: '',
       accountHolderName: '',
       bankName: '',
-      routingNumber: '',
-      accountNumber: '',
-      accountType: undefined,
-      iban: '',
-      bic: '',
-      sepaAccountHolderName: ''
     })
     setErrors({})
     setSuccess(false)
@@ -908,161 +801,12 @@ export default function InternationalDonationForm() {
           </div>
         )}
 
-        {/* ACH Direct Debit Details */}
-        {formData.paymentMethod === 'ach_debit' && (
-          <div className="p-4 bg-purple-50 rounded-lg border border-purple-200">
-            <h4 className="font-medium text-purple-800 mb-4 flex items-center">
-              <Building2 className="h-5 w-5 mr-2" />
-              US Bank Account (ACH)
-            </h4>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="routingNumber" className="block text-sm font-medium text-gray-700 mb-2">
-                  Routing Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="routingNumber"
-                  type="text"
-                  name="routingNumber"
-                  value={formData.routingNumber}
-                  onChange={handleInputChange}
-                  placeholder="123456789"
-                  maxLength={9}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    errors.routingNumber ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {errors.routingNumber && (
-                  <p className="mt-1 text-sm text-red-500">{errors.routingNumber}</p>
-                )}
-              </div>
-              <div>
-                <label htmlFor="accountNumber" className="block text-sm font-medium text-gray-700 mb-2">
-                  Account Number <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="accountNumber"
-                  type="text"
-                  name="accountNumber"
-                  value={formData.accountNumber}
-                  onChange={handleInputChange}
-                  placeholder="1234567890"
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    errors.accountNumber ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {errors.accountNumber && (
-                  <p className="mt-1 text-sm text-red-500">{errors.accountNumber}</p>
-                )}
-              </div>
-              <div>
-                <label htmlFor="accountType" className="block text-sm font-medium text-gray-700 mb-2">
-                  Account Type <span className="text-red-500">*</span>
-                </label>
-                <select
-                  id="accountType"
-                  name="accountType"
-                  value={formData.accountType || ''}
-                  onChange={handleInputChange}
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-purple-500 focus:border-transparent ${
-                    errors.accountType ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                >
-                  <option value="">Select account type</option>
-                  <option value="checking">Checking</option>
-                  <option value="savings">Savings</option>
-                </select>
-                {errors.accountType && (
-                  <p className="mt-1 text-sm text-red-500">{errors.accountType}</p>
-                )}
-              </div>
-            </div>
-            <p className="text-xs text-gray-600 mt-3">
-              ACH transfers take 3-5 business days to process.
-            </p>
-          </div>
-        )}
-
-        {/* SEPA Direct Debit Details */}
-        {formData.paymentMethod === 'sepa_debit' && (
-          <div className="p-4 bg-indigo-50 rounded-lg border border-indigo-200">
-            <h4 className="font-medium text-indigo-800 mb-4 flex items-center">
-              <Building2 className="h-5 w-5 mr-2" />
-              SEPA Direct Debit (Europe)
-            </h4>
-            <div className="space-y-4">
-              <div>
-                <label htmlFor="sepaAccountHolderName" className="block text-sm font-medium text-gray-700 mb-2">
-                  Account Holder Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="sepaAccountHolderName"
-                  type="text"
-                  name="sepaAccountHolderName"
-                  value={formData.sepaAccountHolderName}
-                  onChange={handleInputChange}
-                  placeholder="John Doe"
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
-                    errors.sepaAccountHolderName ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {errors.sepaAccountHolderName && (
-                  <p className="mt-1 text-sm text-red-500">{errors.sepaAccountHolderName}</p>
-                )}
-              </div>
-              <div>
-                <label htmlFor="iban" className="block text-sm font-medium text-gray-700 mb-2">
-                  IBAN <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="iban"
-                  type="text"
-                  name="iban"
-                  value={formData.iban}
-                  onChange={handleInputChange}
-                  placeholder="DE12 3456 7890 1234 5678 90"
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
-                    errors.iban ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {errors.iban && (
-                  <p className="mt-1 text-sm text-red-500">{errors.iban}</p>
-                )}
-              </div>
-              <div>
-                <label htmlFor="bic" className="block text-sm font-medium text-gray-700 mb-2">
-                  BIC/SWIFT Code <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="bic"
-                  type="text"
-                  name="bic"
-                  value={formData.bic}
-                  onChange={handleInputChange}
-                  placeholder="BANKDEFF"
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent ${
-                    errors.bic ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {errors.bic && (
-                  <p className="mt-1 text-sm text-red-500">{errors.bic}</p>
-                )}
-              </div>
-            </div>
-            <p className="text-xs text-gray-600 mt-3">
-              SEPA transfers take 3-5 business days to process.
-            </p>
-          </div>
-        )}
-
-        {/* Card / Apple Pay / Google Pay - No extra fields needed */}
-        {(formData.paymentMethod === 'card' || formData.paymentMethod === 'apple_pay' || formData.paymentMethod === 'google_pay') && (
+        {/* Card Payment - No extra fields needed */}
+        {formData.paymentMethod === 'card' && (
           <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div className="flex items-center text-sm text-gray-600">
               <CreditCard className="h-5 w-5 mr-2" />
-              {formData.paymentMethod === 'card' && 'You will be redirected to enter your card details securely.'}
-              {formData.paymentMethod === 'apple_pay' && 'You will be prompted to confirm payment with Apple Pay.'}
-              {formData.paymentMethod === 'google_pay' && 'You will be prompted to confirm payment with Google Pay.'}
+              You will be redirected to enter your card details securely.
             </div>
           </div>
         )}

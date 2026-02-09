@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/database'
 import Donation from '@/models/Donation'
 import { initializeTransaction, verifyTransaction, generateReference } from '@/lib/paystack'
-import { createCheckoutSession } from '@/lib/stripe'
 import { convertCurrency } from '@/lib/currency'
 
 // Make this route dynamic - don't attempt static generation
@@ -48,7 +47,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Validate payment channel
-    const validChannels = ['paystack', 'stripe', 'bank_transfer', 'mobile_money', 'manual']
+    const validChannels = ['paystack', 'bank_transfer', 'mobile_money', 'manual']
     if (!validChannels.includes(paymentChannel)) {
       return NextResponse.json(
         { error: 'Invalid payment channel' },
@@ -64,22 +63,6 @@ export async function POST(request: NextRequest) {
       case 'paystack':
       case 'mobile_money': {
         return await initializePaystackPayment({
-          amount,
-          currency,
-          frequency,
-          donorName,
-          email,
-          phone,
-          country,
-          donationType,
-          paymentChannel,
-          isAnonymous,
-          notes,
-        })
-      }
-
-      case 'stripe': {
-        return await initializeStripePayment({
           amount,
           currency,
           frequency,
@@ -209,94 +192,6 @@ async function initializePaystackPayment(params: {
     reference: paystackResponse.data.reference,
     donationId: donation._id,
     message: 'Payment initialized successfully'
-  }, { status: 201 })
-}
-
-/**
- * Initialize Stripe payment
- */
-async function initializeStripePayment(params: {
-  amount: string
-  currency: string
-  frequency: string
-  donorName: string
-  email: string
-  phone?: string
-  country?: string
-  donationType?: string
-  paymentChannel: string
-  isAnonymous: boolean
-  notes?: string
-}) {
-  const {
-    amount,
-    currency,
-    frequency,
-    donorName,
-    email,
-    phone,
-    country,
-    donationType,
-    paymentChannel,
-    isAnonymous,
-    notes,
-  } = params
-
-  // Generate unique reference for this transaction
-  const reference = generateReference('stripe')
-
-  // Create Stripe checkout session
-  const baseUrl = process.env.NEXT_PUBLIC_BASE_URL || 'http://localhost:3000'
-  
-  const session = await createCheckoutSession({
-    amount: parseFloat(amount),
-    currency,
-    email,
-    name: donorName,
-    successUrl: `${baseUrl}/give?stripe_success=true&session_id={CHECKOUT_SESSION_ID}`,
-    cancelUrl: `${baseUrl}/give?stripe_cancelled=true`,
-    metadata: {
-      frequency,
-      donorName,
-      donationType: donationType || 'general',
-      country: country || '',
-      isAnonymous: isAnonymous.toString(),
-      notes: notes || '',
-    },
-  })
-
-  // Create pending donation record
-  const donation = new Donation({
-    amount: parseFloat(amount),
-    amountUSD: convertCurrency(parseFloat(amount), currency as 'USD', 'USD'),
-    currency,
-    exchangeRate: 1,
-    frequency,
-    donorName,
-    donorEmail: email,
-    donorPhone: phone,
-    donorCountry: country,
-    paymentMethod: 'card',
-    paymentChannel: 'stripe',
-    status: 'pending',
-    stripePaymentIntentId: session.payment_intent as string || `cs_${Date.now()}`,
-    donationType,
-    isAnonymous,
-    notes,
-    createdAt: new Date(),
-    receiptSent: false
-  })
-
-  await donation.save()
-
-  return NextResponse.json({
-    success: true,
-    paymentChannel: 'stripe',
-    checkoutUrl: session.url,
-    sessionId: session.id,
-    reference,
-    donationId: donation._id,
-    message: 'Stripe checkout session created successfully'
   }, { status: 201 })
 }
 

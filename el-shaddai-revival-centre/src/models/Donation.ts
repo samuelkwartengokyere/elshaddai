@@ -11,7 +11,7 @@ export interface IDonation extends Document {
   donorPhone?: string
   donorCountry?: string
   paymentMethod: string
-  paymentChannel: 'paystack' | 'stripe' | 'bank_transfer' | 'mobile_money' | 'manual' | 'other'
+  paymentChannel: 'paystack' | 'bank_transfer' | 'mobile_money' | 'manual' | 'other'
   status: 'pending' | 'completed' | 'failed' | 'refunded' | 'cancelled'
   
   // Paystack specific
@@ -19,11 +19,6 @@ export interface IDonation extends Document {
   paystackTransactionId?: string
   authorizationCode?: string
   paystackChannel?: string
-  
-  // Stripe specific
-  stripePaymentIntentId?: string
-  stripeCustomerId?: string
-  stripePaymentMethodId?: string
   
   // Manual/Bank Transfer specific
   bankName?: string
@@ -94,7 +89,7 @@ const donationSchema = new Schema<IDonation>({
   },
   paymentChannel: {
     type: String,
-    enum: ['paystack', 'stripe', 'bank_transfer', 'mobile_money', 'manual', 'other'],
+    enum: ['paystack', 'bank_transfer', 'mobile_money', 'manual', 'other'],
     default: 'paystack'
   },
   status: {
@@ -115,18 +110,6 @@ const donationSchema = new Schema<IDonation>({
     type: String
   },
   paystackChannel: {
-    type: String
-  },
-  
-  // Stripe specific
-  stripePaymentIntentId: {
-    type: String,
-    index: true
-  },
-  stripeCustomerId: {
-    type: String
-  },
-  stripePaymentMethodId: {
     type: String
   },
   

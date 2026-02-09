@@ -3,7 +3,6 @@
 export type DonationFrequency = 'one-time' | 'weekly' | 'monthly' | 'yearly'
 
 export type PaymentChannel = 
-  | 'stripe' 
   | 'paystack' 
   | 'bank_transfer' 
   | 'mobile_money' 
@@ -16,11 +15,7 @@ export type PaymentMethodType =
   | 'mobile_money' 
   | 'bank_transfer' 
   | 'ussd' 
-  | 'qr_code' 
-  | 'apple_pay' 
-  | 'google_pay' 
-  | 'sepa_debit' 
-  | 'ach_debit'
+  | 'qr_code'
 
 export type DonationStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'cancelled'
 
@@ -44,9 +39,6 @@ export interface Donation {
   paystackTransactionId?: string
   authorizationCode?: string
   paystackChannel?: string
-  stripePaymentIntentId?: string
-  stripeCustomerId?: string
-  stripePaymentMethodId?: string
   bankName?: string
   transactionReference?: string
   transferDate?: Date
