@@ -1,14 +1,13 @@
 'use client'
-import { useState } from 'react'
-import { Heart, CreditCard, Shield, CheckCircle, AlertCircle } from 'lucide-react'
+
+import { useState, useEffect, useRef } from 'react'
+import { Heart, Shield, CheckCircle, AlertCircle } from 'lucide-react'
+// PaystackInline will be loaded dynamically
 
 interface FormData {
   firstName: string
   lastName: string
   email: string
-  cardNumber: string
-  expiry: string
-  cvc: string
 }
 
 interface FormErrors {
@@ -16,9 +15,6 @@ interface FormErrors {
   lastName?: string
   email?: string
   amount?: string
-  cardNumber?: string
-  expiry?: string
-  cvc?: string
 }
 
 export default function DonationForm() {
@@ -28,17 +24,76 @@ export default function DonationForm() {
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
-    email: '',
-    cardNumber: '',
-    expiry: '',
-    cvc: ''
+    email: ''
   })
   const [errors, setErrors] = useState<FormErrors>({})
   const [isLoading, setIsLoading] = useState(false)
+  const [isPaying, setIsPaying] = useState(false)
   const [success, setSuccess] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
+  interface VerificationResult {
+    amount: number
+    donorEmail: string
+  }
+  const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null)
 
   const presetAmounts = [25, 50, 100, 250, 500]
+  const paystackRef = useRef<HTMLDivElement>(null)
+  const scriptLoadedRef = useRef(false)
+
+  // Check for payment verification on mount
+  useEffect(() => {
+    const checkPaymentStatus = async () => {
+      const urlParams = new URLSearchParams(window.location.search)
+      const reference = urlParams.get('reference')
+      const status = urlParams.get('status')
+
+      if (reference && status === 'success') {
+        setIsLoading(true)
+        try {
+          const response = await fetch(`/api/donations/verify?reference=${reference}&status=${status}`)
+          const data = await response.json()
+
+          if (data.success) {
+            setSuccess(true)
+            setVerificationResult(data.donation)
+            // Clear URL parameters
+            window.history.replaceState({}, '', window.location.pathname)
+          } else {
+            setErrorMessage(data.error || 'Payment verification failed')
+          }
+        } catch {
+          setErrorMessage('Failed to verify payment')
+        } finally {
+          setIsLoading(false)
+        }
+      }
+    }
+
+    checkPaymentStatus()
+  }, [])
+
+  // Load Paystack script
+  const loadPaystackScript = (): Promise<void> => {
+    return new Promise((resolve, reject) => {
+      if (scriptLoadedRef.current) {
+        resolve()
+        return
+      }
+
+      const script = document.createElement('script')
+      script.src = 'https://js.paystack.co/v1/inline.js'
+      script.async = true
+      script.onload = () => {
+        scriptLoadedRef.current = true
+        resolve()
+      }
+      script.onerror = () => {
+        reject(new Error('Failed to load Paystack script'))
+      }
+      document.head.appendChild(script)
+    })
+  }
 
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -81,53 +136,80 @@ export default function DonationForm() {
     setErrorMessage('')
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    setErrorMessage('')
-
+  const handlePayment = async () => {
     if (!validateForm()) {
       return
     }
 
     setIsLoading(true)
+    setErrorMessage('')
 
     try {
       const finalAmount = customAmount || amount
       
-      const donationData = {
-        amount: parseFloat(finalAmount),
-        frequency,
-        firstName: formData.firstName,
-        lastName: formData.lastName,
-        email: formData.email,
-        timestamp: new Date().toISOString(),
-      }
-
-      // Submit to the donations API
+      // Initialize transaction on backend
       const response = await fetch('/api/donations', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(donationData),
+        body: JSON.stringify({
+          amount: parseFloat(finalAmount),
+          frequency,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email
+        }),
       })
 
+      const data = await response.json()
+
       if (!response.ok) {
-        throw new Error('Failed to process donation. Please try again.')
+        throw new Error(data.error || 'Failed to initialize payment')
       }
 
-      // Success - show confirmation and reset form
-      setSuccess(true)
-      
-      // Reset form after delay
-      setTimeout(() => {
-        resetForm()
-      }, 5000)
+      // Load Paystack and open payment modal
+      await loadPaystackScript()
+
+      const paystackOptions = {
+        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || 'pk_test_placeholder',
+        email: formData.email,
+        amount: parseFloat(finalAmount) * 100, // Convert to kobo
+        currency: 'USD',
+        ref: data.reference,
+        label: `${formData.firstName} ${formData.lastName}`,
+        metadata: {
+          frequency,
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          donationId: data.donationId
+        },
+        callback: async (response: { reference: string }) => {
+          setIsPaying(false)
+          // Redirect to verification page
+          window.location.href = `/api/donations/verify?reference=${response.reference}&status=success`
+        },
+        onClose: () => {
+          setIsPaying(false)
+          setErrorMessage('Payment window closed. Please try again.')
+        }
+      }
+
+      setIsPaying(true)
+
+      // @ts-expect-error Paystack is loaded dynamically
+      if (window.PaystackPop) {
+        // @ts-expect-error Paystack is loaded dynamically
+        const paystack = new window.PaystackPop()
+        paystack.newTransaction(paystackOptions)
+      } else {
+        throw new Error('Paystack not loaded properly')
+      }
 
     } catch (error) {
-      setErrorMessage(error instanceof Error ? error.message : 'An error occurred. Please try again.')
-    } finally {
       setIsLoading(false)
+      setIsPaying(false)
+      setErrorMessage(error instanceof Error ? error.message : 'An error occurred. Please try again.')
     }
   }
 
@@ -138,14 +220,12 @@ export default function DonationForm() {
     setFormData({
       firstName: '',
       lastName: '',
-      email: '',
-      cardNumber: '',
-      expiry: '',
-      cvc: ''
+      email: ''
     })
     setErrors({})
     setSuccess(false)
     setErrorMessage('')
+    setVerificationResult(null)
   }
 
   // Show success message after successful donation
@@ -156,7 +236,7 @@ export default function DonationForm() {
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
           <h2 className="text-3xl font-bold mb-2 text-green-700">Thank You!</h2>
           <p className="text-gray-600 mb-4">
-            Your generous donation of ${customAmount || amount} has been received.
+            Your generous donation of ${verificationResult?.amount || customAmount || amount} has been received.
           </p>
           <p className="text-gray-600">
             A receipt has been sent to <strong>{formData.email}</strong>
@@ -175,7 +255,7 @@ export default function DonationForm() {
         <Heart className="h-12 w-12 text-accent mx-auto mb-4" />
         <h2 className="text-3xl font-bold mb-2">Support Our Ministry</h2>
         <p className="text-gray-600">
-          Your generous gift helps us spread God's word and serve our community
+          Your generous gift helps us spread God&apos;s word and serve our community
         </p>
       </div>
 
@@ -187,7 +267,7 @@ export default function DonationForm() {
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="space-y-6">
+      <div className="space-y-6">
         {/* Amount Selection */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">
@@ -268,7 +348,7 @@ export default function DonationForm() {
           </div>
         </div>
 
-        {/* Payment Details */}
+        {/* Donor Details */}
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
@@ -333,56 +413,20 @@ export default function DonationForm() {
               <p className="mt-1 text-sm text-red-500">{errors.email}</p>
             )}
           </div>
-
-          {/* Credit Card Fields (simplified - for display only) */}
-          <div className="border-t pt-4">
-            <div className="flex items-center mb-4">
-              <CreditCard className="h-5 w-5 text-gray-400 mr-2" />
-              <span className="font-medium">Payment Details</span>
-            </div>
-            <input
-              id="cardNumber"
-              type="text"
-              name="cardNumber"
-              value={formData.cardNumber}
-              onChange={handleInputChange}
-              placeholder="Card Number"
-              className="w-full px-4 py-3 border border-gray-300 rounded-lg mb-3"
-            />
-            <div className="grid grid-cols-2 gap-4">
-              <input
-                id="expiry"
-                type="text"
-                name="expiry"
-                value={formData.expiry}
-                onChange={handleInputChange}
-                placeholder="MM/YY"
-                className="px-4 py-3 border border-gray-300 rounded-lg"
-              />
-              <input
-                id="cvc"
-                type="text"
-                name="cvc"
-                value={formData.cvc}
-                onChange={handleInputChange}
-                placeholder="CVC"
-                className="px-4 py-3 border border-gray-300 rounded-lg"
-              />
-            </div>
-          </div>
         </div>
 
         {/* Security & Submit */}
         <div className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t gap-4">
           <div className="flex items-center text-sm text-gray-600">
             <Shield className="h-5 w-5 mr-2" />
-            Secure & Encrypted
+            Secure & Encrypted via Paystack
           </div>
           <button
-            type="submit"
-            disabled={isLoading}
+            type="button"
+            onClick={handlePayment}
+            disabled={isLoading || isPaying}
             className={`btn-primary px-8 w-full sm:w-auto ${
-              isLoading ? 'opacity-50 cursor-not-allowed' : ''
+              isLoading || isPaying ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
             {isLoading ? (
@@ -393,6 +437,14 @@ export default function DonationForm() {
                 </svg>
                 Processing...
               </span>
+            ) : isPaying ? (
+              <span className="flex items-center justify-center">
+                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                Opening Payment...
+              </span>
             ) : (
               `Give $${customAmount || amount || '0'}`
             )}
@@ -402,7 +454,8 @@ export default function DonationForm() {
         <p className="text-xs text-gray-500 text-center">
           All donations are tax-deductible. You will receive a receipt via email.
         </p>
-      </form>
+      </div>
     </div>
   )
 }
+

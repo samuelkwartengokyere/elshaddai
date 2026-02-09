@@ -1,10 +1,14 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/database'
 import Donation from '@/models/Donation'
+import { initializeTransaction, verifyTransaction, generateReference } from '@/lib/paystack'
 
 // Make this route dynamic - don't attempt static generation
 export const dynamic = 'force-dynamic'
 
+/**
+ * POST /api/donations - Initialize a Paystack transaction
+ */
 export async function POST(request: NextRequest) {
   try {
     const dbConnection = await connectDB()
@@ -18,7 +22,7 @@ export async function POST(request: NextRequest) {
     }
     
     const body = await request.json()
-    const { amount, frequency, firstName, lastName, email, timestamp } = body
+    const { amount, frequency, firstName, lastName, email } = body
 
     // Validate required fields
     if (!amount || !frequency || !firstName || !lastName || !email) {
@@ -28,31 +32,49 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Create donation record
+    // Generate unique reference for this transaction
+    const reference = generateReference('donation')
+
+    // Initialize Paystack transaction
+    const paystackResponse = await initializeTransaction({
+      email,
+      amount: parseFloat(amount),
+      firstName,
+      lastName,
+      frequency,
+      reference
+    })
+
+    // Create pending donation record
     const donation = new Donation({
       amount: parseFloat(amount),
       currency: 'USD',
       frequency,
       donorName: `${firstName} ${lastName}`,
       donorEmail: email,
-      paymentMethod: 'credit_card',
-      status: 'completed', // For demo purposes, mark as completed
-      createdAt: timestamp ? new Date(timestamp) : new Date(),
+      paymentMethod: 'paystack',
+      status: 'pending',
+      paystackReference: reference,
+      createdAt: new Date(),
       receiptSent: false
     })
 
     await donation.save()
 
+    // Return the authorization URL for the frontend to redirect to
     return NextResponse.json({
       success: true,
-      donation,
-      message: 'Donation processed successfully'
+      authorizationUrl: paystackResponse.data.authorization_url,
+      reference: paystackResponse.data.reference,
+      donationId: donation._id,
+      message: 'Payment initialized successfully'
     }, { status: 201 })
 
   } catch (error) {
-    console.error('Error processing donation:', error)
+    console.error('Error initializing donation:', error)
+    const errorMessage = error instanceof Error ? error.message : 'Failed to initialize donation'
     return NextResponse.json(
-      { error: 'Failed to process donation' },
+      { error: errorMessage },
       { status: 500 }
     )
   }

@@ -8,8 +8,14 @@ export interface IDonation extends Document {
   donorEmail: string
   paymentMethod: string
   status: 'pending' | 'completed' | 'failed' | 'refunded'
+  paystackReference?: string
+  paystackTransactionId?: string
+  authorizationCode?: string
+  last4Card?: string
+  cardType?: string
   createdAt: Date
   receiptSent: boolean
+  updatedAt: Date
 }
 
 const donationSchema = new Schema<IDonation>({
@@ -36,12 +42,28 @@ const donationSchema = new Schema<IDonation>({
   },
   paymentMethod: {
     type: String,
-    default: 'credit_card'
+    default: 'paystack'
   },
   status: {
     type: String,
     enum: ['pending', 'completed', 'failed', 'refunded'],
     default: 'pending'
+  },
+  paystackReference: {
+    type: String,
+    index: true
+  },
+  paystackTransactionId: {
+    type: String
+  },
+  authorizationCode: {
+    type: String
+  },
+  last4Card: {
+    type: String
+  },
+  cardType: {
+    type: String
   },
   createdAt: {
     type: Date,
@@ -50,6 +72,10 @@ const donationSchema = new Schema<IDonation>({
   receiptSent: {
     type: Boolean,
     default: false
+  },
+  updatedAt: {
+    type: Date,
+    default: Date.now
   }
 })
 
