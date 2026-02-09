@@ -43,6 +43,7 @@ const DEFAULT_LOGO_URL = 'https://pentecost.ca/wp-content/uploads/2025/03/The-Ch
 const navItems = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
   { name: 'Events', href: '/admin/events', icon: Calendar },
+  { name: 'Calendar', href: '/admin/calendar', icon: Calendar },
   { name: 'Testimonies', href: '/admin/testimonies', icon: MessageSquare },
   { name: 'Teams', href: '/admin/teams', icon: Users },
   { name: 'Media Library', href: '/admin/media', icon: ImageIcon },
