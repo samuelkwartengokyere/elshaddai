@@ -14,13 +14,41 @@ const defaultSettings = {
 
 // In-memory fallback storage (for development without MongoDB)
 let inMemorySettings = { ...defaultSettings }
+let inMemoryYouTubeSettings = {
+  channelId: '',
+  channelName: '',
+  channelUrl: '',
+  apiKey: '',
+  autoSync: false,
+  syncInterval: 6,
+  lastSync: null,
+  syncStatus: 'idle' as const,
+  syncError: ''
+}
 
 function getInMemorySettings() {
-  return { ...inMemorySettings }
+  return { 
+    ...inMemorySettings,
+    youtube: inMemoryYouTubeSettings
+  }
 }
 
 function setInMemorySettings(settings: Partial<typeof defaultSettings>) {
   inMemorySettings = { ...inMemorySettings, ...settings }
+}
+
+function setInMemoryYouTubeSettings(youtube: any) {
+  inMemoryYouTubeSettings = {
+    channelId: youtube?.channelId || '',
+    channelName: youtube?.channelName || '',
+    channelUrl: youtube?.channelUrl || '',
+    apiKey: youtube?.apiKey || '',
+    autoSync: youtube?.autoSync || false,
+    syncInterval: youtube?.syncInterval || 6,
+    lastSync: youtube?.lastSync || null,
+    syncStatus: youtube?.syncStatus || 'idle',
+    syncError: youtube?.syncError || ''
+  }
 }
 
 export async function GET() {
@@ -84,22 +112,35 @@ export async function POST(request: NextRequest) {
     const dbConnection = await connectDB()
     
     const body = await request.json()
-    const { churchName, churchTagline, logoUrl } = body
+    const { churchName, churchTagline, logoUrl, youtube } = body
     
     const newSettings = {
       churchName: churchName || defaultSettings.churchName,
       churchTagline: churchTagline || defaultSettings.churchTagline,
-      logoUrl: logoUrl || defaultSettings.logoUrl
+      logoUrl: logoUrl || defaultSettings.logoUrl,
+      youtube: youtube ? {
+        channelId: youtube.channelId || '',
+        channelName: youtube.channelName || '',
+        channelUrl: youtube.channelUrl || '',
+        apiKey: youtube.apiKey || '',
+        autoSync: youtube.autoSync || false,
+        syncInterval: youtube.syncInterval || 6,
+        lastSync: youtube.lastSync || null,
+        syncStatus: youtube.syncStatus || 'idle',
+        syncError: youtube.syncError || ''
+      } : undefined
     }
     
     if (!dbConnection) {
       // Use in-memory fallback when database is not available
-      setInMemorySettings(newSettings)
+      setInMemorySettings({ churchName, churchTagline, logoUrl })
+      // Store YouTube settings in memory as well
+      setInMemoryYouTubeSettings(youtube)
       
       return NextResponse.json({
         success: true,
         message: 'Settings updated successfully (in-memory mode - database not available)',
-        settings: { ...getInMemorySettings(), ...newSettings },
+        settings: getInMemorySettings(),
         isInMemoryMode: true
       }, { status: 200 })
     }
