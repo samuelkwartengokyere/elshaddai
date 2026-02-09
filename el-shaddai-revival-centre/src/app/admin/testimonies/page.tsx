@@ -6,13 +6,11 @@ import {
   MessageSquare, 
   Trash2, 
   Edit,
-  Eye,
   Clock,
   MapPin,
   Loader2,
   X,
-  Star,
-  Filter
+  Star
 } from 'lucide-react'
 
 interface Testimony {
@@ -45,6 +43,7 @@ export default function TestimoniesPage() {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [editingTestimony, setEditingTestimony] = useState<Testimony | null>(null)
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -63,6 +62,7 @@ export default function TestimoniesPage() {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
 
   const fetchTestimonies = async () => {
     setLoading(true)
@@ -71,6 +71,7 @@ export default function TestimoniesPage() {
       params.append('page', pagination.page.toString())
       params.append('limit', pagination.limit.toString())
       if (categoryFilter) params.append('category', categoryFilter)
+      if (search) params.append('search', search)
 
       const response = await fetch(`/api/testimonies?${params.toString()}`)
       const data = await response.json()
@@ -98,6 +99,40 @@ export default function TestimoniesPage() {
     e.preventDefault()
     setPagination(prev => ({ ...prev, page: 1 }))
     fetchTestimonies()
+  }
+
+  const openCreateModal = () => {
+    setModalMode('create')
+    setFormData({
+      name: '',
+      title: '',
+      content: '',
+      category: 'other',
+      date: new Date().toISOString().split('T')[0],
+      location: '',
+      isFeatured: false
+    })
+    setEditingTestimony(null)
+    setError('')
+    setSuccess('')
+    setShowCreateModal(true)
+  }
+
+  const openEditModal = (testimony: Testimony) => {
+    setModalMode('edit')
+    setEditingTestimony(testimony)
+    setFormData({
+      name: testimony.name,
+      title: testimony.title,
+      content: testimony.content,
+      category: testimony.category as TestimonyCategory,
+      date: testimony.date.split('T')[0],
+      location: testimony.location,
+      isFeatured: testimony.isFeatured
+    })
+    setError('')
+    setSuccess('')
+    setShowCreateModal(true)
   }
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -133,6 +168,38 @@ export default function TestimoniesPage() {
       }
     } catch (err) {
       setError('An error occurred while creating testimony')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingTestimony) return
+
+    setUploading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const response = await fetch(`/api/testimonies?id=${editingTestimony._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setSuccess('Testimony updated successfully!')
+        setShowCreateModal(false)
+        setEditingTestimony(null)
+        fetchTestimonies()
+      } else {
+        setError(data.error || 'Failed to update testimony')
+      }
+    } catch (err) {
+      setError('An error occurred while updating testimony')
     } finally {
       setUploading(false)
     }
@@ -207,7 +274,7 @@ export default function TestimoniesPage() {
           </form>
         </div>
         <button
-          onClick={() => setShowCreateModal(true)}
+          onClick={openCreateModal}
           className="flex items-center px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition duration-300"
         >
           <Plus className="h-5 w-5 mr-2" />
@@ -289,16 +356,13 @@ export default function TestimoniesPage() {
                       <Trash2 className="h-4 w-4 mr-1" />
                       Delete
                     </button>
-                    <div className="flex items-center text-sm text-gray-500">
-                      {testimony.isPublished ? (
-                        <span className="text-green-600 flex items-center">
-                          <Eye className="h-4 w-4 mr-1" />
-                          Published
-                        </span>
-                      ) : (
-                        <span className="text-gray-400">Draft</span>
-                      )}
-                    </div>
+                    <button
+                      onClick={() => openEditModal(testimony)}
+                      className="flex items-center text-accent hover:text-red-600"
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit
+                    </button>
                   </div>
                 </div>
               </div>
@@ -316,7 +380,7 @@ export default function TestimoniesPage() {
                   : 'Add your first testimony to get started'}
               </p>
               <button
-                onClick={() => setShowCreateModal(true)}
+                onClick={openCreateModal}
                 className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition duration-300 inline-flex items-center"
               >
                 <Plus className="h-5 w-5 mr-2" />
@@ -346,12 +410,14 @@ export default function TestimoniesPage() {
         </>
       )}
 
-      {/* Create Modal */}
+      {/* Create/Edit Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white">
-              <h2 className="text-xl font-bold">Add New Testimony</h2>
+              <h2 className="text-xl font-bold">
+                {modalMode === 'create' ? 'Add New Testimony' : 'Edit Testimony'}
+              </h2>
               <button
                 onClick={() => setShowCreateModal(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -360,7 +426,7 @@ export default function TestimoniesPage() {
               </button>
             </div>
             
-            <form onSubmit={handleCreate} className="p-4">
+            <form onSubmit={modalMode === 'create' ? handleCreate : handleUpdate} className="p-4">
               {/* Error/Success Messages */}
               {error && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
@@ -496,7 +562,10 @@ export default function TestimoniesPage() {
                   className="px-4 py-2 bg-orange-500 text-white rounded-lg hover:bg-orange-600 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center"
                 >
                   {uploading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  {uploading ? 'Saving...' : 'Add Testimony'}
+                  {uploading 
+                    ? (modalMode === 'create' ? 'Saving...' : 'Saving...')
+                    : (modalMode === 'create' ? 'Add Testimony' : 'Save Changes')
+                  }
                 </button>
               </div>
             </form>

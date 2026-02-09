@@ -10,8 +10,7 @@ import {
   Phone,
   Loader2,
   X,
-  Crown,
-  Filter
+  Crown
 } from 'lucide-react'
 
 interface TeamMember {
@@ -34,6 +33,7 @@ export default function TeamsPage() {
   const [search, setSearch] = useState('')
   const [departmentFilter, setDepartmentFilter] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [editingMember, setEditingMember] = useState<TeamMember | null>(null)
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -52,6 +52,7 @@ export default function TeamsPage() {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
 
   const fetchTeamMembers = async () => {
     setLoading(true)
@@ -60,6 +61,7 @@ export default function TeamsPage() {
       params.append('page', pagination.page.toString())
       params.append('limit', pagination.limit.toString())
       if (departmentFilter) params.append('department', departmentFilter)
+      if (search) params.append('search', search)
 
       const response = await fetch(`/api/teams?${params.toString()}`)
       const data = await response.json()
@@ -87,6 +89,40 @@ export default function TeamsPage() {
     e.preventDefault()
     setPagination(prev => ({ ...prev, page: 1 }))
     fetchTeamMembers()
+  }
+
+  const openCreateModal = () => {
+    setModalMode('create')
+    setFormData({
+      name: '',
+      role: '',
+      bio: '',
+      email: '',
+      phone: '',
+      department: '',
+      isLeadership: false
+    })
+    setEditingMember(null)
+    setError('')
+    setSuccess('')
+    setShowCreateModal(true)
+  }
+
+  const openEditModal = (member: TeamMember) => {
+    setModalMode('edit')
+    setEditingMember(member)
+    setFormData({
+      name: member.name,
+      role: member.role,
+      bio: member.bio,
+      email: member.email || '',
+      phone: member.phone || '',
+      department: member.department || '',
+      isLeadership: member.isLeadership
+    })
+    setError('')
+    setSuccess('')
+    setShowCreateModal(true)
   }
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -122,6 +158,38 @@ export default function TeamsPage() {
       }
     } catch (err) {
       setError('An error occurred while adding team member')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingMember) return
+
+    setUploading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const response = await fetch(`/api/teams?id=${editingMember._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setSuccess('Team member updated successfully!')
+        setShowCreateModal(false)
+        setEditingMember(null)
+        fetchTeamMembers()
+      } else {
+        setError(data.error || 'Failed to update team member')
+      }
+    } catch (err) {
+      setError('An error occurred while updating team member')
     } finally {
       setUploading(false)
     }
@@ -185,7 +253,7 @@ export default function TeamsPage() {
           </form>
         </div>
         <button
-          onClick={() => setShowCreateModal(true)}
+          onClick={openCreateModal}
           className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
         >
           <Plus className="h-5 w-5 mr-2" />
@@ -288,6 +356,7 @@ export default function TeamsPage() {
                       Delete
                     </button>
                     <button
+                      onClick={() => openEditModal(member)}
                       className="flex items-center text-accent hover:text-red-600"
                     >
                       <Edit className="h-4 w-4 mr-1" />
@@ -310,7 +379,7 @@ export default function TeamsPage() {
                   : 'Add your first team member to get started'}
               </p>
               <button
-                onClick={() => setShowCreateModal(true)}
+                onClick={openCreateModal}
                 className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 inline-flex items-center"
               >
                 <Plus className="h-5 w-5 mr-2" />
@@ -340,12 +409,14 @@ export default function TeamsPage() {
         </>
       )}
 
-      {/* Create Modal */}
+      {/* Create/Edit Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white">
-              <h2 className="text-xl font-bold">Add Team Member</h2>
+              <h2 className="text-xl font-bold">
+                {modalMode === 'create' ? 'Add Team Member' : 'Edit Team Member'}
+              </h2>
               <button
                 onClick={() => setShowCreateModal(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -354,7 +425,7 @@ export default function TeamsPage() {
               </button>
             </div>
             
-            <form onSubmit={handleCreate} className="p-4">
+            <form onSubmit={modalMode === 'create' ? handleCreate : handleUpdate} className="p-4">
               {/* Error/Success Messages */}
               {error && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
@@ -490,7 +561,10 @@ export default function TeamsPage() {
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center"
                 >
                   {uploading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  {uploading ? 'Saving...' : 'Add Team Member'}
+                  {uploading 
+                    ? (modalMode === 'create' ? 'Saving...' : 'Saving...')
+                    : (modalMode === 'create' ? 'Add Team Member' : 'Save Changes')
+                  }
                 </button>
               </div>
             </form>

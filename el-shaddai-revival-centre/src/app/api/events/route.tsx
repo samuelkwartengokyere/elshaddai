@@ -133,3 +133,56 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PUT(request: NextRequest) {
+  try {
+    const dbConnection = await connectDB()
+    
+    if (!dbConnection) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      )
+    }
+    
+    const body = await request.json()
+    const eventId = request.nextUrl.searchParams.get('id')
+    
+    if (!eventId) {
+      return NextResponse.json(
+        { error: 'Event ID is required' },
+        { status: 400 }
+      )
+    }
+    
+    const updatedEvent = await Event.findByIdAndUpdate(
+      eventId,
+      {
+        ...body,
+        date: body.date ? new Date(body.date) : undefined,
+        updatedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    )
+    
+    if (!updatedEvent) {
+      return NextResponse.json(
+        { error: 'Event not found' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      event: updatedEvent,
+      message: 'Event updated successfully'
+    })
+
+  } catch (error) {
+    console.error('Error updating event:', error)
+    return NextResponse.json(
+      { error: 'Failed to update event' },
+      { status: 500 }
+    )
+  }
+}
+

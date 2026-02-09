@@ -135,3 +135,56 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PUT(request: NextRequest) {
+  try {
+    const dbConnection = await connectDB()
+    
+    if (!dbConnection) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      )
+    }
+    
+    const body = await request.json()
+    const sermonId = request.nextUrl.searchParams.get('id')
+    
+    if (!sermonId) {
+      return NextResponse.json(
+        { error: 'Sermon ID is required' },
+        { status: 400 }
+      )
+    }
+    
+    const updatedSermon = await Sermon.findByIdAndUpdate(
+      sermonId,
+      {
+        ...body,
+        date: body.date ? new Date(body.date) : undefined,
+        updatedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    )
+    
+    if (!updatedSermon) {
+      return NextResponse.json(
+        { error: 'Sermon not found' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      sermon: updatedSermon,
+      message: 'Sermon updated successfully'
+    })
+
+  } catch (error) {
+    console.error('Error updating sermon:', error)
+    return NextResponse.json(
+      { error: 'Failed to update sermon' },
+      { status: 500 }
+    )
+  }
+}
+

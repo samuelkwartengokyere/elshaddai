@@ -6,13 +6,13 @@ import {
   Search, 
   FileAudio, 
   Trash2, 
-  Eye,
   Edit,
+  Eye,
   Calendar,
   User,
   BookOpen,
   Loader2,
-  MoreVertical
+  X
 } from 'lucide-react'
 
 interface Sermon {
@@ -31,18 +31,42 @@ interface Sermon {
   tags: string[]
 }
 
+interface SermonFormData {
+  title: string
+  speaker: string
+  date: string
+  description: string
+  series: string
+  biblePassage: string
+  tags: string
+}
+
 export default function SermonsPage() {
   const [sermons, setSermons] = useState<Sermon[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [speakerFilter, setSpeakerFilter] = useState('')
   const [seriesFilter, setSeriesFilter] = useState('')
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [editingSermon, setEditingSermon] = useState<Sermon | null>(null)
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
     total: 0,
     totalPages: 0
   })
+  const [formData, setFormData] = useState<SermonFormData>({
+    title: '',
+    speaker: '',
+    date: new Date().toISOString().split('T')[0],
+    description: '',
+    series: '',
+    biblePassage: '',
+    tags: ''
+  })
+  const [uploading, setUploading] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
 
   const fetchSermons = async () => {
     setLoading(true)
@@ -80,6 +104,57 @@ export default function SermonsPage() {
     e.preventDefault()
     setPagination(prev => ({ ...prev, page: 1 }))
     fetchSermons()
+  }
+
+  const openEditModal = (sermon: Sermon) => {
+    setEditingSermon(sermon)
+    setFormData({
+      title: sermon.title,
+      speaker: sermon.speaker,
+      date: sermon.date.split('T')[0],
+      description: sermon.description || '',
+      series: sermon.series || '',
+      biblePassage: sermon.biblePassage || '',
+      tags: sermon.tags ? sermon.tags.join(', ') : ''
+    })
+    setError('')
+    setSuccess('')
+    setShowEditModal(true)
+  }
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingSermon) return
+
+    setUploading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const response = await fetch(`/api/sermons?id=${editingSermon._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...formData,
+          tags: formData.tags.split(',').map(t => t.trim()).filter(Boolean)
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setSuccess('Sermon updated successfully!')
+        setShowEditModal(false)
+        setEditingSermon(null)
+        fetchSermons()
+      } else {
+        setError(data.error || 'Failed to update sermon')
+      }
+    } catch (err) {
+      setError('An error occurred while updating sermon')
+    } finally {
+      setUploading(false)
+    }
   }
 
   const handleDelete = async (id: string) => {
@@ -278,6 +353,13 @@ export default function SermonsPage() {
                           </a>
                         )}
                         <button
+                          onClick={() => openEditModal(sermon)}
+                          className="p-2 text-gray-500 hover:text-blue-600 hover:bg-gray-100 rounded-lg"
+                          title="Edit"
+                        >
+                          <Edit className="h-4 w-4" />
+                        </button>
+                        <button
                           onClick={() => handleDelete(sermon._id)}
                           className="p-2 text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-lg"
                           title="Delete"
@@ -331,6 +413,162 @@ export default function SermonsPage() {
             </div>
           )}
         </>
+      )}
+
+      {/* Edit Modal */}
+      {showEditModal && editingSermon && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
+            <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white">
+              <h2 className="text-xl font-bold">Edit Sermon</h2>
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="text-gray-500 hover:text-gray-700"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleUpdate} className="p-4">
+              {/* Error/Success Messages */}
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+                  {error}
+                </div>
+              )}
+              
+              {success && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg">
+                  {success}
+                </div>
+              )}
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                {/* Title */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Sermon Title *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.title}
+                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
+                    placeholder="Enter sermon title"
+                  />
+                </div>
+
+                {/* Speaker */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Speaker *
+                  </label>
+                  <input
+                    type="text"
+                    required
+                    value={formData.speaker}
+                    onChange={(e) => setFormData(prev => ({ ...prev, speaker: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
+                    placeholder="Enter speaker name"
+                  />
+                </div>
+
+                {/* Date */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Date *
+                  </label>
+                  <input
+                    type="date"
+                    required
+                    value={formData.date}
+                    onChange={(e) => setFormData(prev => ({ ...prev, date: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
+                  />
+                </div>
+
+                {/* Series */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Series
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.series}
+                    onChange={(e) => setFormData(prev => ({ ...prev, series: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
+                    placeholder="e.g., Faith in Action"
+                  />
+                </div>
+
+                {/* Bible Passage */}
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Bible Passage
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.biblePassage}
+                    onChange={(e) => setFormData(prev => ({ ...prev, biblePassage: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
+                    placeholder="e.g., John 3:16"
+                  />
+                </div>
+
+                {/* Description */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    value={formData.description}
+                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
+                    rows={4}
+                    placeholder="Optional description of the sermon"
+                  />
+                </div>
+
+                {/* Tags */}
+                <div className="md:col-span-2">
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    Tags
+                  </label>
+                  <input
+                    type="text"
+                    value={formData.tags}
+                    onChange={(e) => setFormData(prev => ({ ...prev, tags: e.target.value }))}
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
+                    placeholder="Separate tags with commas (faith, hope, love)"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Separate multiple tags with commas
+                  </p>
+                </div>
+              </div>
+
+              {/* Submit Buttons */}
+              <div className="flex justify-end space-x-4 mt-6 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowEditModal(false)}
+                  className="px-4 py-2 text-gray-700 hover:bg-gray-100 rounded-lg transition duration-300"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={uploading}
+                  className="px-6 py-2 bg-accent text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center transition duration-300"
+                >
+                  {uploading && <Loader2 className="h-5 w-5 mr-2 animate-spin" />}
+                  {uploading ? 'Saving...' : 'Save Changes'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
       )}
     </div>
   )

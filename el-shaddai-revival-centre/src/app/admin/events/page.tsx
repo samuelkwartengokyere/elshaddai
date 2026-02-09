@@ -1,19 +1,15 @@
 'use client'
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
 import { 
   Plus, 
   Search, 
   Calendar, 
   Trash2, 
   Edit,
-  Eye,
   Clock,
   MapPin,
-  Users,
   Loader2,
-  X,
-  Filter
+  X
 } from 'lucide-react'
 
 interface Event {
@@ -46,6 +42,7 @@ export default function EventsPage() {
   const [search, setSearch] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [editingEvent, setEditingEvent] = useState<Event | null>(null)
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -64,6 +61,7 @@ export default function EventsPage() {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
 
   const fetchEvents = async () => {
     setLoading(true)
@@ -72,6 +70,7 @@ export default function EventsPage() {
       params.append('page', pagination.page.toString())
       params.append('limit', pagination.limit.toString())
       if (categoryFilter) params.append('category', categoryFilter)
+      if (search) params.append('search', search)
 
       const response = await fetch(`/api/events?${params.toString()}`)
       const data = await response.json()
@@ -99,6 +98,40 @@ export default function EventsPage() {
     e.preventDefault()
     setPagination(prev => ({ ...prev, page: 1 }))
     fetchEvents()
+  }
+
+  const openCreateModal = () => {
+    setModalMode('create')
+    setFormData({
+      title: '',
+      description: '',
+      date: new Date().toISOString().split('T')[0],
+      time: '',
+      location: '',
+      category: 'other',
+      recurring: false
+    })
+    setEditingEvent(null)
+    setError('')
+    setSuccess('')
+    setShowCreateModal(true)
+  }
+
+  const openEditModal = (event: Event) => {
+    setModalMode('edit')
+    setEditingEvent(event)
+    setFormData({
+      title: event.title,
+      description: event.description,
+      date: event.date.split('T')[0],
+      time: event.time,
+      location: event.location,
+      category: event.category as EventCategory,
+      recurring: event.recurring
+    })
+    setError('')
+    setSuccess('')
+    setShowCreateModal(true)
   }
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -134,6 +167,38 @@ export default function EventsPage() {
       }
     } catch (err) {
       setError('An error occurred while creating event')
+    } finally {
+      setUploading(false)
+    }
+  }
+
+  const handleUpdate = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!editingEvent) return
+
+    setUploading(true)
+    setError('')
+    setSuccess('')
+
+    try {
+      const response = await fetch(`/api/events?id=${editingEvent._id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData)
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setSuccess('Event updated successfully!')
+        setShowCreateModal(false)
+        setEditingEvent(null)
+        fetchEvents()
+      } else {
+        setError(data.error || 'Failed to update event')
+      }
+    } catch (err) {
+      setError('An error occurred while updating event')
     } finally {
       setUploading(false)
     }
@@ -208,7 +273,7 @@ export default function EventsPage() {
           </form>
         </div>
         <button
-          onClick={() => setShowCreateModal(true)}
+          onClick={openCreateModal}
           className="flex items-center px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300"
         >
           <Plus className="h-5 w-5 mr-2" />
@@ -292,13 +357,13 @@ export default function EventsPage() {
                       <Trash2 className="h-4 w-4 mr-1" />
                       Delete
                     </button>
-                    <Link
-                      href={`/admin/events`}
+                    <button
+                      onClick={() => openEditModal(event)}
                       className="flex items-center text-accent hover:text-red-600"
                     >
                       <Edit className="h-4 w-4 mr-1" />
                       Edit
-                    </Link>
+                    </button>
                   </div>
                 </div>
               </div>
@@ -316,7 +381,7 @@ export default function EventsPage() {
                   : 'Create your first event to get started'}
               </p>
               <button
-                onClick={() => setShowCreateModal(true)}
+                onClick={openCreateModal}
                 className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-red-700 transition duration-300 inline-flex items-center"
               >
                 <Plus className="h-5 w-5 mr-2" />
@@ -346,12 +411,14 @@ export default function EventsPage() {
         </>
       )}
 
-      {/* Create Modal */}
+      {/* Create/Edit Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white">
-              <h2 className="text-xl font-bold">Create New Event</h2>
+              <h2 className="text-xl font-bold">
+                {modalMode === 'create' ? 'Create New Event' : 'Edit Event'}
+              </h2>
               <button
                 onClick={() => setShowCreateModal(false)}
                 className="text-gray-500 hover:text-gray-700"
@@ -360,7 +427,7 @@ export default function EventsPage() {
               </button>
             </div>
             
-            <form onSubmit={handleCreate} className="p-4">
+            <form onSubmit={modalMode === 'create' ? handleCreate : handleUpdate} className="p-4">
               {/* Error/Success Messages */}
               {error && (
                 <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
@@ -495,7 +562,10 @@ export default function EventsPage() {
                   className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center"
                 >
                   {uploading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  {uploading ? 'Creating...' : 'Create Event'}
+                  {uploading 
+                    ? (modalMode === 'create' ? 'Creating...' : 'Saving...')
+                    : (modalMode === 'create' ? 'Create Event' : 'Save Changes')
+                  }
                 </button>
               </div>
             </form>

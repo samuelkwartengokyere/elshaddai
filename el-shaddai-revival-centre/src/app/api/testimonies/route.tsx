@@ -132,3 +132,56 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PUT(request: NextRequest) {
+  try {
+    const dbConnection = await connectDB()
+    
+    if (!dbConnection) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      )
+    }
+    
+    const body = await request.json()
+    const testimonyId = request.nextUrl.searchParams.get('id')
+    
+    if (!testimonyId) {
+      return NextResponse.json(
+        { error: 'Testimony ID is required' },
+        { status: 400 }
+      )
+    }
+    
+    const updatedTestimony = await Testimony.findByIdAndUpdate(
+      testimonyId,
+      {
+        ...body,
+        date: body.date ? new Date(body.date) : undefined,
+        updatedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    )
+    
+    if (!updatedTestimony) {
+      return NextResponse.json(
+        { error: 'Testimony not found' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      testimony: updatedTestimony,
+      message: 'Testimony updated successfully'
+    })
+
+  } catch (error) {
+    console.error('Error updating testimony:', error)
+    return NextResponse.json(
+      { error: 'Failed to update testimony' },
+      { status: 500 }
+    )
+  }
+}
+

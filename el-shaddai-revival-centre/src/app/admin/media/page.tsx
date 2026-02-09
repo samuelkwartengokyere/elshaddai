@@ -3,7 +3,6 @@ import { useState, useEffect } from 'react'
 import { 
   Upload, 
   Search, 
-  Filter, 
   Image, 
   Film, 
   FileText, 
@@ -25,6 +24,14 @@ interface MediaItem {
   uploadedAt: string
 }
 
+interface MediaFormData {
+  title: string
+  description: string
+  type: 'image' | 'video' | 'document'
+  category: 'service' | 'event' | 'ministry' | 'other'
+  date: string
+}
+
 export default function MediaPage() {
   const [media, setMedia] = useState<MediaItem[]>([])
   const [loading, setLoading] = useState(true)
@@ -32,22 +39,26 @@ export default function MediaPage() {
   const [typeFilter, setTypeFilter] = useState('')
   const [categoryFilter, setCategoryFilter] = useState('')
   const [showUploadModal, setShowUploadModal] = useState(false)
+  const [editingMedia, setEditingMedia] = useState<MediaItem | null>(null)
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 12,
     total: 0,
     totalPages: 0
   })
-  const [uploadForm, setUploadForm] = useState({
+  const [uploadForm, setUploadForm] = useState<MediaFormData>({
     title: '',
     description: '',
-    type: 'image' as 'image' | 'video' | 'document',
-    category: 'other' as 'service' | 'event' | 'ministry' | 'other',
+    type: 'image',
+    category: 'other',
     date: new Date().toISOString().split('T')[0]
   })
   const [uploading, setUploading] = useState(false)
   const [selectedFile, setSelectedFile] = useState<File | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string>('')
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+  const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
 
   const fetchMedia = async () => {
     setLoading(true)
@@ -57,6 +68,7 @@ export default function MediaPage() {
       params.append('limit', pagination.limit.toString())
       if (typeFilter) params.append('type', typeFilter)
       if (categoryFilter) params.append('category', categoryFilter)
+      if (search) params.append('search', search)
 
       const response = await fetch(`/api/media?${params.toString()}`)
       const data = await response.json()
@@ -83,6 +95,10 @@ export default function MediaPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
+      if (!file.type.startsWith('image/') && !file.type.startsWith('video/') && !file.type.includes('pdf') && !file.type.includes('document')) {
+        setError('Please select an image, video, or document file')
+        return
+      }
       setSelectedFile(file)
       setPreviewUrl(URL.createObjectURL(file))
       
@@ -94,45 +110,109 @@ export default function MediaPage() {
       } else {
         setUploadForm(prev => ({ ...prev, type: 'document' }))
       }
+      setError('')
     }
+  }
+
+  const openCreateModal = () => {
+    setModalMode('create')
+    setUploadForm({
+      title: '',
+      description: '',
+      type: 'image',
+      category: 'other',
+      date: new Date().toISOString().split('T')[0]
+    })
+    setSelectedFile(null)
+    setPreviewUrl('')
+    setEditingMedia(null)
+    setError('')
+    setSuccess('')
+    setShowUploadModal(true)
+  }
+
+  const openEditModal = (item: MediaItem) => {
+    setModalMode('edit')
+    setEditingMedia(item)
+    setUploadForm({
+      title: item.title,
+      description: item.description || '',
+      type: item.type,
+      category: item.category,
+      date: item.date.split('T')[0]
+    })
+    setSelectedFile(null)
+    setPreviewUrl(item.url)
+    setError('')
+    setSuccess('')
+    setShowUploadModal(true)
   }
 
   const handleUpload = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!selectedFile) return
+    if (!selectedFile && modalMode === 'create') {
+      setError('Please select a file to upload')
+      return
+    }
 
     setUploading(true)
+    setError('')
+    setSuccess('')
+
     try {
-      const formData = new FormData()
-      formData.append('file', selectedFile)
-      formData.append('title', uploadForm.title)
-      formData.append('description', uploadForm.description)
-      formData.append('type', uploadForm.type)
-      formData.append('category', uploadForm.category)
-      formData.append('date', uploadForm.date)
+      if (modalMode === 'create') {
+        const formData = new FormData()
+        formData.append('file', selectedFile!)
+        formData.append('title', uploadForm.title)
+        formData.append('description', uploadForm.description)
+        formData.append('type', uploadForm.type)
+        formData.append('category', uploadForm.category)
+        formData.append('date', uploadForm.date)
 
-      const response = await fetch('/api/media', {
-        method: 'POST',
-        body: formData
-      })
-
-      const data = await response.json()
-
-      if (data.success) {
-        setShowUploadModal(false)
-        setUploadForm({
-          title: '',
-          description: '',
-          type: 'image',
-          category: 'other',
-          date: new Date().toISOString().split('T')[0]
+        const response = await fetch('/api/media', {
+          method: 'POST',
+          body: formData
         })
-        setSelectedFile(null)
-        setPreviewUrl('')
-        fetchMedia()
+
+        const data = await response.json()
+
+        if (data.success) {
+          setSuccess('Media uploaded successfully!')
+          setShowUploadModal(false)
+          setUploadForm({
+            title: '',
+            description: '',
+            type: 'image',
+            category: 'other',
+            date: new Date().toISOString().split('T')[0]
+          })
+          setSelectedFile(null)
+          setPreviewUrl('')
+          fetchMedia()
+        } else {
+          setError(data.error || 'Failed to upload media')
+        }
+      } else {
+        // Edit mode - update without file
+        const response = await fetch(`/api/media?id=${editingMedia!._id}`, {
+          method: 'PUT',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(uploadForm)
+        })
+
+        const data = await response.json()
+
+        if (data.success) {
+          setSuccess('Media updated successfully!')
+          setShowUploadModal(false)
+          fetchMedia()
+        } else {
+          setError(data.error || 'Failed to update media')
+        }
       }
     } catch (error) {
       console.error('Upload error:', error)
+      setError('An error occurred')
     } finally {
       setUploading(false)
     }
@@ -175,12 +255,15 @@ export default function MediaPage() {
               placeholder="Search media..."
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
+              className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent w-64"
             />
           </div>
           <select
             value={typeFilter}
-            onChange={(e) => setTypeFilter(e.target.value)}
+            onChange={(e) => {
+              setTypeFilter(e.target.value)
+              setPagination(prev => ({ ...prev, page: 1 }))
+            }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
           >
             <option value="">All Types</option>
@@ -190,7 +273,10 @@ export default function MediaPage() {
           </select>
           <select
             value={categoryFilter}
-            onChange={(e) => setCategoryFilter(e.target.value)}
+            onChange={(e) => {
+              setCategoryFilter(e.target.value)
+              setPagination(prev => ({ ...prev, page: 1 }))
+            }}
             className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
           >
             <option value="">All Categories</option>
@@ -199,9 +285,15 @@ export default function MediaPage() {
             <option value="ministry">Ministry</option>
             <option value="other">Other</option>
           </select>
+          <button
+            onClick={fetchMedia}
+            className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-red-700 transition duration-300"
+          >
+            Search
+          </button>
         </div>
         <button
-          onClick={() => setShowUploadModal(true)}
+          onClick={openCreateModal}
           className="flex items-center px-4 py-2 bg-accent text-white rounded-lg hover:bg-red-700 transition duration-300"
         >
           <Upload className="h-5 w-5 mr-2" />
@@ -265,7 +357,7 @@ export default function MediaPage() {
                   ) : (
                     <FileText className="h-16 w-16 text-gray-400" />
                   )}
-                  <div className="absolute top-2 right-2">
+                  <div className="absolute top-2 right-2 bg-white rounded-full p-1 shadow">
                     {getTypeIcon(item.type)}
                   </div>
                 </div>
@@ -290,6 +382,13 @@ export default function MediaPage() {
                       View
                     </a>
                     <button
+                      onClick={() => openEditModal(item)}
+                      className="flex items-center text-blue-600 hover:text-blue-700"
+                    >
+                      <Edit className="h-4 w-4 mr-1" />
+                      Edit
+                    </button>
+                    <button
                       onClick={() => handleDelete(item._id)}
                       className="flex items-center text-red-500 hover:text-red-700"
                     >
@@ -309,7 +408,7 @@ export default function MediaPage() {
               <h3 className="text-xl font-bold mb-2">No media found</h3>
               <p className="text-gray-600 mb-4">Upload your first media file to get started</p>
               <button
-                onClick={() => setShowUploadModal(true)}
+                onClick={openCreateModal}
                 className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-red-700 transition duration-300"
               >
                 Upload Media
@@ -338,12 +437,14 @@ export default function MediaPage() {
         </>
       )}
 
-      {/* Upload Modal */}
+      {/* Create/Edit Modal */}
       {showUploadModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
           <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4">
             <div className="flex justify-between items-center p-4 border-b">
-              <h2 className="text-xl font-bold">Upload Media</h2>
+              <h2 className="text-xl font-bold">
+                {modalMode === 'create' ? 'Upload Media' : 'Edit Media'}
+              </h2>
               <button
                 onClick={() => {
                   setShowUploadModal(false)
@@ -357,53 +458,89 @@ export default function MediaPage() {
             </div>
             
             <form onSubmit={handleUpload} className="p-4">
-              {/* File Drop */}
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-gray-700 mb-2">
-                  File
-                </label>
-                <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-accent transition duration-300">
-                  {previewUrl ? (
-                    <div className="relative">
-                      {uploadForm.type === 'image' ? (
-                        <img src={previewUrl} alt="Preview" className="max-h-48 mx-auto rounded" />
-                      ) : uploadForm.type === 'video' ? (
-                        <video src={previewUrl} className="max-h-48 mx-auto rounded" />
-                      ) : (
-                        <FileText className="h-16 w-16 text-gray-400 mx-auto" />
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setSelectedFile(null)
-                          setPreviewUrl('')
-                        }}
-                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
-                      >
-                        <X className="h-4 w-4" />
-                      </button>
-                    </div>
-                  ) : (
-                    <>
-                      <Upload className="h-12 w-12 text-gray-400 mx-auto mb-2" />
-                      <p className="text-gray-600 mb-2">Click or drag file to upload</p>
-                      <input
-                        type="file"
-                        accept="image/*,video/*,.pdf,.doc,.docx"
-                        onChange={handleFileChange}
-                        className="hidden"
-                        id="file-input"
-                      />
-                      <label
-                        htmlFor="file-input"
-                        className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg cursor-pointer hover:bg-gray-200"
-                      >
-                        Choose File
-                      </label>
-                    </>
-                  )}
+              {/* Error/Success Messages */}
+              {error && (
+                <div className="mb-4 p-3 bg-red-50 border border-red-200 text-red-700 rounded-lg">
+                  {error}
                 </div>
-              </div>
+              )}
+              
+              {success && (
+                <div className="mb-4 p-3 bg-green-50 border border-green-200 text-green-700 rounded-lg">
+                  {success}
+                </div>
+              )}
+
+              {/* File Drop - Create mode only */}
+              {modalMode === 'create' && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    File
+                  </label>
+                  <div className="border-2 border-dashed border-gray-300 rounded-lg p-6 text-center hover:border-accent transition duration-300">
+                    {previewUrl ? (
+                      <div className="relative">
+                        {uploadForm.type === 'image' ? (
+                          <img src={previewUrl} alt="Preview" className="max-h-48 mx-auto rounded" />
+                        ) : uploadForm.type === 'video' ? (
+                          <video src={previewUrl} className="max-h-48 mx-auto rounded" />
+                        ) : (
+                          <FileText className="h-16 w-16 text-gray-400 mx-auto" />
+                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedFile(null)
+                            setPreviewUrl('')
+                          }}
+                          className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                        >
+                          <X className="h-4 w-4" />
+                        </button>
+                      </div>
+                    ) : (
+                      <>
+                        <Upload className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                        <p className="text-gray-600 mb-2">Click or drag file to upload</p>
+                        <input
+                          type="file"
+                          accept="image/*,video/*,.pdf,.doc,.docx"
+                          onChange={handleFileChange}
+                          className="hidden"
+                          id="file-input"
+                        />
+                        <label
+                          htmlFor="file-input"
+                          className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg cursor-pointer hover:bg-gray-200"
+                        >
+                          Choose File
+                        </label>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
+
+              {/* Preview - Edit mode */}
+              {modalMode === 'edit' && previewUrl && (
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">
+                    Current File
+                  </label>
+                  <div className="border-2 border-gray-200 rounded-lg p-4">
+                    {editingMedia?.type === 'image' ? (
+                      <img src={previewUrl} alt="Preview" className="max-h-48 mx-auto rounded" />
+                    ) : editingMedia?.type === 'video' ? (
+                      <video src={previewUrl} className="max-h-48 mx-auto rounded" />
+                    ) : (
+                      <div className="text-center py-4">
+                        <FileText className="h-12 w-12 text-gray-400 mx-auto mb-2" />
+                        <p className="text-gray-600">{editingMedia?.title}</p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
 
               {/* Title */}
               <div className="mb-4">
@@ -498,11 +635,11 @@ export default function MediaPage() {
                 </button>
                 <button
                   type="submit"
-                  disabled={!selectedFile || !uploadForm.title || uploading}
+                  disabled={uploading || (modalMode === 'create' && !selectedFile)}
                   className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-red-700 disabled:bg-gray-300 disabled:cursor-not-allowed flex items-center"
                 >
                   {uploading && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
-                  {uploading ? 'Uploading...' : 'Upload'}
+                  {uploading ? 'Saving...' : (modalMode === 'create' ? 'Upload' : 'Save Changes')}
                 </button>
               </div>
             </form>

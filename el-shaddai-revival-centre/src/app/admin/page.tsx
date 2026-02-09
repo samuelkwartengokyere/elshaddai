@@ -285,27 +285,27 @@ export default function AdminDashboard() {
           <Plus className="h-5 w-5 mr-3" />
           Upload New Sermon
         </Link>
-        <Link
-          href="/admin/events/create"
+        <button
+          onClick={() => window.open('/admin/events', '_self')}
           className="flex items-center p-4 bg-green-600 text-white rounded-lg hover:bg-green-700 transition duration-300"
         >
           <Plus className="h-5 w-5 mr-3" />
           Create New Event
-        </Link>
-        <Link
-          href="/admin/testimonies/create"
+        </button>
+        <button
+          onClick={() => window.open('/admin/testimonies', '_self')}
           className="flex items-center p-4 bg-orange-500 text-white rounded-lg hover:bg-orange-600 transition duration-300"
         >
           <Plus className="h-5 w-5 mr-3" />
           Add Testimony
-        </Link>
-        <Link
-          href="/admin/teams/create"
+        </button>
+        <button
+          onClick={() => window.open('/admin/teams', '_self')}
           className="flex items-center p-4 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
         >
           <Plus className="h-5 w-5 mr-3" />
           Add Team Member
-        </Link>
+        </button>
       </div>
 
       {/* Recent Activity */}

@@ -110,3 +110,55 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PUT(request: NextRequest) {
+  try {
+    const dbConnection = await connectDB()
+    
+    if (!dbConnection) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      )
+    }
+    
+    const body = await request.json()
+    const memberId = request.nextUrl.searchParams.get('id')
+    
+    if (!memberId) {
+      return NextResponse.json(
+        { error: 'Team member ID is required' },
+        { status: 400 }
+      )
+    }
+    
+    const updatedMember = await TeamMember.findByIdAndUpdate(
+      memberId,
+      {
+        ...body,
+        updatedAt: new Date()
+      },
+      { new: true, runValidators: true }
+    )
+    
+    if (!updatedMember) {
+      return NextResponse.json(
+        { error: 'Team member not found' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      teamMember: updatedMember,
+      message: 'Team member updated successfully'
+    })
+
+  } catch (error) {
+    console.error('Error updating team member:', error)
+    return NextResponse.json(
+      { error: 'Failed to update team member' },
+      { status: 500 }
+    )
+  }
+}
+
