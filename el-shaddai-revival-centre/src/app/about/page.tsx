@@ -164,32 +164,21 @@ export default async function AboutPage() {
               <Church className="h-12 w-12 text-accent mx-auto mb-4" />
               <h2 className="text-4xl font-bold mb-4">Our Story</h2>
               <p className="text-gray-600 text-lg">
-                From humble beginnings to a thriving community of believers
+                A place of prayer and spiritual renewal
               </p>
             </div>
             
             <div className="prose max-w-none">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-12 items-center">
                 <div>
-                  <h3 className="text-2xl font-bold mb-4">Humble Beginnings</h3>
-                  <p className="text-gray-600 mb-4">
-                    El-Shaddai Revival Centre was founded in 1985 by a small group of believers who had a vision 
-                    to create a place where everyone could experience God&apos;s love and grace. 
-                    What started as a Bible study in a local living room has grown into a vibrant 
-                    community of thousands.
-                  </p>
-                  <p className="text-gray-600 mb-4">
-                    Over the decades, we have remained true to our founding principles while 
-                    embracing growth and change. Our sanctuary has expanded, our ministries 
-                    have multiplied, but our heart for God and people has never changed.
-                  </p>
-                  <p className="text-gray-600">
-                    Today, El-Shaddai Revival Centre continues to be a beacon of hope in our community, 
-                    welcoming all who seek a deeper relationship with God and meaningful 
-                    connections with others.
-                  </p>
+                  <p className="text-gray-600 mb-4">The El-Shaddai Revival Centre in Odumasi District in Konongo Area, with Elder Godfred Asare as the leader, is one of the approved prayer centres of the Church of Pentecost (COP). The Centre was established in the year 2011 as a place of prayer.</p>
+                  <p className="text-gray-600 mb-4">The purpose was to organize, encourage, facilitate, and enhance powerful and effective prayer to help integrate prayer activities into the total life of the Church. This is done by motivating people to pray, teaching them what to do to develop and deepen their prayer life, and providing a place for them to experience genuine encounter with God.</p>
+                  <p className="text-gray-600 mb-4">The Centre is a place for prayer and meditation on the Word of God. It also provides a tranquil and peaceful environment for deep life reflections and prayer. Furthermore, the Centre provides an opportunity to meet God in the beauty of the quiet, clean and natural surroundings, which amplify His presence. A visit to the Centre is an opportunity to set aside time from the stress and strain of daily life, to renew oneself, and to deepen one's relationship with God.</p>
+                  <p className="text-gray-600 mb-4">The El- Shaddai Revival Centre organises Prayer Meetings, One- on –One Meetings and Revivals to help people on their spiritual journey. The Centre has events throughout the year, but people are also welcome to stay for a private retreat or quiet day.</p>
+                  <p className="text-gray-600 mb-4">The Centre welcomes Christians of all denominations and people of good will.</p>
+                  <p className="text-gray-600">The El-Shaddai Revival Centre is located at Ohene Nkwanta, about 8 kilometres from Konongo, on the Accra- Kumasi highway. It is situated about 100 metres on the right hand side off the highway from Konongo.</p>
                 </div>
-                <div className="bg-gray-200 rounded-xl h-80 flex items-center justify-center relative overflow-hidden">
+                <div className="bg-gray-200 rounded-xl h-140 flex items-center justify-center relative overflow-hidden">
                   <div className="absolute inset-0 bg-gradient-to-br from-primary/20 to-secondary/20"></div>
                   <span className="text-gray-400 text-lg relative z-10">[Church History Image]</span>
                 </div>
@@ -289,8 +278,8 @@ export default async function AboutPage() {
                 Dedicated servants leading our church family
               </p>
             </div>
-            
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-8">
+
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
               {displayTeam.map((leader, index) => (
                 <div key={leader._id || index} className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition duration-300">
                   <div className="bg-gray-200 h-64 flex items-center justify-center relative overflow-hidden">
@@ -381,7 +370,7 @@ export default async function AboutPage() {
                 <MapPin className="h-10 w-10 text-accent mx-auto mb-4" />
                 <h3 className="text-xl font-bold mb-2">Location</h3>
                 <p className="text-gray-600">
-                  Nabewam, Ghana
+                  Ohene Nkwanta, Konongo, Ghana
                 </p>
               </div>
               
