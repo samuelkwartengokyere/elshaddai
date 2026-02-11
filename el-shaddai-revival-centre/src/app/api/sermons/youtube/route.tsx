@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/database'
 import Settings from '@/models/Settings'
-import { fetchChannelDetails, fetchChannelVideos, youTubeVideoToSermon } from '@/lib/youtube'
+import { fetchChannelDetails, fetchChannelVideos, youTubeVideoToSermon, extractChannelId, getChannelIdFromUsername } from '@/lib/youtube'
 
 // In-memory cache for YouTube videos (for development without MongoDB)
 let cachedYouTubeVideos: any[] = []
@@ -29,15 +29,39 @@ export async function GET(request: NextRequest) {
     // Check if YouTube is configured
     const youtubeConfig = settings?.youtube || {
       channelId: '',
+      channelUrl: '',
       apiKey: ''
     }
 
-    if (!youtubeConfig.channelId) {
+    // Check if we have either channelId or channelUrl
+    const hasChannelConfig = youtubeConfig.channelId || youtubeConfig.channelUrl
+
+    if (!hasChannelConfig) {
       return NextResponse.json({
         success: false,
         error: 'YouTube channel not configured',
         videos: [],
         configured: false
+      }, { status: 400 })
+    }
+
+    // Get effective channel ID (extract from URL if needed)
+    let effectiveChannelId = youtubeConfig.channelId
+    
+    if (!effectiveChannelId && youtubeConfig.channelUrl) {
+      const extractedId = extractChannelId(youtubeConfig.channelUrl)
+      if (extractedId) {
+        effectiveChannelId = extractedId
+      }
+    }
+
+    if (!effectiveChannelId) {
+      return NextResponse.json({
+        success: false,
+        error: 'Could not extract channel ID from configuration',
+        videos: [],
+        configured: true,
+        needsChannelId: true
       }, { status: 400 })
     }
 
@@ -59,7 +83,7 @@ export async function GET(request: NextRequest) {
     // Fetch videos from YouTube
     if (youtubeConfig.apiKey) {
       const videos = await fetchChannelVideos(
-        youtubeConfig.channelId,
+        effectiveChannelId,
         youtubeConfig.apiKey,
         { maxResults: 50 }
       )
@@ -116,10 +140,51 @@ export async function POST(request: NextRequest) {
     
     const { channelId, apiKey, channelUrl } = body
 
-    if (!channelId) {
+    // If channelUrl is provided but channelId is not, try to extract channel ID from URL
+    let finalChannelId = channelId
+    
+    if (!finalChannelId && channelUrl) {
+      // Try to extract channel ID from URL (for /channel/ URLs)
+      const extractedId = extractChannelId(channelUrl)
+      if (extractedId) {
+        finalChannelId = extractedId
+      } else if (apiKey) {
+        // For @username, /c/, or /user/ URLs, need to use API to get channel ID
+        // Extract the username part from various URL formats
+        const atMatch = channelUrl.match(/youtube\.com\/@([a-zA-Z0-9_-]+)/)
+        const cMatch = channelUrl.match(/youtube\.com\/c\/([a-zA-Z0-9_-]+)/)
+        const userMatch = channelUrl.match(/youtube\.com\/user\/([a-zA-Z0-9_-]+)/)
+        
+        const usernameMatch = atMatch || cMatch || userMatch
+        
+        if (usernameMatch) {
+          finalChannelId = await getChannelIdFromUsername(usernameMatch[1], apiKey)
+        }
+      }
+    }
+
+    if (!finalChannelId) {
+      // Check if it's a username URL that needs API key
+      const isUsernameUrl = channelUrl && (
+        channelUrl.includes('/@') || 
+        channelUrl.includes('/c/') || 
+        channelUrl.includes('/user/')
+      )
+      
+      if (isUsernameUrl && !apiKey) {
+        return NextResponse.json({
+          success: false,
+          error: 'YouTube API key is required when using @username or custom URL format. Please add your API key to enable video sync.',
+          videosSynced: 0,
+          needsApiKey: true
+        }, { status: 400 })
+      }
+      
       return NextResponse.json({
         success: false,
-        error: 'Channel ID is required'
+        error: 'Could not extract channel ID from the provided URL. Please provide a valid YouTube Channel ID (UC...) or Channel URL.',
+        videosSynced: 0,
+        needsChannelId: true
       }, { status: 400 })
     }
 
@@ -128,8 +193,8 @@ export async function POST(request: NextRequest) {
       await Settings.findOneAndUpdate(
         {},
         {
-          'youtube.channelId': channelId,
-          'youtube.channelUrl': channelUrl || `https://www.youtube.com/channel/${channelId}`,
+          'youtube.channelId': finalChannelId,
+          'youtube.channelUrl': channelUrl || `https://www.youtube.com/channel/${finalChannelId}`,
           'youtube.apiKey': apiKey || '',
           'youtube.syncStatus': 'syncing',
           'youtube.syncError': ''
@@ -162,10 +227,10 @@ export async function POST(request: NextRequest) {
     }
 
     // Fetch channel details first
-    const channelDetails = await fetchChannelDetails(channelId, apiKey)
+    const channelDetails = await fetchChannelDetails(finalChannelId, apiKey)
     
     // Fetch videos
-    const videos = await fetchChannelVideos(channelId, apiKey, { maxResults: 50 })
+    const videos = await fetchChannelVideos(finalChannelId, apiKey, { maxResults: 50 })
     const sermonVideos = videos.map(youTubeVideoToSermon)
 
     // Update cache
@@ -178,8 +243,8 @@ export async function POST(request: NextRequest) {
         {},
         {
           'youtube.channelName': channelDetails?.title || '',
-          'youtube.channelId': channelId,
-          'youtube.channelUrl': channelUrl || `https://www.youtube.com/channel/${channelId}`,
+          'youtube.channelId': finalChannelId,
+          'youtube.channelUrl': channelUrl || `https://www.youtube.com/channel/${finalChannelId}`,
           'youtube.apiKey': apiKey,
           'youtube.lastSync': new Date(),
           'youtube.syncStatus': 'success',

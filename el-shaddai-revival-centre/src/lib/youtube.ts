@@ -51,22 +51,46 @@ export function extractVideoId(url: string): string | null {
 
 /**
  * Extract channel ID from YouTube URL
+ * Returns the actual channel ID (UC...) or null if URL requires API lookup
  */
 export function extractChannelId(url: string): string | null {
-  const patterns = [
-    /youtube\.com\/channel\/([a-zA-Z0-9_-]+)/,
-    /youtube\.com\/@([a-zA-Z0-9_-]+)/,
-    /youtube\.com\/c\/([a-zA-Z0-9_-]+)/,
-    /youtube\.com\/user\/([a-zA-Z0-9_-]+)/
-  ]
-
-  for (const pattern of patterns) {
-    const match = url.match(pattern)
-    if (match) {
-      return match[1]
-    }
+  // Direct channel ID format (UC...)
+  if (/^[a-zA-Z0-9_-]{22,24}$/.test(url)) {
+    return url
   }
+
+  // Extract channel ID from /channel/ URLs (UC...)
+  const channelMatch = url.match(/youtube\.com\/channel\/([a-zA-Z0-9_-]+)/)
+  if (channelMatch) {
+    return channelMatch[1]
+  }
+
+  // For @username, /c/, or /user/ URLs, we need to call API to get channel ID
+  // Return null so the caller knows to use getChannelIdFromUsername
   return null
+}
+
+/**
+ * Get channel ID from username using YouTube API
+ */
+export async function getChannelIdFromUsername(username: string, apiKey: string): Promise<string | null> {
+  try {
+    const response = await axios.get(`${YOUTUBE_API_BASE_URL}/channels`, {
+      params: {
+        part: 'id',
+        forHandle: username.replace('@', ''),
+        key: apiKey
+      }
+    })
+
+    if (response.data.items && response.data.items.length > 0) {
+      return response.data.items[0].id
+    }
+    return null
+  } catch (error) {
+    console.error('Error getting channel ID from username:', error)
+    return null
+  }
 }
 
 /**
