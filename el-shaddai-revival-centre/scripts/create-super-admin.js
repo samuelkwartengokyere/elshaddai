@@ -3,8 +3,8 @@
  * Run with: node scripts/create-super-admin.js
  */
 
-const mongoose = require('mongoose')
-const bcrypt = require('bcryptjs')
+import mongoose from 'mongoose'
+import bcrypt from 'bcryptjs'
 
 // MongoDB connection string
 const MONGODB_URI = process.env.MONGODB_URI || 'mongodb://localhost:27017/elshaddai-revival'

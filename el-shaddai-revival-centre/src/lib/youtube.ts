@@ -127,21 +127,51 @@ export function durationToSeconds(duration: string): number {
 }
 
 /**
+ * YouTube API response interfaces
+ */
+interface YouTubeAPIResponseItem {
+  id?: { videoId?: string } | string
+  snippet?: {
+    title?: string
+    description?: string
+    thumbnails?: {
+      high?: { url?: string }
+      medium?: { url?: string }
+      default?: { url?: string }
+    }
+    channelTitle?: string
+    publishedAt?: string
+  }
+  contentDetails?: {
+    duration?: string
+    videoId?: string
+  }
+  statistics?: {
+    viewCount?: string
+  }
+}
+
+/**
  * Transform YouTube API response to our Sermon format
  */
-export function transformYouTubeVideo(video: any): YouTubeVideo {
-  const videoId = video.id?.videoId || video.id
-  const snippet = video.snippet || video
+export function transformYouTubeVideo(video: YouTubeAPIResponseItem): YouTubeVideo {
+  let videoId = ''
+  if (typeof video.id === 'object' && video.id !== null) {
+    videoId = video.id.videoId || ''
+  } else if (typeof video.id === 'string') {
+    videoId = video.id
+  }
+  const snippet = video.snippet || {}
 
   return {
     id: videoId,
-    title: snippet.title,
-    description: snippet.description,
+    title: snippet.title || '',
+    description: snippet.description || '',
     thumbnailUrl: snippet.thumbnails?.high?.url || snippet.thumbnails?.medium?.url || snippet.thumbnails?.default?.url || '',
     videoUrl: `https://www.youtube.com/watch?v=${videoId}`,
     embedUrl: `https://www.youtube.com/embed/${videoId}`,
-    channelTitle: snippet.channelTitle,
-    publishedAt: snippet.publishedAt,
+    channelTitle: snippet.channelTitle || '',
+    publishedAt: snippet.publishedAt || '',
     duration: video.contentDetails?.duration || '',
     durationSeconds: video.contentDetails?.duration ? durationToSeconds(video.contentDetails.duration) : 0,
     viewCount: video.statistics?.viewCount || '0'
@@ -225,7 +255,8 @@ export async function fetchChannelVideos(
     })
 
     const videoIds = playlistResponse.data.items
-      .map((item: any) => item.contentDetails.videoId)
+      .map((item: { contentDetails?: { videoId?: string } }) => item.contentDetails?.videoId || '')
+      .filter(Boolean)
       .join(',')
 
     if (!videoIds) return []
@@ -261,7 +292,7 @@ export async function searchVideos(
   const { maxResults = 20, order = 'date', channelId } = options
 
   try {
-    const searchParams: any = {
+    const searchParams: Record<string, string | number | boolean | undefined> = {
       part: 'snippet',
       q: query,
       maxResults,
@@ -279,7 +310,14 @@ export async function searchVideos(
     })
 
     const videoIds = response.data.items
-      .map((item: any) => item.id.videoId)
+      .map((item: { id?: { videoId?: string } | string }) => {
+        const idValue = item.id
+        if (typeof idValue === 'object' && idValue !== null) {
+          return idValue.videoId || ''
+        }
+        return idValue || ''
+      })
+      .filter((id: string) => id.length > 0)
       .join(',')
 
     if (!videoIds) return []

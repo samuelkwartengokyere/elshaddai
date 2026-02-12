@@ -3,8 +3,36 @@ import connectDB from '@/lib/database'
 import Settings from '@/models/Settings'
 import { fetchChannelDetails, fetchChannelVideos, youTubeVideoToSermon, extractChannelId, getChannelIdFromUsername } from '@/lib/youtube'
 
+// YouTube cache type
+interface YouTubeCacheItem {
+  id: string
+  _id?: string
+  title: string
+  speaker: string
+  date: string
+  description: string
+  thumbnail: string
+  videoUrl: string
+  embedUrl: string
+  audioUrl: string | null
+  duration: string
+  durationSeconds: number
+  series: string | null
+  biblePassage: string | null
+  tags: string[]
+  isYouTube: boolean
+  viewCount: string
+}
+
+// YouTube config type
+interface YouTubeConfigType {
+  channelId?: string
+  channelUrl?: string
+  apiKey?: string
+}
+
 // In-memory cache for YouTube videos (for development without MongoDB)
-let cachedYouTubeVideos: any[] = []
+let cachedYouTubeVideos: YouTubeCacheItem[] = []
 let lastCacheUpdate: Date | null = null
 const CACHE_DURATION_MS = 5 * 60 * 1000 // 5 minutes
 
@@ -16,25 +44,25 @@ export async function GET(request: NextRequest) {
     const forceRefresh = searchParams.get('refresh') === 'true'
     
     // Get settings
-    let settings: any = null
+    let settings: Record<string, unknown> | null = null
     
     if (dbConnection) {
       try {
-        settings = await Settings.findOne().lean()
+        settings = await Settings.findOne().lean() as Record<string, unknown> | null
       } catch (error) {
         console.error('Database error:', error)
       }
     }
 
     // Check if YouTube is configured
-    const youtubeConfig = settings?.youtube || {
+    const youtubeConfig = (settings?.youtube as YouTubeConfigType) || {
       channelId: '',
       channelUrl: '',
       apiKey: ''
     }
 
     // Check if we have either channelId or channelUrl
-    const hasChannelConfig = youtubeConfig.channelId || youtubeConfig.channelUrl
+    const hasChannelConfig = !!(youtubeConfig.channelId || youtubeConfig.channelUrl)
 
     if (!hasChannelConfig) {
       return NextResponse.json({
@@ -46,7 +74,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get effective channel ID (extract from URL if needed)
-    let effectiveChannelId = youtubeConfig.channelId
+    let effectiveChannelId = youtubeConfig.channelId || ''
     
     if (!effectiveChannelId && youtubeConfig.channelUrl) {
       const extractedId = extractChannelId(youtubeConfig.channelUrl)
@@ -141,7 +169,7 @@ export async function POST(request: NextRequest) {
     const { channelId, apiKey, channelUrl } = body
 
     // If channelUrl is provided but channelId is not, try to extract channel ID from URL
-    let finalChannelId = channelId
+    let finalChannelId = channelId || ''
     
     if (!finalChannelId && channelUrl) {
       // Try to extract channel ID from URL (for /channel/ URLs)

@@ -29,10 +29,11 @@ async function verifyToken(token: string): Promise<JWTPayload | null> {
     const { payload } = await jwtVerify(token, secretKey)
     console.log('[Auth Debug] Token decoded successfully:', { adminId: payload.adminId, email: payload.email, role: payload.role })
     return payload as unknown as JWTPayload
-  } catch (error: any) {
+  } catch (error) {
+    const jwtError = error as { message?: string; code?: string }
     console.error('[Auth Debug] Token verification failed:', {
-      message: error.message,
-      code: error.code
+      message: jwtError.message,
+      code: jwtError.code
     })
     return null
   }

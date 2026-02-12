@@ -884,18 +884,18 @@ export default function AdminSettings() {
       {activeTab === 'profile' && currentUser && (
         <div className="max-w-4xl mx-auto">
           {currentUser.role === 'super_admin' ? (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
-              <div className="flex items-start">
-                <Shield className="h-5 w-5 text-yellow-500 mr-3 mt-0.5" />
-                <div>
-                  <h3 className="text-sm font-medium text-yellow-700">Super Admin Account</h3>
-                  <p className="text-sm text-yellow-600 mt-1">
-                    As a super admin, your profile is managed centrally and cannot be modified here.
-                    Your name is displayed as "Admin" across the system.
-                  </p>
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
+                <div className="flex items-start">
+                  <Shield className="h-5 w-5 text-yellow-500 mr-3 mt-0.5" />
+                  <div>
+                    <h3 className="text-sm font-medium text-yellow-700">Super Admin Account</h3>
+                    <p className="text-sm text-yellow-600 mt-1">
+                      As a super admin, your profile is managed centrally and cannot be modified here.
+                      Your name is displayed as "Admin" across the system.
+                    </p>
+                  </div>
                 </div>
               </div>
-            </div>
           ) : (
             <div className="bg-white rounded-xl shadow-md p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center">

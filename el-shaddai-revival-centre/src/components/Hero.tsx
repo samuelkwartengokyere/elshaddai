@@ -64,7 +64,7 @@ export default function Hero() {
           className="text-xl mb-8 max-w-2xl mx-auto"
           variants={itemVariants}
         >
-          Join us as we worship, grow, and serve together in Christ's love
+          Join us as we worship, grow, and serve together in Christ&apos;s love
         </motion.p>
         <motion.div
           className="flex flex-col sm:flex-row gap-4 justify-center"

@@ -234,7 +234,8 @@ export function getAuthToken(request: Request): string | null {
   // Fallback: try to get from cookies directly (for Next.js 14+)
   if ('cookies' in request) {
     try {
-      return (request as any).cookies.get(COOKIE_NAME)?.value || null
+      const requestWithCookies = request as { cookies?: { get: (name: string) => { value: string } | undefined } }
+      return requestWithCookies.cookies?.get(COOKIE_NAME)?.value || null
     } catch {
       return null
     }
@@ -260,7 +261,8 @@ export function getRefreshToken(request: Request): string | null {
 
   if ('cookies' in request) {
     try {
-      return (request as any).cookies.get('admin_refresh_token')?.value || null
+      const requestWithCookies = request as { cookies?: { get: (name: string) => { value: string } | undefined } }
+      return requestWithCookies.cookies?.get('admin_refresh_token')?.value || null
     } catch {
       return null
     }

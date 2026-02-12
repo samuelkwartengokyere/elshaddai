@@ -13,8 +13,19 @@ const defaultSettings = {
 }
 
 // In-memory fallback storage (for development without MongoDB)
-let inMemorySettings = { ...defaultSettings }
-let inMemoryYouTubeSettings = {
+let inMemorySettings: Record<string, unknown> = { ...defaultSettings }
+type YouTubeSyncStatus = 'idle' | 'syncing' | 'success' | 'error'
+let inMemoryYouTubeSettings: {
+  channelId: string
+  channelName: string
+  channelUrl: string
+  apiKey: string
+  autoSync: boolean
+  syncInterval: number
+  lastSync: Date | null
+  syncStatus: YouTubeSyncStatus
+  syncError: string
+} = {
   channelId: '',
   channelName: '',
   channelUrl: '',
@@ -22,7 +33,7 @@ let inMemoryYouTubeSettings = {
   autoSync: false,
   syncInterval: 6,
   lastSync: null,
-  syncStatus: 'idle' as const,
+  syncStatus: 'idle',
   syncError: ''
 }
 
@@ -37,17 +48,18 @@ function setInMemorySettings(settings: Partial<typeof defaultSettings>) {
   inMemorySettings = { ...inMemorySettings, ...settings }
 }
 
-function setInMemoryYouTubeSettings(youtube: any) {
+function setInMemoryYouTubeSettings(youtube: Record<string, unknown> | undefined) {
+  const yt = youtube ?? {}
   inMemoryYouTubeSettings = {
-    channelId: youtube?.channelId || '',
-    channelName: youtube?.channelName || '',
-    channelUrl: youtube?.channelUrl || '',
-    apiKey: youtube?.apiKey || '',
-    autoSync: youtube?.autoSync || false,
-    syncInterval: youtube?.syncInterval || 6,
-    lastSync: youtube?.lastSync || null,
-    syncStatus: youtube?.syncStatus || 'idle',
-    syncError: youtube?.syncError || ''
+    channelId: (yt.channelId as string) ?? '',
+    channelName: (yt.channelName as string) ?? '',
+    channelUrl: (yt.channelUrl as string) ?? '',
+    apiKey: (yt.apiKey as string) ?? '',
+    autoSync: (yt.autoSync as boolean) ?? false,
+    syncInterval: (yt.syncInterval as number) ?? 6,
+    lastSync: yt.lastSync && typeof yt.lastSync === 'object' && 'toISOString' in yt.lastSync ? yt.lastSync as unknown as Date : null,
+    syncStatus: (yt.syncStatus as YouTubeSyncStatus) ?? 'idle',
+    syncError: (yt.syncError as string) ?? ''
   }
 }
 

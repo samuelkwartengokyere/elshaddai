@@ -6,6 +6,27 @@ import Settings from '@/models/Settings'
 // Add AbortController for timeout
 const TIMEOUT_MS = 5000
 
+// Define YouTube video type
+interface YouTubeVideo {
+  id: string
+  _id?: string
+  title: string
+  speaker: string
+  date: string
+  description: string
+  thumbnail: string
+  videoUrl: string
+  embedUrl: string
+  audioUrl: string | null
+  duration: string
+  durationSeconds: number
+  series: string | null
+  biblePassage: string | null
+  tags: string[]
+  isYouTube: boolean
+  viewCount: string
+}
+
 export async function GET(request: NextRequest) {
   const controller = new AbortController()
   const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
@@ -16,8 +37,8 @@ export async function GET(request: NextRequest) {
     const includeYouTube = searchParams.get('youtube') !== 'false'
     const forceRefresh = searchParams.get('refresh') === 'true'
     
-    let sermons: any[] = []
-    let youtubeVideos: any[] = []
+    let sermons: Record<string, unknown>[] = []
+    let youtubeVideos: YouTubeVideo[] = []
     let total = 0
     let youtubeTotal = 0
 
@@ -53,13 +74,15 @@ export async function GET(request: NextRequest) {
       }
 
       // Execute query with abort signal
-      sermons = await Sermon.find(query)
+      const sermonResults = await Sermon.find(query)
         .sort(sort as string)
         .skip(skip)
         .limit(limit)
         .lean()
         .collation({ locale: 'en', strength: 2 })
         .maxTimeMS(TIMEOUT_MS - 1000)
+
+      sermons = sermonResults.map(s => ({ ...s, source: 'database', date: s.date?.toString() || new Date().toISOString() }))
 
       total = await Sermon.countDocuments(query)
         .maxTimeMS(TIMEOUT_MS - 1000)
@@ -79,7 +102,7 @@ export async function GET(request: NextRequest) {
         if (ytResponse.ok) {
           const ytData = await ytResponse.json()
           if (ytData.success && ytData.videos) {
-            youtubeVideos = ytData.videos
+            youtubeVideos = ytData.videos.map((v: YouTubeVideo) => ({ ...v, source: 'youtube' }))
             youtubeTotal = ytData.videos.length
           }
         }
@@ -89,9 +112,15 @@ export async function GET(request: NextRequest) {
     }
 
     // Combine and sort sermons (database + YouTube)
-    const combinedSermons = [
-      ...sermons.map(s => ({ ...s, source: 'database' })),
-      ...youtubeVideos.map(v => ({ ...v, source: 'youtube' }))
+    interface SermonItem {
+      source: string
+      date: string
+      [key: string]: unknown
+    }
+
+    const combinedSermons: SermonItem[] = [
+      ...sermons as SermonItem[],
+      ...youtubeVideos.map(v => ({ ...v, source: 'youtube' }) as SermonItem)
     ]
 
     // Sort by date (newest first)

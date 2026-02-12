@@ -8,7 +8,7 @@ const isBuildTime = process.env.NODE_ENV === 'production' &&
 
 interface MongooseCache {
   conn: typeof mongoose | null
-  promise: Promise<typeof mongoose> | null
+  promise: Promise<typeof mongoose | null> | null
   lastConnectionAttempt: number
   connectionRetries: number
 }
@@ -83,13 +83,13 @@ async function connectDB(): Promise<typeof mongoose | null> {
       console.log('✅ Database connected successfully')
       cached.connectionRetries = 0 // Reset retries on success
       return mongoose
-    }).catch((error) => {
+    }).catch((error: Error) => {
       console.error(`❌ Database connection failed (attempt ${cached.connectionRetries}/${MAX_RETRIES}):`, error.message)
       
       // Don't throw on last retry - return null instead
       if (cached.connectionRetries >= MAX_RETRIES) {
         console.error('Max connection retries reached, continuing without database')
-        return null as any
+        return null
       }
       
       throw error

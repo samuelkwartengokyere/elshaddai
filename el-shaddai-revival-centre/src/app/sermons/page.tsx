@@ -1,7 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import SermonCard from '@/components/SermonCard'
-import { Search, Filter, Loader2, Youtube, Database } from 'lucide-react'
+import { Search, Filter, Loader2, Database, Youtube } from 'lucide-react'
 
 interface Sermon {
   _id: string
@@ -21,6 +21,15 @@ interface Sermon {
   source?: 'youtube' | 'database'
 }
 
+interface Settings {
+  youtube?: {
+    channelId?: string
+    channelUrl?: string
+    apiKey?: string
+    configured?: boolean
+  }
+}
+
 export default function SermonsPage() {
   const [sermons, setSermons] = useState<Sermon[]>([])
   const [loading, setLoading] = useState(true)
@@ -33,9 +42,25 @@ export default function SermonsPage() {
     total: 0,
     totalPages: 0
   })
-  const [youtubeCount, setYoutubeCount] = useState(0)
   const [databaseCount, setDatabaseCount] = useState(0)
+  const [youtubeCount, setYoutubeCount] = useState(0)
   const [youtubeConfigured, setYoutubeConfigured] = useState(false)
+  const [settings, setSettings] = useState<Settings>({})
+
+  const fetchSettings = async () => {
+    try {
+      const response = await fetch('/api/settings')
+      const data = await response.json()
+      if (data.success) {
+        setSettings(data.settings || {})
+        // Check if YouTube is configured (has channelId or channelUrl)
+        const ytConfigured = !!(data.settings?.youtube?.channelId || data.settings?.youtube?.channelUrl)
+        setYoutubeConfigured(ytConfigured)
+      }
+    } catch (error) {
+      console.error('Error fetching settings:', error)
+    }
+  }
 
   const fetchSermons = async () => {
     setLoading(true)
@@ -47,6 +72,9 @@ export default function SermonsPage() {
       if (speaker) params.append('speaker', speaker)
       if (series) params.append('series', series)
 
+      // Fetch both database sermons and YouTube videos
+      params.append('youtube', 'true')
+      
       const response = await fetch(`/api/sermons?${params.toString()}`)
       const data = await response.json()
 
@@ -57,8 +85,8 @@ export default function SermonsPage() {
           total: data.pagination.total,
           totalPages: data.pagination.totalPages
         }))
-        setYoutubeCount(data.youtubeCount || 0)
         setDatabaseCount(data.databaseCount || 0)
+        setYoutubeCount(data.youtubeCount || 0)
       }
     } catch (error) {
       console.error('Error fetching sermons:', error)
@@ -67,23 +95,35 @@ export default function SermonsPage() {
     }
   }
 
+  // Initial load - fetch settings first, then sermons
+  useEffect(() => {
+    fetchSettings()
+  }, [])
+
+  // Fetch sermons after settings (to know if YouTube is configured)
+  useEffect(() => {
+    if (youtubeConfigured !== undefined) {
+      fetchSermons()
+    }
+  }, [youtubeConfigured])
+
+  // Fetch when pagination changes (separate from filters)
   useEffect(() => {
     fetchSermons()
   }, [pagination.page])
 
-  // Check YouTube configuration
+  // Auto-search when search, speaker, or series changes (debounced)
   useEffect(() => {
-    const checkYoutubeConfig = async () => {
-      try {
-        const response = await fetch('/api/sermons/youtube')
-        const data = await response.json()
-        setYoutubeConfigured(data.configured !== false)
-      } catch {
-        setYoutubeConfigured(false)
+    const timer = setTimeout(() => {
+      // Only reset page to 1 if we're not already on page 1
+      if (pagination.page !== 1) {
+        setPagination(prev => ({ ...prev, page: 1 }))
+      } else {
+        fetchSermons()
       }
-    }
-    checkYoutubeConfig()
-  }, [])
+    }, 500)
+    return () => clearTimeout(timer)
+  }, [search, speaker, series])
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -108,13 +148,13 @@ export default function SermonsPage() {
             {youtubeCount > 0 && (
               <div className="flex items-center bg-red-50 text-red-700 px-4 py-2 rounded-full">
                 <Youtube className="h-5 w-5 mr-2" />
-                <span className="font-medium">{youtubeCount} YouTube</span>
+                <span className="font-medium">{youtubeCount} YouTube Videos</span>
               </div>
             )}
             {databaseCount > 0 && (
               <div className="flex items-center bg-blue-50 text-blue-700 px-4 py-2 rounded-full">
                 <Database className="h-5 w-5 mr-2" />
-                <span className="font-medium">{databaseCount} Uploaded</span>
+                <span className="font-medium">{databaseCount} Uploaded Sermons</span>
               </div>
             )}
           </div>
