@@ -138,35 +138,7 @@ export default async function Home() {
     { title: 'Community Outreach', date: 'Jan 27', time: '9:00 AM', location: 'Community Center' },
   ]
 
-  const mockTestimonies: Testimony[] = [
-    {
-      id: '1',
-      name: 'Mary Akosua',
-      title: 'From Terminal Diagnosis to Complete Healing',
-      content: 'I came to El-Shaddai Revival Centre during one of the most challenging periods of my life. Doctors had diagnosed me with a terminal illness and had given me just months to live. Through the prayers of the prayer camp, I experienced a miraculous healing. Today, I stand here completely healed by the power of God.',
-      category: 'healing',
-      date: '2024-01-10',
-      location: 'Nabewam',
-    },
-    {
-      id: '2',
-      name: 'John Mensah',
-      title: 'Financial Breakthrough After Years of Struggle',
-      content: 'For over five years, my family and I struggled financially. I had lost my job and was about to lose our home. Through the prayers at the prayer camp, everything changed. Within weeks, I got a better job and debts were paid. God blessed us abundantly beyond what we could imagine.',
-      category: 'breakthrough',
-      date: '2024-01-08',
-      location: 'Kumasi',
-    },
-    {
-      id: '3',
-      name: 'Sarah Adomako',
-      title: 'Finding Christ at the Prayer Camp',
-      content: 'I grew up in a Christian home but never truly understood what it meant to have a personal relationship with Jesus. When I attended the prayer camp at El-Shaddai, something changed in my heart. That was three years ago and today I serve in the worship team.',
-      category: 'salvation',
-      date: '2024-01-05',
-      location: 'Accra',
-    }
-  ]
+  const mockTestimonies: Testimony[] = []
 
   // Use API data if available, otherwise fall back to mock data
   const displaySermons = recentSermons.length > 0 ? recentSermons : mockSermons
