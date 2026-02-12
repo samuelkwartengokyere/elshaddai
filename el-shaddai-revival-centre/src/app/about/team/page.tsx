@@ -261,7 +261,7 @@ export default function TeamPage() {
         <div className="container mx-auto px-4 text-center">
           <h2 className="text-3xl md:text-4xl font-bold mb-4">Ready to Serve?</h2>
           <p className="text-xl mb-8 max-w-2xl mx-auto opacity-90">
-            There\'s a place for you on our ministry teams. Discover your gifts and serve alongside other believers.
+            There&apos;s a place for you on our ministry teams. Discover your gifts and serve alongside other believers.
           </p>
           <Link
             href="/serve"

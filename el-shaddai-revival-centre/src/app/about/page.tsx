@@ -1,5 +1,4 @@
-import Hero from '@/components/Hero'
-import { 
+import {
   Church, 
   Users, 
   Target, 
@@ -154,7 +153,7 @@ export default async function AboutPage() {
         <div className="container mx-auto px-4 text-center">
           <h1 className="text-5xl md:text-6xl font-bold mb-6">About El-Shaddai Revival Centre</h1>
           <p className="text-xl max-w-3xl mx-auto opacity-90">
-            A community of faith, hope, and love, dedicated to sharing God's word and serving our community
+            A community of faith, hope, and love, dedicated to sharing God&apos;s word and serving our community
           </p>
         </div>
       </section>
@@ -233,7 +232,7 @@ export default async function AboutPage() {
                     <span className="font-semibold">9:00 AM - 2:00 PM</span>
                   </div>
                   <p className="text-gray-100 text-sm">
-                    Join us for powerful prayer sessions as we seek God's face together. 
+                    Join us for powerful prayer sessions as we seek God&apos;s face together.
                     Experience the presence of the Holy Spirit as we intercede for our nation, 
                     families, and personal needs.
                   </p>
@@ -281,11 +280,11 @@ export default async function AboutPage() {
                       <Calendar className="h-5 w-5 text-accent mr-2" />
                       <span className="text-gray-600 font-medium">Specific dates indicated on the Calendar</span>
                     </div>
-                    <p className="text-gray-600 mb-4">
-                      Experience fresh moves of the Holy Spirit at our monthly Revival Services. 
-                      These special services are dedicated to seeking God's presence, receiving 
-                      fresh anointing, and witnessing miraculous transformations in lives.
-                    </p>
+<p className="text-gray-600 mb-4">
+                  Experience fresh moves of the Holy Spirit at our monthly Revival Services. 
+                  These special services are dedicated to seeking God&apos;s presence, receiving 
+                  fresh anointing, and witnessing miraculous transformations in lives.
+                </p>
                     <Link 
                       href="/calendar"
                       className="inline-flex items-center text-accent hover:text-red-600 font-medium"
