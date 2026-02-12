@@ -59,6 +59,7 @@ export default function MediaPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const fetchMedia = async () => {
     setLoading(true)
@@ -221,6 +222,7 @@ export default function MediaPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this media?')) return
     
+    setDeletingId(id)
     try {
       const response = await fetch(`/api/media?id=${id}`, {
         method: 'DELETE'
@@ -228,10 +230,16 @@ export default function MediaPage() {
       const data = await response.json()
       
       if (data.success) {
+        alert('Media deleted successfully!')
         fetchMedia()
+      } else {
+        alert(data.error || 'Failed to delete media')
       }
     } catch (error) {
       console.error('Delete error:', error)
+      alert('An error occurred while deleting')
+    } finally {
+      setDeletingId(null)
     }
   }
 

@@ -51,6 +51,7 @@ export default function AdminCalendarPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [selectedCategory, setSelectedCategory] = useState('all')
@@ -185,8 +186,8 @@ export default function AdminCalendarPage() {
   const handleDelete = async (eventId: string) => {
     if (!confirm('Are you sure you want to delete this event?')) return
     
+    setDeletingId(eventId)
     setError('')
-    setSuccess('')
     
     try {
       const response = await fetch(`/api/calendar?id=${eventId}`, {
@@ -196,13 +197,16 @@ export default function AdminCalendarPage() {
       const data = await response.json()
       
       if (data.success) {
-        setSuccess('Event deleted successfully')
+        alert('Event deleted successfully!')
         fetchEvents()
       } else {
-        setError(data.error || 'Failed to delete event')
+        alert(data.error || 'Failed to delete event')
       }
     } catch (err) {
-      setError('Failed to delete event')
+      console.error('Delete error:', err)
+      alert('An error occurred while deleting')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -211,7 +215,6 @@ export default function AdminCalendarPage() {
     if (!confirm(`Are you sure you want to delete ALL events for ${selectedYear}? This cannot be undone!`)) return
     
     setError('')
-    setSuccess('')
     
     try {
       const response = await fetch(`/api/calendar?year=${selectedYear}`, {
@@ -221,13 +224,14 @@ export default function AdminCalendarPage() {
       const data = await response.json()
       
       if (data.success) {
-        setSuccess(`${data.count} events deleted successfully`)
+        alert(`${data.count} events deleted successfully!`)
         fetchEvents()
       } else {
-        setError(data.error || 'Failed to delete events')
+        alert(data.error || 'Failed to delete events')
       }
     } catch (err) {
-      setError('Failed to delete events')
+      console.error('Delete error:', err)
+      alert('An error occurred while deleting')
     }
   }
 

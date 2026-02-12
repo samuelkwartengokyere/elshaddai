@@ -67,6 +67,7 @@ export default function SermonsPage() {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const fetchSermons = async () => {
     setLoading(true)
@@ -160,6 +161,7 @@ export default function SermonsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this sermon?')) return
     
+    setDeletingId(id)
     try {
       const response = await fetch(`/api/sermons?id=${id}`, {
         method: 'DELETE'
@@ -167,10 +169,16 @@ export default function SermonsPage() {
       const data = await response.json()
       
       if (data.success) {
+        alert('Sermon deleted successfully!')
         fetchSermons()
+      } else {
+        alert(data.error || 'Failed to delete sermon')
       }
     } catch (error) {
       console.error('Delete error:', error)
+      alert('An error occurred while deleting')
+    } finally {
+      setDeletingId(null)
     }
   }
 

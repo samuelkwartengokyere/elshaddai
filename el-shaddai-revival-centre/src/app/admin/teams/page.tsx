@@ -53,6 +53,7 @@ export default function TeamsPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const fetchTeamMembers = async () => {
     setLoading(true)
@@ -198,6 +199,7 @@ export default function TeamsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this team member?')) return
     
+    setDeletingId(id)
     try {
       const response = await fetch(`/api/teams?id=${id}`, {
         method: 'DELETE'
@@ -205,10 +207,16 @@ export default function TeamsPage() {
       const data = await response.json()
       
       if (data.success) {
+        alert('Team member deleted successfully!')
         fetchTeamMembers()
+      } else {
+        alert(data.error || 'Failed to delete team member')
       }
     } catch (err) {
       console.error('Delete error:', err)
+      alert('An error occurred while deleting')
+    } finally {
+      setDeletingId(null)
     }
   }
 

@@ -185,3 +185,46 @@ export async function PUT(request: NextRequest) {
   }
 }
 
+export async function DELETE(request: NextRequest) {
+  try {
+    const dbConnection = await connectDB()
+    
+    if (!dbConnection) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      )
+    }
+    
+    const testimonyId = request.nextUrl.searchParams.get('id')
+    
+    if (!testimonyId) {
+      return NextResponse.json(
+        { error: 'Testimony ID is required' },
+        { status: 400 }
+      )
+    }
+    
+    const deletedTestimony = await Testimony.findByIdAndDelete(testimonyId)
+    
+    if (!deletedTestimony) {
+      return NextResponse.json(
+        { error: 'Testimony not found' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Testimony deleted successfully'
+    })
+
+  } catch (error) {
+    console.error('Error deleting testimony:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete testimony' },
+      { status: 500 }
+    )
+  }
+}
+

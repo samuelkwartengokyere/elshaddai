@@ -10,7 +10,9 @@ import {
   MapPin,
   Loader2,
   X,
-  Star
+  Star,
+  Upload,
+  Camera
 } from 'lucide-react'
 
 interface Testimony {
@@ -21,6 +23,7 @@ interface Testimony {
   category: string
   date: string
   location: string
+  image?: string
   isPublished: boolean
   isFeatured: boolean
 }
@@ -34,6 +37,7 @@ interface TestimonyFormData {
   category: TestimonyCategory
   date: string
   location: string
+  image?: string
   isFeatured: boolean
 }
 
@@ -63,6 +67,10 @@ export default function TestimoniesPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
+  const [selectedFile, setSelectedFile] = useState<File | null>(null)
+  const [previewUrl, setPreviewUrl] = useState<string>('')
+  const [imageUploading, setImageUploading] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const fetchTestimonies = async () => {
     setLoading(true)
@@ -101,6 +109,29 @@ export default function TestimoniesPage() {
     fetchTestimonies()
   }
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      if (!file.type.startsWith('image/')) {
+        setError('Please select an image file (JPG, PNG, GIF, etc.)')
+        return
+      }
+      // Check file size (max 5MB)
+      if (file.size > 5 * 1024 * 1024) {
+        setError('Image file size must be less than 5MB')
+        return
+      }
+      setSelectedFile(file)
+      setPreviewUrl(URL.createObjectURL(file))
+      setError('')
+    }
+  }
+
+  const removeImage = () => {
+    setSelectedFile(null)
+    setPreviewUrl('')
+  }
+
   const openCreateModal = () => {
     setModalMode('create')
     setFormData({
@@ -112,6 +143,8 @@ export default function TestimoniesPage() {
       location: '',
       isFeatured: false
     })
+    setSelectedFile(null)
+    setPreviewUrl('')
     setEditingTestimony(null)
     setError('')
     setSuccess('')
@@ -128,8 +161,11 @@ export default function TestimoniesPage() {
       category: testimony.category as TestimonyCategory,
       date: testimony.date.split('T')[0],
       location: testimony.location,
+      image: testimony.image,
       isFeatured: testimony.isFeatured
     })
+    setSelectedFile(null)
+    setPreviewUrl(testimony.image || '')
     setError('')
     setSuccess('')
     setShowCreateModal(true)
@@ -142,10 +178,43 @@ export default function TestimoniesPage() {
     setSuccess('')
 
     try {
+      let imageUrl = formData.image
+
+      // Upload image if a file is selected
+      if (selectedFile) {
+        setImageUploading(true)
+        const imageFormData = new FormData()
+        imageFormData.append('file', selectedFile)
+        // Add required fields for media API
+        imageFormData.append('title', formData.title || 'Testimony Image')
+        imageFormData.append('type', 'image')
+        imageFormData.append('category', 'other')
+        imageFormData.append('date', formData.date)
+        
+        const imageResponse = await fetch('/api/media', {
+          method: 'POST',
+          body: imageFormData
+        })
+        
+        const imageData = await imageResponse.json()
+        
+        console.log('Media API Response:', imageData)
+        
+        if (imageData.success) {
+          imageUrl = imageData.media?.url || imageData.url
+        } else {
+          setImageUploading(false)
+          setError(imageData.error || 'Failed to upload image')
+          setUploading(false)
+          return
+        }
+        setImageUploading(false)
+      }
+
       const response = await fetch('/api/testimonies', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({ ...formData, image: imageUrl })
       })
 
       const data = await response.json()
@@ -162,6 +231,8 @@ export default function TestimoniesPage() {
           location: '',
           isFeatured: false
         })
+        setSelectedFile(null)
+        setPreviewUrl('')
         fetchTestimonies()
       } else {
         setError(data.error || 'Failed to create testimony')
@@ -182,10 +253,43 @@ export default function TestimoniesPage() {
     setSuccess('')
 
     try {
+      let imageUrl = formData.image
+
+      // Upload new image if a file is selected
+      if (selectedFile) {
+        setImageUploading(true)
+        const imageFormData = new FormData()
+        imageFormData.append('file', selectedFile)
+        // Add required fields for media API
+        imageFormData.append('title', formData.title || 'Testimony Image')
+        imageFormData.append('type', 'image')
+        imageFormData.append('category', 'other')
+        imageFormData.append('date', formData.date)
+        
+        const imageResponse = await fetch('/api/media', {
+          method: 'POST',
+          body: imageFormData
+        })
+        
+        const imageData = await imageResponse.json()
+        
+        console.log('Media API Response:', imageData)
+        
+        if (imageData.success) {
+          imageUrl = imageData.media?.url || imageData.url
+        } else {
+          setImageUploading(false)
+          setError(imageData.error || 'Failed to upload image')
+          setUploading(false)
+          return
+        }
+        setImageUploading(false)
+      }
+
       const response = await fetch(`/api/testimonies?id=${editingTestimony._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({ ...formData, image: imageUrl })
       })
 
       const data = await response.json()
@@ -194,6 +298,8 @@ export default function TestimoniesPage() {
         setSuccess('Testimony updated successfully!')
         setShowCreateModal(false)
         setEditingTestimony(null)
+        setSelectedFile(null)
+        setPreviewUrl('')
         fetchTestimonies()
       } else {
         setError(data.error || 'Failed to update testimony')
@@ -208,6 +314,7 @@ export default function TestimoniesPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this testimony?')) return
     
+    setDeletingId(id)
     try {
       const response = await fetch(`/api/testimonies?id=${id}`, {
         method: 'DELETE'
@@ -215,10 +322,18 @@ export default function TestimoniesPage() {
       const data = await response.json()
       
       if (data.success) {
+        // Show success feedback
+        alert('Testimony deleted successfully!')
+        // Refresh the list
         fetchTestimonies()
+      } else {
+        alert(data.error || 'Failed to delete testimony')
       }
     } catch (err) {
       console.error('Delete error:', err)
+      alert('An error occurred while deleting')
+    } finally {
+      setDeletingId(null)
     }
   }
 
@@ -535,6 +650,57 @@ export default function TestimoniesPage() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
                   placeholder="e.g., Nabewam"
                 />
+              </div>
+
+              {/* Image Upload */}
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Photo (Optional)
+                </label>
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-accent transition duration-300">
+                  {previewUrl ? (
+                    <div className="relative">
+                      <img
+                        src={previewUrl}
+                        alt="Preview"
+                        className="max-h-48 mx-auto rounded-lg object-cover"
+                      />
+                      <button
+                        type="button"
+                        onClick={removeImage}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition duration-300"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  ) : (
+                    <>
+                      <Camera className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+                      <p className="text-gray-600 mb-2 text-sm">Click or drag to upload photo</p>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={handleFileChange}
+                        className="hidden"
+                        id="testimony-image-input"
+                      />
+                      <label
+                        htmlFor="testimony-image-input"
+                        className="inline-flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg cursor-pointer hover:bg-gray-200 transition duration-300 text-sm"
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        Choose Photo
+                      </label>
+                      <p className="text-xs text-gray-400 mt-2">Max file size: 5MB • JPG, PNG, GIF</p>
+                    </>
+                  )}
+                </div>
+                {imageUploading && (
+                  <div className="flex items-center justify-center mt-2 text-sm text-orange-500">
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Uploading image...
+                  </div>
+                )}
               </div>
 
               {/* Featured */}

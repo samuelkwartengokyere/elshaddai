@@ -128,6 +128,7 @@ export default function AdminSettings() {
   })
   const [modalLoading, setModalLoading] = useState(false)
   const [modalError, setModalError] = useState('')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
     fetchSettings()
@@ -364,6 +365,7 @@ export default function AdminSettings() {
   const handleDeleteAdmin = async (adminId: string) => {
     if (!confirm('Are you sure you want to delete this admin user?')) return
 
+    setDeletingId(adminId)
     try {
       const response = await fetch(`/api/admins/${adminId}`, {
         method: 'DELETE'
@@ -371,14 +373,16 @@ export default function AdminSettings() {
       const data = await response.json()
 
       if (data.success) {
-        setMessage({ type: 'success', text: 'Admin deleted successfully' })
+        alert('Admin deleted successfully!')
         fetchAdmins()
       } else {
-        setMessage({ type: 'error', text: data.error || 'Failed to delete admin' })
+        alert(data.error || 'Failed to delete admin')
       }
     } catch (error) {
       console.error('Error deleting admin:', error)
-      setMessage({ type: 'error', text: 'Failed to delete admin' })
+      alert('An error occurred while deleting')
+    } finally {
+      setDeletingId(null)
     }
   }
 

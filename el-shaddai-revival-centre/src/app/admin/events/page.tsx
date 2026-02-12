@@ -62,6 +62,7 @@ export default function EventsPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
+  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const fetchEvents = async () => {
     setLoading(true)
@@ -207,6 +208,7 @@ export default function EventsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this event?')) return
     
+    setDeletingId(id)
     try {
       const response = await fetch(`/api/events?id=${id}`, {
         method: 'DELETE'
@@ -214,10 +216,16 @@ export default function EventsPage() {
       const data = await response.json()
       
       if (data.success) {
+        alert('Event deleted successfully!')
         fetchEvents()
+      } else {
+        alert(data.error || 'Failed to delete event')
       }
     } catch (err) {
       console.error('Delete error:', err)
+      alert('An error occurred while deleting')
+    } finally {
+      setDeletingId(null)
     }
   }
 
