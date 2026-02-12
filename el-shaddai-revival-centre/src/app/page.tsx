@@ -270,13 +270,10 @@ export default async function Home() {
               <div key={index} className="card text-center hover:shadow-xl transition duration-300 bg-white rounded-lg shadow-md p-6">
                 <Calendar className="h-12 w-12 text-accent mx-auto mb-4" />
                 <h3 className="text-xl font-bold mb-2">{event.title}</h3>
-                <div className="text-gray-600">
+          <div className="text-gray-600">
                   <p className="font-medium">{event.date}</p>
                   <p>{event.time}</p>
                 </div>
-                <button className="mt-4 text-accent hover:text-red-600 font-medium">
-                  Learn More
-                </button>
               </div>
             ))}
           </div>

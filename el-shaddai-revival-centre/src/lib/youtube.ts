@@ -209,7 +209,7 @@ export async function fetchChannelDetails(channelId: string, apiKey: string): Pr
 }
 
 /**
- * Fetch latest videos from a YouTube channel
+ * Fetch latest videos from a YouTube channel with pagination support
  */
 export async function fetchChannelVideos(
   channelId: string,
@@ -218,9 +218,10 @@ export async function fetchChannelVideos(
     maxResults?: number
     order?: 'date' | 'viewCount' | 'rating'
     type?: 'video' | 'playlist' | 'all'
+    pageToken?: string
   } = {}
-): Promise<YouTubeVideo[]> {
-  const { maxResults = 20, order = 'date', type = 'video' } = options
+): Promise<{ videos: YouTubeVideo[], nextPageToken: string | null, totalResults: number }> {
+  const { maxResults = 50, order = 'date', type = 'video', pageToken } = options
 
   try {
     // First, get the channel's uploads playlist ID
@@ -235,23 +236,29 @@ export async function fetchChannelVideos(
     const channel = channelResponse.data.items?.[0]
     if (!channel) {
       console.error('Channel not found')
-      return []
+      return { videos: [], nextPageToken: null, totalResults: 0 }
     }
 
     const uploadsPlaylistId = channel.contentDetails.relatedPlaylists?.uploads
     if (!uploadsPlaylistId) {
       console.error('No uploads playlist found')
-      return []
+      return { videos: [], nextPageToken: null, totalResults: 0 }
     }
 
-    // Fetch videos from the uploads playlist
+    // Fetch videos from the uploads playlist with pagination
+    const playlistParams: Record<string, string | number> = {
+      part: 'snippet,contentDetails',
+      playlistId: uploadsPlaylistId,
+      maxResults,
+      key: apiKey
+    }
+
+    if (pageToken) {
+      playlistParams.pageToken = pageToken
+    }
+
     const playlistResponse = await axios.get(`${YOUTUBE_API_BASE_URL}/playlistItems`, {
-      params: {
-        part: 'snippet,contentDetails',
-        playlistId: uploadsPlaylistId,
-        maxResults,
-        key: apiKey
-      }
+      params: playlistParams
     })
 
     const videoIds = playlistResponse.data.items
@@ -259,7 +266,13 @@ export async function fetchChannelVideos(
       .filter(Boolean)
       .join(',')
 
-    if (!videoIds) return []
+    if (!videoIds) {
+      return { 
+        videos: [], 
+        nextPageToken: playlistResponse.data.nextPageToken || null,
+        totalResults: playlistResponse.data.pageInfo?.totalResults || 0
+      }
+    }
 
     // Get video details including duration
     const videosResponse = await axios.get(`${YOUTUBE_API_BASE_URL}/videos`, {
@@ -270,10 +283,74 @@ export async function fetchChannelVideos(
       }
     })
 
-    return videosResponse.data.items.map(transformYouTubeVideo)
+    return {
+      videos: videosResponse.data.items.map(transformYouTubeVideo),
+      nextPageToken: playlistResponse.data.nextPageToken || null,
+      totalResults: playlistResponse.data.pageInfo?.totalResults || videosResponse.data.items.length
+    }
   } catch (error) {
     console.error('Error fetching YouTube videos:', error)
-    return []
+    return { videos: [], nextPageToken: null, totalResults: 0 }
+  }
+}
+
+/**
+ * Fetch ALL videos from a YouTube channel by looping through all pages
+ * Uses pagination to get all available videos
+ */
+export async function fetchAllChannelVideos(
+  channelId: string,
+  apiKey: string,
+  options: {
+    maxVideos?: number  // Maximum number of videos to fetch (YouTube API limit is 500 per request for playlistItems)
+    maxResultsPerPage?: number
+  } = {}
+): Promise<YouTubeVideo[]> {
+  const { maxVideos = 500, maxResultsPerPage = 50 } = options
+
+  let allVideos: YouTubeVideo[] = []
+  let nextPageToken: string | null = null
+  let totalFetched = 0
+  let hasMore = true
+
+  // Maximum number of API calls to prevent infinite loops
+  const maxIterations = Math.ceil(maxVideos / maxResultsPerPage)
+
+  try {
+    while (hasMore && totalFetched < maxVideos && allVideos.length < maxVideos) {
+      const iteration = allVideos.length / maxResultsPerPage + 1
+      
+      const result = await fetchChannelVideos(channelId, apiKey, {
+        maxResults: maxResultsPerPage,
+        pageToken: nextPageToken || undefined
+      })
+
+      if (result.videos.length === 0) {
+        hasMore = false
+        break
+      }
+
+      allVideos = [...allVideos, ...result.videos]
+      totalFetched = allVideos.length
+      nextPageToken = result.nextPageToken
+
+      // Stop if no more pages
+      if (!nextPageToken) {
+        hasMore = false
+      }
+
+      // Safety check for infinite loops
+      if (iteration >= maxIterations) {
+        console.warn(`Reached maximum iterations (${maxIterations}), stopping pagination`)
+        hasMore = false
+      }
+    }
+
+    // Return only the first maxVideos if we fetched more
+    return allVideos.slice(0, maxVideos)
+  } catch (error) {
+    console.error('Error fetching all YouTube videos:', error)
+    return allVideos
   }
 }
 

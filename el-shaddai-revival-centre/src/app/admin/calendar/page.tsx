@@ -497,9 +497,11 @@ export default function AdminCalendarPage() {
 
       {/* Add/Edit Event Modal */}
       {showModal && (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
-          <div className="absolute inset-0 backdrop-blur-sm" />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg max-h-[90vh] overflow-y-auto z-10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-md" />
+          {/* Modal content */}
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold">
@@ -660,9 +662,11 @@ export default function AdminCalendarPage() {
 
       {/* Import CSV Modal */}
       {showImportModal && (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
-          <div className="absolute inset-0 backdrop-blur-sm" />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-lg z-10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-md" />
+          {/* Modal content */}
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto">
             <div className="p-6">
               <div className="flex items-center justify-between mb-6">
                 <h2 className="text-xl font-bold">Import Events from CSV</h2>

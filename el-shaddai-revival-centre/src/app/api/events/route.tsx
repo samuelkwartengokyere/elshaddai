@@ -38,7 +38,10 @@ export async function GET(request: NextRequest) {
     }
 
     if (upcoming) {
-      query.date = { $gte: new Date() }
+      // Get start of today (midnight) to include all events happening today or later
+      const today = new Date()
+      today.setHours(0, 0, 0, 0)
+      query.date = { $gte: today }
     }
 
     if (search) {
@@ -181,6 +184,49 @@ export async function PUT(request: NextRequest) {
     console.error('Error updating event:', error)
     return NextResponse.json(
       { error: 'Failed to update event' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function DELETE(request: NextRequest) {
+  try {
+    const dbConnection = await connectDB()
+    
+    if (!dbConnection) {
+      return NextResponse.json(
+        { error: 'Database connection not available' },
+        { status: 503 }
+      )
+    }
+    
+    const eventId = request.nextUrl.searchParams.get('id')
+    
+    if (!eventId) {
+      return NextResponse.json(
+        { error: 'Event ID is required' },
+        { status: 400 }
+      )
+    }
+    
+    const deletedEvent = await Event.findByIdAndDelete(eventId)
+    
+    if (!deletedEvent) {
+      return NextResponse.json(
+        { error: 'Event not found' },
+        { status: 404 }
+      )
+    }
+
+    return NextResponse.json({
+      success: true,
+      message: 'Event deleted successfully'
+    })
+
+  } catch (error) {
+    console.error('Error deleting event:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete event' },
       { status: 500 }
     )
   }

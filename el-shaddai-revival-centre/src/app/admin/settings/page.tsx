@@ -1243,9 +1243,9 @@ export default function AdminSettings() {
 
       {/* Modal - OUTSIDE the blurred content */}
       {showAdminModal && (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
-          {/* Backdrop - transparent with blur effect */}
-          <div className="absolute inset-0 backdrop-blur-sm" />
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-md" />
           {/* Modal form - not blurred */}
           <div className="relative bg-white rounded-xl shadow-xl p-6 w-full max-w-md mx-4 z-10">
             <div className="flex justify-between items-center mb-6">

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/database'
 import Settings from '@/models/Settings'
-import { fetchChannelDetails, fetchChannelVideos, youTubeVideoToSermon, extractChannelId, getChannelIdFromUsername } from '@/lib/youtube'
+import { fetchChannelDetails, fetchAllChannelVideos, youTubeVideoToSermon, extractChannelId, getChannelIdFromUsername } from '@/lib/youtube'
 
 // YouTube cache type
 interface YouTubeCacheItem {
@@ -110,10 +110,10 @@ export async function GET(request: NextRequest) {
 
     // Fetch videos from YouTube
     if (youtubeConfig.apiKey) {
-      const videos = await fetchChannelVideos(
+      const videos = await fetchAllChannelVideos(
         effectiveChannelId,
         youtubeConfig.apiKey,
-        { maxResults: 50 }
+        { maxVideos: 500, maxResultsPerPage: 50 }
       )
 
       // Transform to sermon format
@@ -257,8 +257,8 @@ export async function POST(request: NextRequest) {
     // Fetch channel details first
     const channelDetails = await fetchChannelDetails(finalChannelId, apiKey)
     
-    // Fetch videos
-    const videos = await fetchChannelVideos(finalChannelId, apiKey, { maxResults: 50 })
+    // Fetch ALL videos using pagination
+    const videos = await fetchAllChannelVideos(finalChannelId, apiKey, { maxVideos: 500, maxResultsPerPage: 50 })
     const sermonVideos = videos.map(youTubeVideoToSermon)
 
     // Update cache

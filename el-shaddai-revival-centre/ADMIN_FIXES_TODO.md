@@ -1,49 +1,62 @@
-# Admin Panel Fixes - TODO List
+# Admin Pages Fix Plan
 
-## Phase 1: Fix Dashboard Links
+## Issues Identified:
 
-- [x] 1.1 Fix Dashboard "Create New Event" link to open create modal instead of `/admin/events/create`
-- [x] 1.2 Fix Dashboard "Add Testimony" link to open create modal instead of `/admin/testimonies/create`
-- [x] 1.3 Fix Dashboard "Add Team Member" link to open create modal instead of non-existent page
+1. Modal backdrops use invalid `backdrop-blur-3xl` instead of `backdrop-blur-md`
+2. Modal structure has incorrect z-index layering
+3. Teams API lacks timeout handling (unlike other APIs)
+4. Admin pages don't handle API errors gracefully - show infinite loading
 
-## Phase 2: Add Edit Functionality - Events Page
+## Fix Plan:
 
-- [x] 2.1 Add Edit modal to events page
-- [x] 2.2 Implement handleUpdate function
-- [x] 2.3 Fix "Edit" button to open edit modal with existing data
-- [x] 2.4 Add API route for PUT events
+### 1. Fix Modal Backdrops in All Admin Pages
 
-## Phase 3: Add Edit Functionality - Testimonies Page
+Replace `backdrop-blur-3xl` with `backdrop-blur-md` and fix z-index layering:
 
-- [x] 3.1 Add Edit modal to testimonies page
-- [x] 3.2 Implement handleUpdate function
-- [x] 3.3 Fix "Edit" button to open edit modal with existing data
-- [x] 3.4 Add API route for PUT testimonies
+- [ ] calendar/page.tsx
+- [ ] events/page.tsx
+- [ ] sermons/page.tsx
+- [ ] media/page.tsx
+- [ ] testimonies/page.tsx
+- [ ] teams/page.tsx
+- [ ] settings/page.tsx
 
-## Phase 4: Add Edit Functionality - Teams Page
+### 2. Add Timeout Handling to Teams API
 
-- [x] 4.1 Add Edit modal to teams page
-- [x] 4.2 Implement handleUpdate function
-- [x] 4.3 Make "Edit" button functional
-- [x] 4.4 Add API route for PUT teams
+Add AbortController and timeout similar to other API routes:
 
-## Phase 5: Add Edit Functionality - Sermons Page
+- [ ] /api/teams/route.tsx
 
-- [x] 5.1 Add Edit button to sermons table
-- [x] 5.2 Add Edit modal to sermons page
-- [x] 5.3 Add API route for PUT sermons
+### 3. Add Error State Handling to Admin Pages
 
-## Phase 6: Add Edit Functionality - Media Page
+When API fails, show error state instead of infinite loading:
 
-- [x] 6.1 Add Edit modal to media page
-- [x] 6.2 Implement handleUpdate function
-- [x] 6.3 Make "Edit" button functional
-- [x] 6.4 Add API route for PUT media
+- [ ] calendar/page.tsx
+- [ ] events/page.tsx
+- [ ] sermons/page.tsx
+- [ ] media/page.tsx
+- [ ] testimonies/page.tsx
+- [ ] teams/page.tsx
 
-## Phase 7: Testing
+## Changes per File (Modal Backdrop Fix):
 
-- [ ] 7.1 Run build to verify no TypeScript errors
-- [ ] 7.2 Test all admin pages work correctly
-- [ ] 7.3 Test CRUD operations for all content types
-- [ ] 7.4 Test search functionality
-- [ ] 7.5 Test pagination works
+Replace the modal backdrop structure from:
+
+```jsx
+{showModal && (
+  <>
+    <div className="fixed inset-0 z-40 bg-black/70 backdrop-blur-3xl" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="relative bg-white ...">
+```
+
+To:
+
+```jsx
+{showModal && (
+  <div className="fixed inset-0 z-50 flex items-center justify-center">
+    {/* Backdrop */}
+    <div className="fixed inset-0 bg-black/50 backdrop-blur-md" />
+    {/* Modal content */}
+    <div className="relative bg-white ...">
+```

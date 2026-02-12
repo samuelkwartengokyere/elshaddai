@@ -394,22 +394,44 @@ export default function SermonsPage() {
             </div>
           )}
 
-          {/* Pagination */}
+          {/* Pagination with Previous/Next buttons */}
           {pagination.totalPages > 1 && (
-            <div className="flex justify-center mt-8 space-x-2">
-              {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
+            <div className="flex flex-col items-center mt-12 space-y-4">
+              {/* Previous/Next Buttons with << and >> icons */}
+              <div className="flex items-center space-x-4">
                 <button
-                  key={page}
-                  onClick={() => setPagination(prev => ({ ...prev, page }))}
-                  className={`px-4 py-2 rounded-lg ${
-                    pagination.page === page
-                      ? 'bg-accent text-white'
-                      : 'bg-white border border-gray-300 hover:bg-gray-50'
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); setPagination(prev => ({ ...prev, page: prev.page - 1 })) }}
+                  disabled={pagination.page === 1}
+                  className={`flex items-center px-4 py-2 rounded-lg transition duration-300 ${
+                    pagination.page === 1
+                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      : 'bg-accent text-white hover:bg-red-700'
                   }`}
                 >
-                  {page}
+                  <span className="text-lg font-bold mr-2">«</span>
+                  Previous
                 </button>
-              ))}
+                
+                {/* Page indicator */}
+                <span className="text-gray-600 font-medium px-4">
+                  Page {pagination.page} of {pagination.totalPages}
+                </span>
+                
+                <button
+                  type="button"
+                  onClick={(e) => { e.preventDefault(); setPagination(prev => ({ ...prev, page: prev.page + 1 })) }}
+                  disabled={pagination.page === pagination.totalPages}
+                  className={`flex items-center px-4 py-2 rounded-lg transition duration-300 ${
+                    pagination.page === pagination.totalPages
+                      ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                      : 'bg-accent text-white hover:bg-red-700'
+                  }`}
+                >
+                  Next
+                  <span className="text-lg font-bold ml-2">»</span>
+                </button>
+              </div>
             </div>
           )}
         </>
@@ -417,9 +439,11 @@ export default function SermonsPage() {
 
       {/* Edit Modal */}
       {showEditModal && editingSermon && (
-        <div className="fixed inset-0 flex items-center justify-center z-50">
-          <div className="absolute inset-0 backdrop-blur-sm" />
-          <div className="relative bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 z-10">
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          {/* Backdrop */}
+          <div className="fixed inset-0 bg-black/50 backdrop-blur-md" />
+          {/* Modal content */}
+          <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] overflow-y-auto">
             <div className="flex justify-between items-center p-4 border-b sticky top-0 bg-white">
               <h2 className="text-xl font-bold">Edit Sermon</h2>
               <button

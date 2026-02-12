@@ -143,7 +143,7 @@ export default function SermonsPage() {
         </div>
 
         {/* Stats Bar */}
-        {(youtubeCount > 0 || databaseCount > 0) && (
+        {/* {(youtubeCount > 0 || databaseCount > 0) && (
           <div className="max-w-4xl mx-auto mb-8 flex justify-center gap-6">
             {youtubeCount > 0 && (
               <div className="flex items-center bg-red-50 text-red-700 px-4 py-2 rounded-full">
@@ -158,19 +158,7 @@ export default function SermonsPage() {
               </div>
             )}
           </div>
-        )}
-
-        {/* YouTube Not Configured Warning */}
-        {!youtubeConfigured && (
-          <div className="max-w-4xl mx-auto mb-8 p-4 bg-yellow-50 border border-yellow-200 rounded-lg">
-            <p className="text-yellow-700 text-center">
-              YouTube channel not configured.{' '}
-              <a href="/admin/settings" className="underline font-medium">
-                Configure in Admin Settings
-              </a>
-            </p>
-          </div>
-        )}
+        )} */}
 
         {/* Search and Filter */}
         <div className="max-w-4xl mx-auto mb-12">
@@ -238,22 +226,57 @@ export default function SermonsPage() {
               </div>
             )}
 
-            {/* Pagination */}
+            {/* Pagination with Previous/Next buttons and range info */}
             {pagination.totalPages > 1 && (
-              <div className="flex justify-center mt-12 space-x-2">
-                {Array.from({ length: pagination.totalPages }, (_, i) => i + 1).map((page) => (
+              <div className="flex flex-col items-center mt-12 space-y-4">
+                {/* Range Info */}
+                {/* <p className="text-gray-600">
+                  Showing{' '}
+                  <span className="font-semibold">
+                    {((pagination.page - 1) * pagination.limit) + 1}
+                  </span>{' '}
+                  to{' '}
+                  <span className="font-semibold">
+                    {Math.min(pagination.page * pagination.limit, pagination.total)}
+                  </span>{' '}
+                  of <span className="font-semibold">{pagination.total}</span> sermons
+                </p> */}
+                
+                {/* Previous/Next Buttons with << and >> icons */}
+                <div className="flex items-center space-x-4">
                   <button
-                    key={page}
-                    onClick={() => setPagination(prev => ({ ...prev, page }))}
-                    className={`px-4 py-2 rounded-lg ${
-                      pagination.page === page
-                        ? 'bg-accent text-white'
-                        : 'bg-white border border-gray-300 hover:bg-gray-50'
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); setPagination(prev => ({ ...prev, page: prev.page - 1 })) }}
+                    disabled={pagination.page === 1}
+                    className={`flex items-center px-4 py-2 rounded-lg transition duration-300 ${
+                      pagination.page === 1
+                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        : 'bg-accent text-white hover:bg-red-700'
                     }`}
                   >
-                    {page}
+                    <span className="text-lg font-bold mr-2">«</span>
+                    Previous
                   </button>
-                ))}
+                  
+                  {/* Page indicator */}
+                  <span className="text-gray-600 font-medium px-4">
+                    Page {pagination.page} of {pagination.totalPages}
+                  </span>
+                  
+                  <button
+                    type="button"
+                    onClick={(e) => { e.preventDefault(); setPagination(prev => ({ ...prev, page: prev.page + 1 })) }}
+                    disabled={pagination.page === pagination.totalPages}
+                    className={`flex items-center px-4 py-2 rounded-lg transition duration-300 ${
+                      pagination.page === pagination.totalPages
+                        ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
+                        : 'bg-accent text-white hover:bg-red-700'
+                    }`}
+                  >
+                    Next
+                    <span className="text-lg font-bold ml-2">»</span>
+                  </button>
+                </div>
               </div>
             )}
           </>
