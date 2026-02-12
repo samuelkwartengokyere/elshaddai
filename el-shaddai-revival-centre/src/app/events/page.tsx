@@ -17,14 +17,12 @@ import {
   Star
 } from 'lucide-react'
 
-// Event categories for regular events
+// Event categories for events page tabs
 const eventCategories = [
   { id: 'all', label: 'All Events' },
-  { id: 'worship', label: 'Worship' },
-  { id: 'youth', label: 'Youth' },
-  { id: 'children', label: 'Children' },
-  { id: 'outreach', label: 'Outreach' },
-  { id: 'fellowship', label: 'Fellowship' },
+  { id: 'revival', label: 'Revival' },
+  { id: 'special', label: 'Special Program' },
+  { id: 'holiday', label: 'Holiday Program' },
 ]
 
 // Calendar event categories (revival, special, holiday)
@@ -231,12 +229,7 @@ export default function EventsPage() {
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      case 'worship': return 'bg-blue-100 text-blue-800'
-      case 'youth': return 'bg-purple-100 text-purple-800'
-      case 'children': return 'bg-green-100 text-green-800'
-      case 'outreach': return 'bg-orange-100 text-orange-800'
-      case 'fellowship': return 'bg-pink-100 text-pink-800'
-      // Calendar event categories
+      // Events page categories
       case 'revival': return 'bg-orange-100 text-orange-800'
       case 'special': return 'bg-green-100 text-green-800'
       case 'holiday': return 'bg-blue-100 text-blue-800'

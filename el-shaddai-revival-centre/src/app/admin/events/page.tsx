@@ -24,7 +24,7 @@ interface Event {
   isPublished: boolean
 }
 
-type EventCategory = 'worship' | 'youth' | 'children' | 'outreach' | 'fellowship' | 'other'
+type EventCategory = 'revival' | 'special' | 'holiday' | 'worship' | 'youth' | 'children' | 'outreach' | 'fellowship' | 'other'
 
 interface EventFormData {
   title: string
@@ -231,6 +231,9 @@ export default function EventsPage() {
 
   const getCategoryColor = (category: string) => {
     switch (category) {
+      case 'revival': return 'bg-orange-100 text-orange-800'
+      case 'special': return 'bg-green-100 text-green-800'
+      case 'holiday': return 'bg-blue-100 text-blue-800'
       case 'worship': return 'bg-blue-100 text-blue-800'
       case 'youth': return 'bg-purple-100 text-purple-800'
       case 'children': return 'bg-green-100 text-green-800'
@@ -265,6 +268,9 @@ export default function EventsPage() {
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
             >
               <option value="">All Categories</option>
+              <option value="revival">Revival</option>
+              <option value="special">Special Program</option>
+              <option value="holiday">Holiday Program</option>
               <option value="worship">Worship</option>
               <option value="youth">Youth</option>
               <option value="children">Children</option>
@@ -301,7 +307,7 @@ export default function EventsPage() {
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
           <p className="text-gray-600 text-sm">Categories</p>
-          <p className="text-2xl font-bold text-blue-500">6</p>
+          <p className="text-2xl font-bold text-blue-500">9</p>
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
           <p className="text-gray-600 text-sm">Published</p>
@@ -536,6 +542,9 @@ export default function EventsPage() {
                   onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as EventCategory }))}
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
                 >
+                  <option value="revival">Revival</option>
+                  <option value="special">Special Program</option>
+                  <option value="holiday">Holiday Program</option>
                   <option value="worship">Worship</option>
                   <option value="youth">Youth</option>
                   <option value="children">Children</option>
