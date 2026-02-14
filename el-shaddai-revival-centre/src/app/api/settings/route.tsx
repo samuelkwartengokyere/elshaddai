@@ -44,22 +44,32 @@ function getInMemorySettings() {
   }
 }
 
-function setInMemorySettings(settings: Partial<typeof defaultSettings>) {
-  inMemorySettings = { ...inMemorySettings, ...settings }
+function setInMemorySettings(settings: Partial<{ churchName: string; churchTagline: string; logoUrl: string }>) {
+  if (settings.churchName !== undefined) {
+    inMemorySettings = { ...inMemorySettings, churchName: settings.churchName }
+  }
+  if (settings.churchTagline !== undefined) {
+    inMemorySettings = { ...inMemorySettings, churchTagline: settings.churchTagline }
+  }
+  if (settings.logoUrl !== undefined) {
+    inMemorySettings = { ...inMemorySettings, logoUrl: settings.logoUrl }
+  }
 }
 
 function setInMemoryYouTubeSettings(youtube: Record<string, unknown> | undefined) {
+  if (youtube === undefined) return
+  
   const yt = youtube ?? {}
   inMemoryYouTubeSettings = {
-    channelId: (yt.channelId as string) ?? '',
-    channelName: (yt.channelName as string) ?? '',
-    channelUrl: (yt.channelUrl as string) ?? '',
-    apiKey: (yt.apiKey as string) ?? '',
-    autoSync: (yt.autoSync as boolean) ?? false,
-    syncInterval: (yt.syncInterval as number) ?? 6,
-    lastSync: yt.lastSync && typeof yt.lastSync === 'object' && 'toISOString' in yt.lastSync ? yt.lastSync as unknown as Date : null,
-    syncStatus: (yt.syncStatus as YouTubeSyncStatus) ?? 'idle',
-    syncError: (yt.syncError as string) ?? ''
+    channelId: (yt.channelId as string) ?? inMemoryYouTubeSettings.channelId,
+    channelName: (yt.channelName as string) ?? inMemoryYouTubeSettings.channelName,
+    channelUrl: (yt.channelUrl as string) ?? inMemoryYouTubeSettings.channelUrl,
+    apiKey: (yt.apiKey as string) ?? inMemoryYouTubeSettings.apiKey,
+    autoSync: (yt.autoSync as boolean) ?? inMemoryYouTubeSettings.autoSync,
+    syncInterval: (yt.syncInterval as number) ?? inMemoryYouTubeSettings.syncInterval,
+    lastSync: yt.lastSync && typeof yt.lastSync === 'object' && 'toISOString' in yt.lastSync ? yt.lastSync as unknown as Date : inMemoryYouTubeSettings.lastSync,
+    syncStatus: (yt.syncStatus as YouTubeSyncStatus) ?? inMemoryYouTubeSettings.syncStatus,
+    syncError: (yt.syncError as string) ?? inMemoryYouTubeSettings.syncError
   }
 }
 
@@ -126,11 +136,22 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { churchName, churchTagline, logoUrl, youtube } = body
     
-    const newSettings = {
-      churchName: churchName || defaultSettings.churchName,
-      churchTagline: churchTagline || defaultSettings.churchTagline,
-      logoUrl: logoUrl || defaultSettings.logoUrl,
-      youtube: youtube ? {
+    // Build settings object - only update fields that are provided
+    const newSettings: Record<string, unknown> = {}
+    
+    if (churchName !== undefined) {
+      newSettings.churchName = churchName || defaultSettings.churchName
+    }
+    if (churchTagline !== undefined) {
+      newSettings.churchTagline = churchTagline || defaultSettings.churchTagline
+    }
+    if (logoUrl !== undefined) {
+      newSettings.logoUrl = logoUrl || defaultSettings.logoUrl
+    }
+    
+    // Only update youtube settings if explicitly provided
+    if (youtube !== undefined) {
+      newSettings.youtube = {
         channelId: youtube.channelId || '',
         channelName: youtube.channelName || '',
         channelUrl: youtube.channelUrl || '',
@@ -140,14 +161,25 @@ export async function POST(request: NextRequest) {
         lastSync: youtube.lastSync || null,
         syncStatus: youtube.syncStatus || 'idle',
         syncError: youtube.syncError || ''
-      } : undefined
+      }
     }
     
     if (!dbConnection) {
       // Use in-memory fallback when database is not available
-      setInMemorySettings({ churchName, churchTagline, logoUrl })
-      // Store YouTube settings in memory as well
-      setInMemoryYouTubeSettings(youtube)
+      // Only update the fields that were explicitly provided
+      if (churchName !== undefined) {
+        setInMemorySettings({ churchName: churchName || defaultSettings.churchName })
+      }
+      if (churchTagline !== undefined) {
+        setInMemorySettings({ churchTagline: churchTagline || defaultSettings.churchTagline })
+      }
+      if (logoUrl !== undefined) {
+        setInMemorySettings({ logoUrl: logoUrl || defaultSettings.logoUrl })
+      }
+      // Only update YouTube settings if explicitly provided
+      if (youtube !== undefined) {
+        setInMemoryYouTubeSettings(youtube)
+      }
       
       return NextResponse.json({
         success: true,
@@ -157,10 +189,29 @@ export async function POST(request: NextRequest) {
       }, { status: 200 })
     }
     
+    // Build the update object for MongoDB - use $set for explicit updates
+    const updateObject: Record<string, unknown> = {}
+    if (churchName !== undefined) updateObject.churchName = churchName || defaultSettings.churchName
+    if (churchTagline !== undefined) updateObject.churchTagline = churchTagline || defaultSettings.churchTagline
+    if (logoUrl !== undefined) updateObject.logoUrl = logoUrl || defaultSettings.logoUrl
+    if (youtube !== undefined) {
+      updateObject.youtube = {
+        channelId: youtube.channelId || '',
+        channelName: youtube.channelName || '',
+        channelUrl: youtube.channelUrl || '',
+        apiKey: youtube.apiKey || '',
+        autoSync: youtube.autoSync || false,
+        syncInterval: youtube.syncInterval || 6,
+        lastSync: youtube.lastSync || null,
+        syncStatus: youtube.syncStatus || 'idle',
+        syncError: youtube.syncError || ''
+      }
+    }
+    
     // Upsert settings (update if exists, create if not)
     const settings = await Settings.findOneAndUpdate(
       {},
-      newSettings,
+      { $set: updateObject },
       { new: true, upsert: true, runValidators: true }
     ).lean()
     

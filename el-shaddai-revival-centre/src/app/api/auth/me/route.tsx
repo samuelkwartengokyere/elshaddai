@@ -27,15 +27,15 @@ export async function GET(request: NextRequest) {
     const isDevToken = admin.adminId === 'dev-admin-id' || admin.adminId.length !== 24
     
     if (isDevToken) {
-      // In development mode with hardcoded credentials - return basic info from token
+      // In development mode with hardcoded credentials - return info from token
       return NextResponse.json({
         success: true,
         user: {
           adminId: admin.adminId,
           email: admin.email,
           role: admin.role,
-          name: 'Admin',
-          profileImage: ''
+          name: admin.name || 'Admin',
+          profileImage: admin.profileImage || ''
         },
         isInMemoryMode: true
       })
@@ -44,15 +44,15 @@ export async function GET(request: NextRequest) {
     const dbConnection = await connectDB()
     
     if (!dbConnection) {
-      // In-memory mode - return basic info from token
+      // In-memory mode - return info from token
       return NextResponse.json({
         success: true,
         user: {
           adminId: admin.adminId,
           email: admin.email,
           role: admin.role,
-          name: 'Admin',
-          profileImage: ''
+          name: admin.name || 'Admin',
+          profileImage: admin.profileImage || ''
         },
         isInMemoryMode: true
       })

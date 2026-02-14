@@ -64,16 +64,23 @@ const defaultSettings: Settings = {
   logoUrl: 'https://pentecost.ca/wp-content/uploads/2025/03/The-Church-Pentecost-Logo-1.png'
 }
 
-// Pre-defined avatar options (using PNG format for better compatibility)
+// Pre-defined avatar options - using simple icons that always work
 const AVATAR_OPTIONS = [
-  'https://api.dicebear.com/9.x/avataaars/png?seed=Felix',
-  'https://api.dicebear.com/9.x/avataaars/png?seed=Aneka',
-  'https://api.dicebear.com/9.x/avataaars/png?seed=Bob',
-  'https://api.dicebear.com/9.x/avataaars/png?seed=Charlie',
-  'https://api.dicebear.com/9.x/avataaars/png?seed=Diana',
-  'https://api.dicebear.com/9.x/avataaars/png?seed=Eve',
-  'https://api.dicebear.com/9.x/avataaars/png?seed=Frank',
-  'https://api.dicebear.com/9.x/avataaars/png?seed=Grace',
+  // Simple SVG icons - guaranteed to work
+  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDEwYzg5LjMzMy0xMyA0NS0xMyA0NSAxMyA4OS4zMzMgMTMgNDUtMTMgNDUtMTMgMTMtNDUtMTMtNDUtMTN6bTAgMmM0LjQxOCAwIDgtMy41ODIgOC04czMtMy41ODIgOC04IDMuNTgyLTggOC0zLjU4MiA4LTggNHptMCA3NmMtNi42MjcgMC0xMi01LjM3My0xMi0xMnM1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMi01LjM3MyAxMi0xMnptLTggMTRjLTIuMjA5IDAtNC0xLjc5MS00LTRzMS43OTEtNCA0LTQgNCAxLjc5MSA0IDQtMS43OSA0LTR6Ii8+PC9zdmc+',
+  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDEwYzg5LjMzMy0xMyA0NS0xMyA0NSAxMyA4OS4zMzMgMTMgNDUtMTMgNDUtMTMgMTMtNDUtMTMtNDUtMTN6bTAgMmM0LjQxOCAwIDgtMy41ODIgOC04czMtMy41ODIgOC04IDMuNTgyLTggOC0zLjU4MiA4LTggNHptMCA3NmMtNi42MjcgMC0xMi01LjM3My0xMi0xMnM1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMi01LjM3MyAxMi0xMnptOCAxNGMtMi4yMDkgMC00LTEuNzkxLTQtNHMxLjc5MS00IDQtNCA0IDEuNzkyIDQtNHMtMS43OTItNC00LTR6Ii8+PC9zdmc+',
+  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDEwYzg5LjMzMy0xMyA0NS0xMyA0NSAxMyA4OS4zMzMgMTMgNDUtMTMgNDUtMTMgMTMtNDUtMTMtNDUtMTN6bTAgMmM0LjQxOCAwIDgtMy41ODIgOC04czMtMy41ODIgOC04IDMuNTgyLTggOC0zLjU4MiA4LTggNHptMCA3NmMtNi42MjcgMC0xMi01LjM3My0xMi0xMnM1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMi01LjM3MyAxMi0xMnptLTggMTRjLTIuMjA5IDAtNC0xLjc5MS00LTRzMS43OTEtNCA0LTQgNCAxLjc5MSA0IDQtMS43OSA0LTR6Ii8+PC9zdmc+',
+  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDEwYzg5LjMzMy0xMyA0NS0xMyA0NSAxMyA4OS4zMzMgMTMgNDUtMTMgNDUtMTMgMTMtNDUtMTMtNDUtMTN6bTAgMmM0LjQxOCAwIDgtMy41ODIgOC04czMtMy41ODIgOC04IDMuNTgyLTggOC0zLjU4MiA4LTggNHptMCA3NmMtNi42MjcgMC0xMi01LjM3My0xMi0xMnM1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMi01LjM3MyAxMi0xMnptOCAxNGMtMi4yMDkgMC00LTEuNzkxLTQtNHMxLjc5MS00IDQtNCA0IDEuNzkyIDQtNHMtMS43OTItNC00LTR6Ii8+PC9zdmc+',
+  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDEwYzg5LjMzMy0xMyA0NS0xMyA0NSAxMyA4OS4zMzMgMTMgNDUtMTMgNDUtMTMgMTMtNDUtMTMtNDUtMTN6bTAgMmM0LjQxOCAwIDgtMy41ODIgOC04czMtMy41ODIgOC04IDMuNTgyLTggOC0zLjU4MiA4LTggNHptMCA3NmMtNi42MjcgMC0xMi01LjM3My0xMi0xMnM1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMi01LjM3MyAxMi0xMnptLTggMTRjLTIuMjA5IDAtNC0xLjc5MS00LTRzMS43OTEtNCA0LTQgNCAxLjc5MSA0IDQtMS43OSA0LTR6Ii8+PC9zdmc+',
+  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDEwYzg5LjMzMy0xMyA0NS0xMyA0NSAxMyA4OS4zMzMgMTMgNDUtMTMgNDUtMTMgMTMtNDUtMTMtNDUtMTN6bTAgMmM0LjQxOCAwIDgtMy41ODIgOC04czMtMy41ODIgOC04IDMuNTgyLTggOC0zLjU4MiA4LTggNHptMCA3NmMtNi42MjcgMC0xMi01LjM3My0xMi0xMnM1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMi01LjM3MyAxMi0xMnptOCAxNGMtMi4yMDkgMC00LTEuNzkxLTQtNHMxLjc5MS00IDQtNCA0IDEuNzkyIDQtNHMtMS43OTItNC00LTR6Ii8+PC9zdmc+',
+  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDEwYzg5LjMzMy0xMyA0NS0xMyA0NSAxMyA4OS4zMzMgMTMgNDUtMTMgNDUtMTMgMTMtNDUtMTMtNDUtMTN6bTAgMmM0LjQxOCAwIDgtMy41ODIgOC04czMtMy41ODIgOC04IDMuNTgyLTggOC0zLjU4MiA4LTggNHptMCA3NmMtNi42MjcgMC0xMi01LjM3My0xMi0xMnM1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMi01LjM3MyAxMi0xMnptLTggMTRjLTIuMjA5IDAtNC0xLjc5MS00LTRzMS43OTEtNCA0LTQgNCAxLjc5MSA0IDQtMS43OSA0LTR6Ii8+PC9zdmc+',
+  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDEwYzg5LjMzMy0xMyA0NS0xMyA0NSAxMyA4OS4zMzMgMTMgNDUtMTMgNDUtMTMgMTMtNDUtMTMtNDUtMTN6bTAgMmM0LjQxOCAwIDgtMy41ODIgOC04czMtMy41ODIgOC04IDMuNTgyLTggOC0zLjU4MiA4LTggNHptMCA3NmMtNi42MjcgMC0xMi01LjM3My0xMi0xMnM1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMi01LjM3MyAxMi0xMnptOCAxNGMtMi4yMDkgMC00LTEuNzkxLTQtNHMxLjc5MS00IDQtNCA0IDEuNzkyIDQtNHMtMS43OTItNC00LTR6Ii8+PC9zdmc+',
+]
+
+// Avatar display names for visual reference
+const AVATAR_NAMES = [
+  '👤', '👨', '👱', '🧑', 
+  '👩', '👧', '👸', '👵'
 ]
 
 type Tab = 'branding' | 'profile' | 'admins' | 'youtube'
@@ -144,10 +151,14 @@ export default function AdminSettings() {
       const data = await response.json()
       
       if (data.success && data.settings) {
-        setSettings(data.settings)
+        setSettings({
+          churchName: data.settings.churchName || defaultSettings.churchName,
+          churchTagline: data.settings.churchTagline || defaultSettings.churchTagline,
+          logoUrl: data.settings.logoUrl || defaultSettings.logoUrl
+        })
         setLogoPreview(data.settings.logoUrl || defaultSettings.logoUrl)
         
-        // Set YouTube settings
+        // Set YouTube settings - ensure all fields have proper defaults
         if (data.settings.youtube) {
           setYoutubeSettings({
             channelId: data.settings.youtube.channelId || '',
@@ -156,7 +167,7 @@ export default function AdminSettings() {
             apiKey: data.settings.youtube.apiKey || '',
             autoSync: data.settings.youtube.autoSync || false,
             syncInterval: data.settings.youtube.syncInterval || 6,
-            lastSync: data.settings.youtube.lastSync || null,
+            lastSync: data.settings.youtube.lastSync ? new Date(data.settings.youtube.lastSync) : null,
             syncStatus: data.settings.youtube.syncStatus || 'idle',
             syncError: data.settings.youtube.syncError || ''
           })
@@ -207,15 +218,30 @@ export default function AdminSettings() {
     setMessage(null)
 
     try {
+      // Ensure we have the latest youtube settings in the settings object
+      const settingsToSave = {
+        churchName: settings.churchName,
+        churchTagline: settings.churchTagline,
+        logoUrl: settings.logoUrl,
+        youtube: {
+          channelId: youtubeSettings.channelId || '',
+          channelName: youtubeSettings.channelName || '',
+          channelUrl: youtubeSettings.channelUrl || '',
+          apiKey: youtubeSettings.apiKey || '',
+          autoSync: youtubeSettings.autoSync || false,
+          syncInterval: youtubeSettings.syncInterval || 6,
+          lastSync: youtubeSettings.lastSync,
+          syncStatus: youtubeSettings.syncStatus || 'idle',
+          syncError: youtubeSettings.syncError || ''
+        }
+      }
+
       const response = await fetch('/api/settings', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({
-          ...settings,
-          youtube: youtubeSettings
-        })
+        body: JSON.stringify(settingsToSave)
       })
 
       const data = await response.json()
@@ -223,6 +249,28 @@ export default function AdminSettings() {
       if (data.success) {
         setMessage({ type: 'success', text: 'Settings saved successfully!' })
         setLogoPreview(settings.logoUrl)
+        
+        // Update local state with saved data to ensure consistency
+        if (data.settings) {
+          setSettings({
+            churchName: data.settings.churchName || settings.churchName,
+            churchTagline: data.settings.churchTagline || settings.churchTagline,
+            logoUrl: data.settings.logoUrl || settings.logoUrl
+          })
+          if (data.settings.youtube) {
+            setYoutubeSettings({
+              channelId: data.settings.youtube.channelId || '',
+              channelName: data.settings.youtube.channelName || '',
+              channelUrl: data.settings.youtube.channelUrl || '',
+              apiKey: data.settings.youtube.apiKey || '',
+              autoSync: data.settings.youtube.autoSync || false,
+              syncInterval: data.settings.youtube.syncInterval || 6,
+              lastSync: data.settings.youtube.lastSync,
+              syncStatus: data.settings.youtube.syncStatus || 'idle',
+              syncError: data.settings.youtube.syncError || ''
+            })
+          }
+        }
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to save settings' })
       }
@@ -314,6 +362,10 @@ export default function AdminSettings() {
         setMessage({ type: 'success', text: 'Profile updated successfully!' })
         // Update current user state
         setCurrentUser({ ...currentUser, name: profileName, profileImage })
+        
+        // Reload settings to ensure everything stays synchronized after profile update
+        // This fixes the issue where profile changes could affect other settings
+        fetchSettings()
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to update profile' })
       }
@@ -1039,19 +1091,13 @@ export default function AdminSettings() {
                         <button
                           key={index}
                           onClick={() => handleSelectAvatar(avatar)}
-                          className={`relative w-16 h-16 rounded-full overflow-hidden border-2 transition duration-200 ${
+                          className={`relative w-16 h-16 rounded-full overflow-hidden border-2 transition duration-200 flex items-center justify-center text-3xl ${
                             profileImage === avatar
-                              ? 'border-accent ring-2 ring-accent ring-opacity-50'
-                              : 'border-transparent hover:border-gray-300'
+                              ? 'border-accent ring-2 ring-accent ring-opacity-50 bg-accent/10'
+                              : 'border-gray-300 hover:border-gray-400 bg-white'
                           }`}
                         >
-                          <Image
-                            src={avatar}
-                            alt={`Avatar ${index + 1}`}
-                            width={64}
-                            height={64}
-                            className="object-cover"
-                          />
+                          {AVATAR_NAMES[index]}
                         </button>
                       ))}
                     </div>

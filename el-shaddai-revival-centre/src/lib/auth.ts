@@ -9,6 +9,8 @@ export interface JWTPayload {
   adminId: string
   email: string
   role: string
+  name?: string
+  profileImage?: string
   iat?: number
   exp?: number
 }

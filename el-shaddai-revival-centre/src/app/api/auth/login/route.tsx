@@ -125,7 +125,9 @@ export async function POST(request: NextRequest) {
       const token = generateToken({
         adminId: 'dev-admin-id',
         email: normalizedEmail,
-        role: 'super_admin'
+        role: 'super_admin',
+        name: 'Admin',
+        profileImage: ''
       })
       
       const refreshToken = generateRefreshToken('dev-admin-id')
@@ -234,7 +236,9 @@ export async function POST(request: NextRequest) {
     const token = generateToken({
       adminId: admin._id.toString(),
       email: admin.email,
-      role: admin.role
+      role: admin.role,
+      name: admin.name,
+      profileImage: admin.profileImage || ''
     })
     
     const refreshToken = generateRefreshToken(admin._id.toString())

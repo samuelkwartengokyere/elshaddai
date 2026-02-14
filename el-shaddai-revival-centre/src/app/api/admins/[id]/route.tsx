@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/database'
 import Admin from '@/models/Admin'
-import { getCurrentAdmin } from '@/lib/auth'
+import { getCurrentAdmin, generateToken, setAuthCookie } from '@/lib/auth'
 import { ObjectId } from 'mongodb'
 
 // Validate MongoDB ObjectId
@@ -85,15 +85,6 @@ export async function PUT(
       )
     }
     
-    const dbConnection = await connectDB()
-    
-    if (!dbConnection) {
-      return NextResponse.json(
-        { success: false, error: 'Database not available' },
-        { status: 503 }
-      )
-    }
-    
     const currentAdmin = getCurrentAdmin(request)
     if (!currentAdmin) {
       return NextResponse.json(
@@ -116,6 +107,48 @@ export async function PUT(
     
     const body = await request.json()
     const { name, role, isActive, currentPassword, newPassword, profileImage } = body
+    
+    const dbConnection = await connectDB()
+    
+    // Dev mode - allow profile updates without database
+    if (!dbConnection) {
+      // In dev mode, generate a new token with updated profile image
+      const newName = name || currentAdmin.name || currentAdmin.email.split('@')[0]
+      const newProfileImage = profileImage || currentAdmin.profileImage || ''
+      
+      const token = generateToken({
+        adminId: currentAdmin.adminId,
+        email: currentAdmin.email,
+        role: currentAdmin.role,
+        name: newName,
+        profileImage: newProfileImage
+      })
+      
+      // Set the new token in the response cookie
+      const response = NextResponse.json({
+        success: true,
+        message: 'Profile updated successfully (dev mode)',
+        admin: {
+          _id: currentAdmin.adminId,
+          email: currentAdmin.email,
+          name: newName,
+          role: currentAdmin.role,
+          isActive: true,
+          profileImage: newProfileImage
+        }
+      })
+      
+      // Set auth cookie with new token
+      const cookieResponse = setAuthCookie(token, 'Profile updated successfully (dev mode)')
+      
+      // Merge cookies from setAuthCookie into our response
+      const cookies = cookieResponse.headers.get('set-cookie')
+      if (cookies) {
+        response.headers.set('set-cookie', cookies)
+      }
+      
+      return response
+    }
     
     const admin = await Admin.findById(id)
     

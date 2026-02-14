@@ -201,11 +201,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="p-4 border-t border-gray-700 flex-shrink-0 bg-primary mb-18">
           {user && (
             <div className={`flex items-center ${isSidebarOpen ? 'space-x-3' : 'justify-center'} mb-2`}>
-              {user.role === 'super_admin' ? (
-                <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center text-white">
-                  <span className="text-sm font-bold">A</span>
-                </div>
-              ) : user.profileImage ? (
+              {/* Check profileImage FIRST, then fallback to initial */}
+              {user.profileImage ? (
                 <div className="w-8 h-8 rounded-full overflow-hidden">
                   <Image
                     src={user.profileImage}
@@ -227,7 +224,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               {isSidebarOpen && (
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-medium text-white truncate">
-                    {user.role === 'super_admin' ? 'Admin' : (user.name || user.email)}
+                    {user.name || user.email}
                   </p>
                   <p className="text-xs text-gray-400 capitalize">
                     {user.role.replace('_', ' ')}
@@ -259,11 +256,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="flex items-center space-x-4">
             {user && (
               <div className="flex items-center space-x-3">
-                {user.role === 'super_admin' ? (
-                  <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center text-white font-bold shrink-0">
-                    A
-                  </div>
-                ) : user.profileImage ? (
+                {/* Check profileImage FIRST, then fallback to initial */}
+                {user.profileImage ? (
                   <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 mb-1">
                     <Image
                       src={user.profileImage}
@@ -284,7 +278,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 )}
                 <div className="hidden md:block">
                   <p className="text-sm font-medium text-gray-800 leading-none">
-                    {user.role === 'super_admin' ? 'Admin' : user.name}
+                    {user.name || user.email}
                   </p>
                   <p className="text-xs text-gray-500 leading-none mt-0.5">{user.email}</p>
                 </div>
