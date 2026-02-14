@@ -52,17 +52,27 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    // Execute query with timeout
-    const events = await Event.find(query)
-      .sort(sort === 'date' ? { date: 1 } : { createdAt: -1 })
-      .skip(skip)
-      .limit(limit)
-      .lean()
-      .collation({ locale: 'en', strength: 2 })
-      .maxTimeMS(TIMEOUT_MS - 1000)
+    // Execute query with timeout - wrapped in try-catch for graceful error handling
+    let events: IEvent[] = []
+    let total = 0
+    
+    try {
+      events = await Event.find(query)
+        .sort(sort === 'date' ? { date: 1 } : { createdAt: -1 })
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .collation({ locale: 'en', strength: 2 })
+        .maxTimeMS(TIMEOUT_MS - 1000) as unknown as IEvent[]
 
-    const total = await Event.countDocuments(query)
-      .maxTimeMS(TIMEOUT_MS - 1000)
+      total = await Event.countDocuments(query)
+        .maxTimeMS(TIMEOUT_MS - 1000)
+    } catch (dbError) {
+      console.error('Database query error:', dbError)
+      // Return empty results instead of error
+      events = []
+      total = 0
+    }
     
     const totalPages = Math.ceil(total / limit)
     

@@ -28,9 +28,12 @@ if (!global.mongoose) {
   global.mongoose = cached
 }
 
-const MAX_RETRIES = 3
-const RETRY_DELAY = 2000 // 2 seconds
+const MAX_RETRIES = 5
+const RETRY_DELAY = 3000 // 3 seconds between retries
 
+/**
+ * Connect to MongoDB with improved retry logic and timeouts
+ */
 async function connectDB(): Promise<typeof mongoose | null> {
   // Skip database connection during build time
   if (isBuildTime) {
@@ -43,18 +46,19 @@ async function connectDB(): Promise<typeof mongoose | null> {
     return null
   }
 
-  // If already connected, return cached connection
-  if (cached.conn) {
+  // If already connected and ready, return cached connection
+  if (cached.conn && (mongoose.connection.readyState as number) === 1) {
     return cached.conn
   }
 
-  // Check if we should retry
+  // Check if we should retry based on delay
   const now = Date.now()
+  const timeSinceLastAttempt = now - cached.lastConnectionAttempt
   const shouldRetry = 
     cached.connectionRetries < MAX_RETRIES &&
-    (now - cached.lastConnectionAttempt > RETRY_DELAY)
+    (timeSinceLastAttempt > RETRY_DELAY || cached.connectionRetries === 0)
 
-  // If there's an existing promise and we're not retrying, return it
+  // If there's an existing promise and we recently tried, return it
   if (cached.promise && !shouldRetry) {
     try {
       cached.conn = await cached.promise
@@ -66,24 +70,28 @@ async function connectDB(): Promise<typeof mongoose | null> {
     }
   }
 
-  // New connection attempt
-  if (shouldRetry || !cached.promise) {
-    cached.lastConnectionAttempt = now
-    cached.connectionRetries++
-    
-    const opts = {
-      bufferCommands: false,
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
-    }
+  // Start new connection attempt
+  cached.lastConnectionAttempt = now
+  cached.connectionRetries++
+  
+  const opts = {
+    bufferCommands: true, // Enable buffering to queue operations
+    serverSelectionTimeoutMS: 10000, // 10 seconds
+    socketTimeoutMS: 60000, // 60 seconds
+    maxPoolSize: 10,
+    minPoolSize: 1,
+    maxIdleTimeMS: 30000,
+  }
 
-    console.log(`Attempting database connection (attempt ${cached.connectionRetries}/${MAX_RETRIES})...`)
-    
-    cached.promise = mongoose.connect(MONGODB_URI, opts).then((mongoose) => {
+  console.log(`Attempting database connection (attempt ${cached.connectionRetries}/${MAX_RETRIES})...`)
+  
+  cached.promise = mongoose.connect(MONGODB_URI!, opts)
+    .then((mongoose) => {
       console.log('✅ Database connected successfully')
       cached.connectionRetries = 0 // Reset retries on success
       return mongoose
-    }).catch((error: Error) => {
+    })
+    .catch((error: Error) => {
       console.error(`❌ Database connection failed (attempt ${cached.connectionRetries}/${MAX_RETRIES}):`, error.message)
       
       // Don't throw on last retry - return null instead
@@ -92,12 +100,13 @@ async function connectDB(): Promise<typeof mongoose | null> {
         return null
       }
       
-      throw error
+      // Return null to allow graceful degradation
+      return null
     })
-  }
 
   try {
     cached.conn = await cached.promise
+    return cached.conn
   } catch (e) {
     cached.promise = null
     
@@ -107,32 +116,65 @@ async function connectDB(): Promise<typeof mongoose | null> {
       return null
     }
     
-    // Rethrow for caller to handle
-    throw e
+    // Return null to allow graceful degradation instead of throwing
+    return null
   }
-
-  return cached.conn
 }
 
 /**
- * Check if database connection is available
+ * Check if database connection is available and ready
+ * Returns true only if connection is established and ready
  */
 export async function isDatabaseConnected(): Promise<boolean> {
   try {
+    // First check if mongoose thinks we're connected
+    if ((mongoose.connection.readyState as number) === 1) {
+      return true
+    }
+    
+    // Try to connect
     const conn = await connectDB()
-    return conn !== null
+    return conn !== null && (mongoose.connection.readyState as number) === 1
   } catch {
     return false
   }
 }
 
 /**
+ * Check if mongoose connection is fully ready (readyState === 1)
+ * This is needed when bufferCommands = false
+ */
+export function isConnectionReady(): boolean {
+  // readyState: 0 = disconnected, 1 = connected, 2 = connecting, 3 = disconnecting
+  // Use type assertion to satisfy TypeScript
+  return (mongoose.connection.readyState as number) === 1
+}
+
+/**
+ * Check if we're currently connecting to the database
+ */
+export function isConnecting(): boolean {
+  return mongoose.connection.readyState === 2
+}
+
+/**
  * Get database connection status
  */
-export function getDatabaseStatus(): { connected: boolean; retries: number } {
+export function getDatabaseStatus(): { 
+  connected: boolean 
+  ready: boolean
+  connecting: boolean
+  retries: number 
+  state: string
+} {
+  const states = ['disconnected', 'connected', 'connecting', 'disconnecting']
+  const stateIndex = Math.min(Math.max(mongoose.connection.readyState, 0), 3)
   return {
     connected: cached.conn !== null,
-    retries: cached.connectionRetries
+    ready: isConnectionReady(),
+    connecting: isConnecting(),
+    retries: cached.connectionRetries,
+    state: states[stateIndex] || 'unknown'
   }
 }
 

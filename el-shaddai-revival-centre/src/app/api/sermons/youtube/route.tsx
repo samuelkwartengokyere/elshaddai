@@ -1,65 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server'
-import connectDB from '@/lib/database'
-import Settings from '@/models/Settings'
+import { 
+  YouTubeConfigType, 
+  getInMemoryYouTubeSettings, 
+  setInMemoryYouTubeSettings,
+  getCachedYouTubeVideos,
+  setCachedYouTubeVideos,
+  getLastCacheUpdate,
+  setLastCacheUpdate,
+  clearYouTubeCache
+} from '@/lib/youtubeStorage'
 import { fetchChannelDetails, fetchAllChannelVideos, youTubeVideoToSermon, extractChannelId, getChannelIdFromUsername } from '@/lib/youtube'
 
-// YouTube cache type
-interface YouTubeCacheItem {
-  id: string
-  _id?: string
-  title: string
-  speaker: string
-  date: string
-  description: string
-  thumbnail: string
-  videoUrl: string
-  embedUrl: string
-  audioUrl: string | null
-  duration: string
-  durationSeconds: number
-  series: string | null
-  biblePassage: string | null
-  tags: string[]
-  isYouTube: boolean
-  viewCount: string
-}
-
-// YouTube config type
-interface YouTubeConfigType {
-  channelId?: string
-  channelUrl?: string
-  apiKey?: string
-}
-
-// In-memory cache for YouTube videos (for development without MongoDB)
-let cachedYouTubeVideos: YouTubeCacheItem[] = []
-let lastCacheUpdate: Date | null = null
 const CACHE_DURATION_MS = 5 * 60 * 1000 // 5 minutes
+
+// Initialize YouTube settings from environment variables on startup
+function initializeYouTubeFromEnv() {
+  // Check both YOUTUBE_CHANNEL_ID and NEXT_PUBLIC_YOUTUBE_CHANNEL_ID
+  const envChannelId = process.env.YOUTUBE_CHANNEL_ID || process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID
+  const envApiKey = process.env.YOUTUBE_API_KEY
+  const envChannelUrl = process.env.YOUTUBE_CHANNEL_URL || process.env.NEXT_PUBLIC_YOUTUBE_URL
+  
+  if (envChannelId || envChannelUrl || envApiKey) {
+    const currentSettings = getInMemoryYouTubeSettings()
+    setInMemoryYouTubeSettings({
+      channelId: envChannelId || currentSettings.channelId,
+      channelUrl: envChannelUrl || currentSettings.channelUrl,
+      apiKey: envApiKey || currentSettings.apiKey,
+    })
+  }
+}
+
+// Call initialization on module load
+initializeYouTubeFromEnv()
 
 // GET - Fetch cached YouTube videos or sync status
 export async function GET(request: NextRequest) {
   try {
-    const dbConnection = await connectDB()
     const searchParams = request.nextUrl.searchParams
     const forceRefresh = searchParams.get('refresh') === 'true'
     
-    // Get settings
-    let settings: Record<string, unknown> | null = null
-    
-    if (dbConnection) {
-      try {
-        settings = await Settings.findOne().lean() as Record<string, unknown> | null
-      } catch (error) {
-        console.error('Database error:', error)
-      }
-    }
-
-    // Check if YouTube is configured
-    const youtubeConfig = (settings?.youtube as YouTubeConfigType) || {
-      channelId: '',
-      channelUrl: '',
-      apiKey: ''
-    }
+    // Get YouTube config from in-memory storage only (no database)
+    const youtubeConfig = getInMemoryYouTubeSettings()
 
     // Check if we have either channelId or channelUrl
     const hasChannelConfig = !!(youtubeConfig.channelId || youtubeConfig.channelUrl)
@@ -77,9 +58,39 @@ export async function GET(request: NextRequest) {
     let effectiveChannelId = youtubeConfig.channelId || ''
     
     if (!effectiveChannelId && youtubeConfig.channelUrl) {
+      // Try to extract channel ID from URL (for /channel/ URLs)
       const extractedId = extractChannelId(youtubeConfig.channelUrl)
       if (extractedId) {
         effectiveChannelId = extractedId
+      } else if (youtubeConfig.apiKey) {
+        // For @username, /c/, or /user/ URLs, need to use API to get channel ID
+        const atMatch = youtubeConfig.channelUrl.match(/youtube\.com\/@([a-zA-Z0-9_-]+)/)
+        const cMatch = youtubeConfig.channelUrl.match(/youtube\.com\/c\/([a-zA-Z0-9_-]+)/)
+        const userMatch = youtubeConfig.channelUrl.match(/youtube\.com\/user\/([a-zA-Z0-9_-]+)/)
+        
+        const usernameMatch = atMatch || cMatch || userMatch
+        
+        if (usernameMatch) {
+          const resolvedId = await getChannelIdFromUsername(usernameMatch[1], youtubeConfig.apiKey)
+          if (resolvedId) {
+            effectiveChannelId = resolvedId
+            // Update the channelId in memory with the resolved ID
+            setInMemoryYouTubeSettings({ channelId: resolvedId })
+          }
+        }
+      }
+    }
+
+    // If channelId looks like a handle (@username), try to resolve it
+    if (!effectiveChannelId && youtubeConfig.channelId?.startsWith('@')) {
+      const handle = youtubeConfig.channelId.replace('@', '')
+      if (youtubeConfig.apiKey) {
+        const resolvedId = await getChannelIdFromUsername(handle, youtubeConfig.apiKey)
+        if (resolvedId) {
+          effectiveChannelId = resolvedId
+          // Update the channelId in memory with the resolved ID
+          setInMemoryYouTubeSettings({ channelId: resolvedId })
+        }
       }
     }
 
@@ -95,15 +106,17 @@ export async function GET(request: NextRequest) {
 
     // Check cache
     const now = new Date()
-    const cacheExpired = !lastCacheUpdate || 
-      (now.getTime() - lastCacheUpdate.getTime()) > CACHE_DURATION_MS
+    const lastUpdate = getLastCacheUpdate()
+    const cachedVideos = getCachedYouTubeVideos()
+    const cacheExpired = !lastUpdate || 
+      (now.getTime() - lastUpdate.getTime()) > CACHE_DURATION_MS
 
-    if (!forceRefresh && cachedYouTubeVideos.length > 0 && !cacheExpired) {
+    if (!forceRefresh && cachedVideos.length > 0 && !cacheExpired) {
       return NextResponse.json({
         success: true,
-        videos: cachedYouTubeVideos,
+        videos: cachedVideos,
         cached: true,
-        lastUpdate: lastCacheUpdate,
+        lastUpdate: lastUpdate,
         configured: true
       })
     }
@@ -116,27 +129,23 @@ export async function GET(request: NextRequest) {
         { maxVideos: 500, maxResultsPerPage: 50 }
       )
 
-      // Transform to sermon format
-      cachedYouTubeVideos = videos.map(youTubeVideoToSermon)
-      lastCacheUpdate = now
+      // Transform to sermon format and update cache
+      const sermonVideos = videos.map(youTubeVideoToSermon)
+      setCachedYouTubeVideos(sermonVideos)
+      setLastCacheUpdate(now)
 
-      // Update sync status in database
-      if (dbConnection) {
-        await Settings.findOneAndUpdate(
-          {},
-          {
-            'youtube.lastSync': new Date(),
-            'youtube.syncStatus': 'success',
-            'youtube.syncError': ''
-          }
-        )
-      }
+      // Update sync status in in-memory storage
+      setInMemoryYouTubeSettings({
+        lastSync: new Date(),
+        syncStatus: 'success',
+        syncError: ''
+      })
 
       return NextResponse.json({
         success: true,
-        videos: cachedYouTubeVideos,
+        videos: sermonVideos,
         cached: false,
-        lastUpdate: lastCacheUpdate,
+        lastUpdate: now,
         configured: true
       })
     } else {
@@ -163,7 +172,6 @@ export async function GET(request: NextRequest) {
 // POST - Trigger manual sync
 export async function POST(request: NextRequest) {
   try {
-    const dbConnection = await connectDB()
     const body = await request.json()
     
     const { channelId, apiKey, channelUrl } = body
@@ -216,35 +224,27 @@ export async function POST(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Update settings with new channel info
-    if (dbConnection) {
-      await Settings.findOneAndUpdate(
-        {},
-        {
-          'youtube.channelId': finalChannelId,
-          'youtube.channelUrl': channelUrl || `https://www.youtube.com/channel/${finalChannelId}`,
-          'youtube.apiKey': apiKey || '',
-          'youtube.syncStatus': 'syncing',
-          'youtube.syncError': ''
-        },
-        { upsert: true }
-      )
+    // Update settings with new channel info (in-memory only)
+    const newChannelConfig = {
+      channelId: finalChannelId,
+      channelUrl: channelUrl || `https://www.youtube.com/channel/${finalChannelId}`,
+      apiKey: apiKey || '',
+      syncStatus: 'syncing' as const,
+      syncError: ''
     }
+    
+    setInMemoryYouTubeSettings(newChannelConfig)
 
     // If no API key, we can't fetch videos
     if (!apiKey) {
       // Clear cache and mark as needing API key
-      cachedYouTubeVideos = []
+      clearYouTubeCache()
       
-      if (dbConnection) {
-        await Settings.findOneAndUpdate(
-          {},
-          {
-            'youtube.syncStatus': 'idle',
-            'youtube.syncError': 'API key required for video sync'
-          }
-        )
-      }
+      // Save to in-memory storage
+      setInMemoryYouTubeSettings({
+        syncStatus: 'idle',
+        syncError: 'API key required for video sync'
+      })
 
       return NextResponse.json({
         success: true,
@@ -262,25 +262,19 @@ export async function POST(request: NextRequest) {
     const sermonVideos = videos.map(youTubeVideoToSermon)
 
     // Update cache
-    cachedYouTubeVideos = sermonVideos
-    lastCacheUpdate = new Date()
+    setCachedYouTubeVideos(sermonVideos)
+    setLastCacheUpdate(new Date())
 
-    // Update settings with channel name and sync status
-    if (dbConnection) {
-      await Settings.findOneAndUpdate(
-        {},
-        {
-          'youtube.channelName': channelDetails?.title || '',
-          'youtube.channelId': finalChannelId,
-          'youtube.channelUrl': channelUrl || `https://www.youtube.com/channel/${finalChannelId}`,
-          'youtube.apiKey': apiKey,
-          'youtube.lastSync': new Date(),
-          'youtube.syncStatus': 'success',
-          'youtube.syncError': ''
-        },
-        { upsert: true }
-      )
-    }
+    // Update settings with channel name and sync status (in-memory only)
+    setInMemoryYouTubeSettings({
+      channelName: channelDetails?.title || '',
+      channelId: finalChannelId,
+      channelUrl: channelUrl || `https://www.youtube.com/channel/${finalChannelId}`,
+      apiKey: apiKey,
+      lastSync: new Date(),
+      syncStatus: 'success',
+      syncError: ''
+    })
 
     return NextResponse.json({
       success: true,
@@ -293,20 +287,11 @@ export async function POST(request: NextRequest) {
   } catch (error) {
     console.error('YouTube sync error:', error)
     
-    // Update error status in database
-    try {
-      await connectDB()
-      await Settings.findOneAndUpdate(
-        {},
-        {
-          'youtube.syncStatus': 'error',
-          'youtube.syncError': error instanceof Error ? error.message : 'Unknown error'
-        },
-        { upsert: true }
-      )
-    } catch (dbError) {
-      console.error('Failed to update sync status:', dbError)
-    }
+    // Update error status in in-memory storage
+    setInMemoryYouTubeSettings({
+      syncStatus: 'error',
+      syncError: error instanceof Error ? error.message : 'Unknown error'
+    })
 
     return NextResponse.json({
       success: false,
@@ -318,8 +303,7 @@ export async function POST(request: NextRequest) {
 
 // DELETE - Clear YouTube cache
 export async function DELETE() {
-  cachedYouTubeVideos = []
-  lastCacheUpdate = null
+  clearYouTubeCache()
 
   return NextResponse.json({
     success: true,

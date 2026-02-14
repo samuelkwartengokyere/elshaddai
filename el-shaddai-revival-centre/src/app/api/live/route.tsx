@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import connectDB from '@/lib/database'
+import connectDB, { isConnectionReady } from '@/lib/database'
 import Settings from '@/models/Settings'
+import { getInMemoryYouTubeSettings } from '@/lib/youtubeStorage'
 
 // In-memory cache for live stream status
 let cachedLiveStatus: {
@@ -16,93 +17,23 @@ let cachedLiveStatus: {
 let lastCacheUpdate: Date | null = null
 const CACHE_DURATION_MS = 5 * 60 * 1000 // 5 minutes cache
 
-// YouTube API base URL
-const YOUTUBE_API_BASE_URL = 'https://www.googleapis.com/youtube/v3'
-
 interface YouTubeConfigType {
   channelId?: string
   apiKey?: string
 }
 
-// Fetch live stream status from YouTube API
-async function fetchLiveStreamStatus(
-  channelId: string,
-  apiKey: string
-): Promise<{
-  isLive: boolean
-  streamInfo: {
-    title: string
-    viewerCount: number
-    scheduledStartTime?: string
-    actualStartTime?: string
-  } | null
-  error?: string
-}> {
-  try {
-    // Fetch live broadcasts for the channel
-    const response = await fetch(
-      `${YOUTUBE_API_BASE_URL}/liveBroadcasts?` +
-        new URLSearchParams({
-          part: 'snippet,statistics,contentDetails',
-          broadcastType: 'all',
-          maxResults: '1',
-          channelId,
-          key: apiKey
-        }),
-      {
-        next: { revalidate: 60 } // Cache for 60 seconds
-      }
-    )
-
-    if (!response.ok) {
-      // Return structured error instead of throwing
-      const errorText = await response.text().catch(() => 'Unknown error')
-      console.warn(`YouTube API returned status ${response.status}: ${errorText}`)
-      
-      return {
-        isLive: false,
-        streamInfo: null,
-        error: `YouTube API error: ${response.status}`
-      }
-    }
-
-    const data = await response.json()
-
-    // Check if there's an active live broadcast
-    if (data.items && data.items.length > 0) {
-      const broadcast = data.items[0]
-      const snippet = broadcast.snippet
-      const statistics = broadcast.statistics
-      const isLive = broadcast.status?.lifeCycleStatus === 'live' || 
-                     snippet?.liveBroadcastContent === 'live'
-
-      if (isLive) {
-        return {
-          isLive: true,
-          streamInfo: {
-            title: snippet?.title || 'Live Stream',
-            viewerCount: parseInt(statistics?.viewerCount || '0'),
-            scheduledStartTime: snippet?.scheduledStartTime,
-            actualStartTime: snippet?.actualStartTime
-          }
-        }
-      }
-    }
-
-    // No live broadcast found
-    return {
-      isLive: false,
-      streamInfo: null
-    }
-  } catch (error) {
-    console.error('Error fetching live stream status:', error)
-    return {
-      isLive: false,
-      streamInfo: null,
-      error: error instanceof Error ? error.message : 'Unknown error fetching live status'
-    }
-  }
-}
+/**
+ * YouTube Live API - Simplified approach
+ * 
+ * IMPORTANT: YouTube Data API's liveBroadcasts endpoint now requires OAuth2 authentication,
+ * not just an API key. Since we're using the YouTube iframe embed which handles live detection
+ * automatically, we can rely on time-based detection instead of the API.
+ * 
+ * This approach:
+ * 1. Uses the live stream embed URL (YouTube handles live detection internally)
+ * 2. Falls back to time-based service detection when API is unavailable
+ * 3. Removes dependency on YouTube Data API for live status
+ */
 
 // GET - Fetch live stream status
 export async function GET(request: NextRequest) {
@@ -121,108 +52,92 @@ export async function GET(request: NextRequest) {
         isLive: cachedLiveStatus.isLive,
         streamInfo: cachedLiveStatus.streamInfo,
         cached: true,
-        lastUpdate: lastCacheUpdate
+        lastUpdate: lastCacheUpdate,
+        method: 'cache'
       })
     }
 
     // Try to connect to database for settings
     let settings: Record<string, unknown> | null = null
 
-    try {
-      const dbConnection = await connectDB()
-      if (dbConnection) {
+    // First, try to connect to the database
+    const dbConnection = await connectDB()
+    
+    // Check both dbConnection and connection readiness
+    const isReady = isConnectionReady()
+    
+    if (dbConnection && isReady) {
+      try {
         settings = await Settings.findOne().lean() as Record<string, unknown> | null
+      } catch (error) {
+        console.error('Database query error:', error)
       }
-    } catch (error) {
-      console.error('Database connection error:', error)
+    } else if (!dbConnection) {
+      console.warn('Database connection not available, using fallback mode')
+    } else {
+      console.warn('Database connection not ready yet, using fallback mode')
     }
 
-    // Get YouTube configuration
-    const youtubeConfig = (settings?.youtube as YouTubeConfigType) || {
-      channelId: process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || '',
-      apiKey: process.env.YOUTUBE_API_KEY || ''
-    }
-
-    const channelId = youtubeConfig.channelId || process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID
-    const apiKey = youtubeConfig.apiKey || process.env.YOUTUBE_API_KEY
+    // Get YouTube configuration from database or in-memory
+    const youtubeConfig = (settings?.youtube as YouTubeConfigType) || getInMemoryYouTubeSettings()
+    
+    const channelId = youtubeConfig?.channelId || process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || ''
 
     // Check if YouTube is configured
-    if (!channelId || !apiKey) {
+    if (!channelId) {
       // Return fallback based on time if not configured
-      return NextResponse.json({
-        success: false,
-        isLive: false,
-        configured: false,
-        error: 'YouTube API not configured',
-        fallback: getTimeBasedLiveStatus(),
-        message: 'Add YouTube API credentials to enable live status'
-      })
-    }
-
-    // Fetch live status from YouTube API
-    try {
-      const liveStatus = await fetchLiveStreamStatus(channelId, apiKey)
-
-      // Handle API errors gracefully
-      if (liveStatus.error) {
-        console.warn('YouTube API error:', liveStatus.error)
-        // Fallback to time-based detection if API fails
-        const fallbackStatus = getTimeBasedLiveStatus()
-        
-        return NextResponse.json({
-          success: true,
-          isLive: fallbackStatus.isLive,
-          configured: true,
-          fallback: true,
-          apiError: liveStatus.error,
-          streamInfo: fallbackStatus.isLive ? {
-            title: 'Service in Progress',
-            viewerCount: estimateViewerCount(fallbackStatus.serviceType || ''),
-            scheduledStartTime: fallbackStatus.scheduledTime || ''
-          } : null
-        })
-      }
-
-      // Update cache
-      cachedLiveStatus = {
-        isLive: liveStatus.isLive,
-        streamInfo: liveStatus.streamInfo,
-        lastUpdate: now
-      }
-      lastCacheUpdate = now
-
-      return NextResponse.json({
-        success: true,
-        isLive: liveStatus.isLive,
-        streamInfo: liveStatus.streamInfo,
-        cached: false,
-        lastUpdate: now
-      })
-    } catch (error) {
-      console.error('Error fetching live stream status:', error)
-      // Fallback to time-based detection if API fails
       const fallbackStatus = getTimeBasedLiveStatus()
-      
       return NextResponse.json({
         success: true,
         isLive: fallbackStatus.isLive,
-        configured: true,
-        fallback: true,
-        streamInfo: fallbackStatus.isLive ? {
-          title: 'Service in Progress',
-          viewerCount: estimateViewerCount(fallbackStatus.serviceType || ''),
-          scheduledStartTime: fallbackStatus.scheduledTime || ''
-        } : null
+        configured: false,
+        channelId: null,
+        fallback: fallbackStatus,
+        method: 'time-based',
+        message: 'Add YouTube channel ID to settings to enable live stream embed'
       })
     }
 
+    // Use time-based live detection (YouTube embed handles actual live detection)
+    const timeBasedStatus = getTimeBasedLiveStatus()
+    
+    // Update cache
+    cachedLiveStatus = {
+      isLive: timeBasedStatus.isLive,
+      streamInfo: timeBasedStatus.isLive ? {
+        title: getServiceTitle(timeBasedStatus.serviceType || ''),
+        viewerCount: estimateViewerCount(timeBasedStatus.serviceType || ''),
+        scheduledStartTime: timeBasedStatus.scheduledTime
+      } : null,
+      lastUpdate: now
+    }
+    lastCacheUpdate = now
+
+    return NextResponse.json({
+      success: true,
+      isLive: timeBasedStatus.isLive,
+      configured: true,
+      channelId,
+      streamInfo: cachedLiveStatus.streamInfo,
+      cached: false,
+      lastUpdate: now,
+      method: 'time-based',
+      fallback: timeBasedStatus,
+      message: 'Using time-based detection. YouTube embed will show live content automatically.'
+    })
+
   } catch (error) {
     console.error('Error fetching live stream status:', error)
+    
+    // Always return a valid response with fallback
+    const fallbackStatus = getTimeBasedLiveStatus()
     return NextResponse.json({
-      success: false,
-      error: 'Failed to fetch live stream status',
-      fallback: getTimeBasedLiveStatus()
-    }, { status: 500 })
+      success: true,
+      isLive: fallbackStatus.isLive,
+      fallback: fallbackStatus,
+      method: 'error-fallback',
+      error: error instanceof Error ? error.message : 'Unknown error'
+    }, { status: 200 })
   }
 }
 
@@ -239,6 +154,22 @@ function estimateViewerCount(serviceType: string): number {
       return 250
     default:
       return 150
+  }
+}
+
+// Get service title based on service type
+function getServiceTitle(serviceType: string): string {
+  switch (serviceType) {
+    case 'sunday-morning':
+      return 'Sunday Morning Service'
+    case 'sunday-evening':
+      return 'Sunday Evening Service'
+    case 'wednesday':
+      return 'Wednesday Bible Study'
+    case 'friday-youth':
+      return 'Friday Youth Service'
+    default:
+      return 'Live Service'
   }
 }
 

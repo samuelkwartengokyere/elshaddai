@@ -49,17 +49,27 @@ export async function GET(request: NextRequest) {
       ]
     }
 
-    // Execute query with timeout
-    const testimonies = await Testimony.find(query)
-      .sort(sort as string)
-      .skip(skip)
-      .limit(limit)
-      .lean()
-      .collation({ locale: 'en', strength: 2 })
-      .maxTimeMS(TIMEOUT_MS - 1000)
+    // Execute query with timeout - wrapped in try-catch for graceful error handling
+    let testimonies: ITestimony[] = []
+    let total = 0
+    
+    try {
+      testimonies = await Testimony.find(query)
+        .sort(sort as string)
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .collation({ locale: 'en', strength: 2 })
+        .maxTimeMS(TIMEOUT_MS - 1000) as unknown as ITestimony[]
 
-    const total = await Testimony.countDocuments(query)
-      .maxTimeMS(TIMEOUT_MS - 1000)
+      total = await Testimony.countDocuments(query)
+        .maxTimeMS(TIMEOUT_MS - 1000)
+    } catch (dbError) {
+      console.error('Database query error:', dbError)
+      // Return empty results instead of error
+      testimonies = []
+      total = 0
+    }
     
     const totalPages = Math.ceil(total / limit)
     

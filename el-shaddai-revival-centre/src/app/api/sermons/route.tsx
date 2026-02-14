@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/database'
 import Sermon, { ISermon } from '@/models/Sermon'
-import Settings from '@/models/Settings'
 
 // Add AbortController for timeout
 const TIMEOUT_MS = 5000
@@ -33,6 +32,8 @@ export async function GET(request: NextRequest) {
   
   try {
     const dbConnection = await connectDB()
+    const isReady = dbConnection !== null
+    
     const searchParams = request.nextUrl.searchParams
     const includeYouTube = searchParams.get('youtube') !== 'false'
     const forceRefresh = searchParams.get('refresh') === 'true'
@@ -43,49 +44,56 @@ export async function GET(request: NextRequest) {
     let youtubeTotal = 0
 
     // Fetch database sermons if connected
-    if (dbConnection) {
-      const page = parseInt(searchParams.get('page') || '1')
-      const limit = parseInt(searchParams.get('limit') || '10')
-      const speaker = searchParams.get('speaker')
-      const series = searchParams.get('series')
-      const search = searchParams.get('search')
-      const sort = searchParams.get('sort') || '-date'
+    if (dbConnection && isReady) {
+      try {
+        const page = parseInt(searchParams.get('page') || '1')
+        const limit = parseInt(searchParams.get('limit') || '10')
+        const speaker = searchParams.get('speaker')
+        const series = searchParams.get('series')
+        const search = searchParams.get('search')
+        const sort = searchParams.get('sort') || '-date'
 
-      const skip = (page - 1) * limit
+        const skip = (page - 1) * limit
 
-      // Build query
-      const query: Record<string, unknown> = {}
+        // Build query
+        const query: Record<string, unknown> = {}
 
-      if (speaker) {
-        query.speaker = { $regex: speaker, $options: 'i' }
+        if (speaker) {
+          query.speaker = { $regex: speaker, $options: 'i' }
+        }
+
+        if (series) {
+          query.series = { $regex: series, $options: 'i' }
+        }
+
+        if (search) {
+          query.$or = [
+            { title: { $regex: search, $options: 'i' } },
+            { description: { $regex: search, $options: 'i' } },
+            { speaker: { $regex: search, $options: 'i' } },
+            { biblePassage: { $regex: search, $options: 'i' } }
+          ]
+        }
+
+        // Execute query with abort signal
+        const sermonResults = await Sermon.find(query)
+          .sort(sort as string)
+          .skip(skip)
+          .limit(limit)
+          .lean()
+          .collation({ locale: 'en', strength: 2 })
+          .maxTimeMS(TIMEOUT_MS - 1000)
+
+        sermons = sermonResults.map(s => ({ ...s, source: 'database', date: s.date?.toString() || new Date().toISOString() }))
+
+        total = await Sermon.countDocuments(query)
+          .maxTimeMS(TIMEOUT_MS - 1000)
+      } catch (dbError) {
+        console.error('Database query error:', dbError)
+        // Continue with empty sermons array
       }
-
-      if (series) {
-        query.series = { $regex: series, $options: 'i' }
-      }
-
-      if (search) {
-        query.$or = [
-          { title: { $regex: search, $options: 'i' } },
-          { description: { $regex: search, $options: 'i' } },
-          { speaker: { $regex: search, $options: 'i' } },
-          { biblePassage: { $regex: search, $options: 'i' } }
-        ]
-      }
-
-      // Execute query with abort signal
-      const sermonResults = await Sermon.find(query)
-        .sort(sort as string)
-        .skip(skip)
-        .limit(limit)
-        .lean()
-        .collation({ locale: 'en', strength: 2 })
-        .maxTimeMS(TIMEOUT_MS - 1000)
-
-      sermons = sermonResults.map(s => ({ ...s, source: 'database', date: s.date?.toString() || new Date().toISOString() }))
-
-      total = await Sermon.countDocuments(query)
-        .maxTimeMS(TIMEOUT_MS - 1000)
+    } else {
+      console.log('Database not connected, fetching YouTube only')
     }
 
     // Fetch YouTube videos if enabled

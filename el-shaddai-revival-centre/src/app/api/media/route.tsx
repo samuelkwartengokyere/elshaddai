@@ -44,17 +44,27 @@ export async function GET(request: NextRequest) {
       query.category = category
     }
 
-    // Execute query with timeout
-    const media = await Media.find(query)
-      .sort(sort as string)
-      .skip(skip)
-      .limit(limit)
-      .lean()
-      .collation({ locale: 'en', strength: 2 })
-      .maxTimeMS(TIMEOUT_MS - 1000)
+    // Execute query with timeout - wrapped in try-catch for graceful error handling
+    let media: IMedia[] = []
+    let total = 0
+    
+    try {
+      media = await Media.find(query)
+        .sort(sort as string)
+        .skip(skip)
+        .limit(limit)
+        .lean()
+        .collation({ locale: 'en', strength: 2 })
+        .maxTimeMS(TIMEOUT_MS - 1000) as unknown as IMedia[]
 
-    const total = await Media.countDocuments(query)
-      .maxTimeMS(TIMEOUT_MS - 1000)
+      total = await Media.countDocuments(query)
+        .maxTimeMS(TIMEOUT_MS - 1000)
+    } catch (dbError) {
+      console.error('Database query error:', dbError)
+      // Return empty results instead of error
+      media = []
+      total = 0
+    }
     
     const totalPages = Math.ceil(total / limit)
     
