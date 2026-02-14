@@ -11,13 +11,26 @@ export async function GET(request: NextRequest) {
   
   try {
     const dbConnection = await connectDB()
+    const isReady = dbConnection !== null
     
-    if (!dbConnection) {
+    // Use fallback mode if database is not connected
+    if (!dbConnection || !isReady) {
+      console.warn('Database not connected, using fallback mode for teams')
       clearTimeout(timeoutId)
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
+      return NextResponse.json({
+        success: true,
+        teamMembers: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false
+        },
+        fallback: true,
+        message: 'Database unavailable - showing empty team'
+      })
     }
     
     const searchParams = request.nextUrl.searchParams

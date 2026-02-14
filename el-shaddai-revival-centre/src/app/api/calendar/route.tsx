@@ -11,13 +11,19 @@ export async function GET(request: NextRequest) {
   
   try {
     const dbConnection = await connectDB()
+    const isReady = dbConnection !== null
     
-    if (!dbConnection) {
+    // Use fallback mode if database is not connected
+    if (!dbConnection || !isReady) {
+      console.warn('Database not connected, using fallback mode for calendar')
       clearTimeout(timeoutId)
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
+      return NextResponse.json({
+        success: true,
+        events: [],
+        count: 0,
+        fallback: true,
+        message: 'Database unavailable - showing empty calendar'
+      })
     }
     
     const searchParams = request.nextUrl.searchParams

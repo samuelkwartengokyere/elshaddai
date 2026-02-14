@@ -48,6 +48,7 @@ async function connectDB(): Promise<typeof mongoose | null> {
 
   // If already connected and ready, return cached connection
   if (cached.conn && (mongoose.connection.readyState as number) === 1) {
+    console.log('Using existing database connection')
     return cached.conn
   }
 
@@ -62,7 +63,11 @@ async function connectDB(): Promise<typeof mongoose | null> {
   if (cached.promise && !shouldRetry) {
     try {
       cached.conn = await cached.promise
-      return cached.conn
+      // Verify the connection is actually ready
+      if ((mongoose.connection.readyState as number) === 1) {
+        return cached.conn
+      }
+      console.warn('Connection promise resolved but not in ready state')
     } catch (e) {
       // Promise failed, will retry below
       console.warn('Previous connection attempt failed, retrying...')
@@ -76,7 +81,7 @@ async function connectDB(): Promise<typeof mongoose | null> {
   
   const opts = {
     bufferCommands: true, // Enable buffering to queue operations
-    serverSelectionTimeoutMS: 10000, // 10 seconds
+    serverSelectionTimeoutMS: 15000, // 15 seconds for server selection
     socketTimeoutMS: 60000, // 60 seconds
     maxPoolSize: 10,
     minPoolSize: 1,
@@ -84,15 +89,18 @@ async function connectDB(): Promise<typeof mongoose | null> {
   }
 
   console.log(`Attempting database connection (attempt ${cached.connectionRetries}/${MAX_RETRIES})...`)
+  console.log(`MongoDB URI: ${MONGODB_URI.substring(0, 30)}...`) // Log partial URI for debugging
   
   cached.promise = mongoose.connect(MONGODB_URI!, opts)
     .then((mongoose) => {
       console.log('✅ Database connected successfully')
+      console.log(`Connection state: ${mongoose.connection.readyState}, Host: ${mongoose.connection.host}`)
       cached.connectionRetries = 0 // Reset retries on success
       return mongoose
     })
     .catch((error: Error) => {
       console.error(`❌ Database connection failed (attempt ${cached.connectionRetries}/${MAX_RETRIES}):`, error.message)
+      console.error('Error details:', error)
       
       // Don't throw on last retry - return null instead
       if (cached.connectionRetries >= MAX_RETRIES) {
@@ -106,6 +114,11 @@ async function connectDB(): Promise<typeof mongoose | null> {
 
   try {
     cached.conn = await cached.promise
+    // Verify connection is ready after waiting for promise
+    if (cached.conn && (mongoose.connection.readyState as number) === 1) {
+      return cached.conn
+    }
+    console.warn('Database connected but not in ready state')
     return cached.conn
   } catch (e) {
     cached.promise = null

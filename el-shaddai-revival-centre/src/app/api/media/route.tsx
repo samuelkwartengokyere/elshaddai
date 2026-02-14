@@ -14,14 +14,26 @@ export async function GET(request: NextRequest) {
   
   try {
     const dbConnection = await connectDB()
+    const isReady = dbConnection !== null
     
-    // Check if database connection is available
-    if (!dbConnection) {
+    // Use fallback mode if database is not connected
+    if (!dbConnection || !isReady) {
+      console.warn('Database not connected, using fallback mode for media')
       clearTimeout(timeoutId)
-      return NextResponse.json(
-        { error: 'Database connection not available. Please check your environment variables.' },
-        { status: 503 }
-      )
+      return NextResponse.json({
+        success: true,
+        media: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false
+        },
+        fallback: true,
+        message: 'Database unavailable - showing empty media'
+      })
     }
     
     const searchParams = request.nextUrl.searchParams

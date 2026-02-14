@@ -43,8 +43,12 @@ export async function GET(request: NextRequest) {
     let total = 0
     let youtubeTotal = 0
 
-    // Fetch database sermons if connected
-    if (dbConnection && isReady) {
+    // Use fallback mode if database is not connected
+    if (!dbConnection || !isReady) {
+      console.warn('Database not connected, using fallback mode for sermons (YouTube only)')
+      // Skip database sermons, only fetch YouTube videos
+    } else {
+      // Fetch database sermons if connected
       try {
         const page = parseInt(searchParams.get('page') || '1')
         const limit = parseInt(searchParams.get('limit') || '10')
@@ -92,8 +96,6 @@ export async function GET(request: NextRequest) {
         console.error('Database query error:', dbError)
         // Continue with empty sermons array
       }
-    } else {
-      console.log('Database not connected, fetching YouTube only')
     }
 
     // Fetch YouTube videos if enabled

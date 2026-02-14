@@ -273,13 +273,26 @@ async function createManualDonation(params: {
 export async function GET(request: NextRequest) {
   try {
     const dbConnection = await connectDB()
+    const isReady = dbConnection !== null
     
-    // Check if database connection is available
-    if (!dbConnection) {
-      return NextResponse.json(
-        { error: 'Database connection not available. Please check your environment variables.' },
-        { status: 503 }
-      )
+    // Use fallback mode if database is not connected
+    if (!dbConnection || !isReady) {
+      console.warn('Database not connected, using fallback mode for donations')
+      return NextResponse.json({
+        success: true,
+        donations: [],
+        totals: [],
+        pagination: {
+          page: 1,
+          limit: 10,
+          total: 0,
+          totalPages: 0,
+          hasNext: false,
+          hasPrev: false
+        },
+        fallback: true,
+        message: 'Database unavailable - showing empty donations'
+      })
     }
     
     const searchParams = request.nextUrl.searchParams
