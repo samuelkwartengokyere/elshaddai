@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectDB from '@/lib/database'
 import Admin from '@/models/Admin'
 import { getCurrentAdmin } from '@/lib/auth'
-import bcrypt from 'bcryptjs'
 
 // Timeout for requests
 const TIMEOUT_MS = 5000
@@ -160,14 +159,10 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Hash password manually
-    const salt = await bcrypt.genSalt(12)
-    const hashedPassword = await bcrypt.hash(password, salt)
-    
-    // Create new admin
+    // Create new admin (password will be hashed by the model's pre-save hook)
     const admin = new Admin({
       email: email.toLowerCase(),
-      password: hashedPassword,
+      password, // Store plain password - model will hash it
       name,
       role: role || 'admin'
     })

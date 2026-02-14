@@ -102,10 +102,14 @@ export async function PUT(
       )
     }
     
-    // Only super_admin can update admins
-    if (currentAdmin.role !== 'super_admin') {
+    // Check if updating own profile
+    const isOwnProfile = currentAdmin.adminId === id
+    const isSuperAdmin = currentAdmin.role === 'super_admin'
+    
+    // Only super_admin can update other admins, but any admin can update their own profile
+    if (!isOwnProfile && !isSuperAdmin) {
       return NextResponse.json(
-        { success: false, error: 'Forbidden: Only super admins can update admins' },
+        { success: false, error: 'Forbidden: You can only update your own profile' },
         { status: 403 }
       )
     }
@@ -131,14 +135,13 @@ export async function PUT(
     }
     
     // Check if updating own profile or being updated by super_admin
-    const isOwnProfile = currentAdmin.adminId === id
-    const isSuperAdmin = currentAdmin.role === 'super_admin'
+    // (isOwnProfile and isSuperAdmin are defined above)
     
-    // Only allow non-super_admin users to update their own profile image
+    // Allow any admin to update their own profile image, or super_admin to update any user's profile
     if (profileImage !== undefined) {
-      if (isOwnProfile && admin.role !== 'super_admin') {
+      if (isOwnProfile || isSuperAdmin) {
         admin.profileImage = profileImage
-      } else if (!isSuperAdmin) {
+      } else {
         return NextResponse.json(
           { success: false, error: 'You can only update your own profile image' },
           { status: 403 }

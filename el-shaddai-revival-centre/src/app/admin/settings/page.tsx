@@ -64,16 +64,16 @@ const defaultSettings: Settings = {
   logoUrl: 'https://pentecost.ca/wp-content/uploads/2025/03/The-Church-Pentecost-Logo-1.png'
 }
 
-// Pre-defined avatar options
+// Pre-defined avatar options (using PNG format for better compatibility)
 const AVATAR_OPTIONS = [
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Felix',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Aneka',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Bob',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Charlie',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Diana',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Eve',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Frank',
-  'https://api.dicebear.com/7.x/avataaars/svg?seed=Grace',
+  'https://api.dicebear.com/9.x/avataaars/png?seed=Felix',
+  'https://api.dicebear.com/9.x/avataaars/png?seed=Aneka',
+  'https://api.dicebear.com/9.x/avataaars/png?seed=Bob',
+  'https://api.dicebear.com/9.x/avataaars/png?seed=Charlie',
+  'https://api.dicebear.com/9.x/avataaars/png?seed=Diana',
+  'https://api.dicebear.com/9.x/avataaars/png?seed=Eve',
+  'https://api.dicebear.com/9.x/avataaars/png?seed=Frank',
+  'https://api.dicebear.com/9.x/avataaars/png?seed=Grace',
 ]
 
 type Tab = 'branding' | 'profile' | 'admins' | 'youtube'
@@ -110,6 +110,8 @@ export default function AdminSettings() {
   const [profileName, setProfileName] = useState<string>('')
   const [showCustomUrlInput, setShowCustomUrlInput] = useState(false)
   const [customUrl, setCustomUrl] = useState('')
+  const [uploadingImage, setUploadingImage] = useState(false)
+  const [fileInputRef, setFileInputRef] = useState<HTMLInputElement | null>(null)
   
   const [showAdminModal, setShowAdminModal] = useState(false)
   const [editingAdmin, setEditingAdmin] = useState<AdminUser | null>(null)
@@ -333,6 +335,52 @@ export default function AdminSettings() {
     if (customUrl.trim()) {
       setProfileImage(customUrl.trim())
       setShowCustomUrlInput(false)
+    }
+  }
+
+  const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    // Validate file type
+    const allowedTypes = ['image/jpeg', 'image/jpg', 'image/png', 'image/gif', 'image/webp']
+    if (!allowedTypes.includes(file.type)) {
+      setMessage({ type: 'error', text: 'Invalid file type. Only JPG, PNG, GIF, and WebP are allowed.' })
+      return
+    }
+
+    // Validate file size (max 5MB)
+    const maxSize = 5 * 1024 * 1024
+    if (file.size > maxSize) {
+      setMessage({ type: 'error', text: 'File too large. Maximum size is 5MB.' })
+      return
+    }
+
+    setUploadingImage(true)
+    setMessage(null)
+
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+
+      const response = await fetch('/api/admins/profile-image', {
+        method: 'POST',
+        body: formData
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setProfileImage(data.url)
+        setMessage({ type: 'success', text: 'Image uploaded successfully!' })
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to upload image' })
+      }
+    } catch (error) {
+      console.error('Error uploading image:', error)
+      setMessage({ type: 'error', text: 'Failed to upload image' })
+    } finally {
+      setUploadingImage(false)
     }
   }
 
@@ -887,21 +935,8 @@ export default function AdminSettings() {
 
       {activeTab === 'profile' && currentUser && (
         <div className="max-w-4xl mx-auto">
-          {currentUser.role === 'super_admin' ? (
-              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
-                <div className="flex items-start">
-                  <Shield className="h-5 w-5 text-yellow-500 mr-3 mt-0.5" />
-                  <div>
-                    <h3 className="text-sm font-medium text-yellow-700">Super Admin Account</h3>
-                    <p className="text-sm text-yellow-600 mt-1">
-                      As a super admin, your profile is managed centrally and cannot be modified here.
-                      Your name is displayed as "Admin" across the system.
-                    </p>
-                  </div>
-                </div>
-              </div>
-          ) : (
-            <div className="bg-white rounded-xl shadow-md p-6">
+          {/* Note: Super admins can now edit their profile too */}
+          <div className="bg-white rounded-xl shadow-md p-6">
               <h2 className="text-xl font-bold text-gray-800 mb-6 flex items-center">
                 <User className="h-5 w-5 mr-2 text-accent" />
                 Profile Settings
@@ -1022,6 +1057,44 @@ export default function AdminSettings() {
                     </div>
                   </div>
 
+                  {/* Upload from device */}
+                  <div className="mb-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">
+                      Or Upload from Device
+                    </label>
+                    <div className="flex items-center space-x-3">
+                      <input
+                        type="file"
+                        accept="image/jpeg,image/jpg,image/png,image/gif,image/webp"
+                        onChange={handleFileUpload}
+                        className="hidden"
+                        id="profile-image-upload"
+                        ref={setFileInputRef}
+                      />
+                      <label
+                        htmlFor="profile-image-upload"
+                        className={`flex items-center px-4 py-2 bg-gray-100 text-gray-700 rounded-lg cursor-pointer hover:bg-gray-200 transition duration-200 ${
+                          uploadingImage ? 'opacity-50 cursor-not-allowed' : ''
+                        }`}
+                      >
+                        {uploadingImage ? (
+                          <>
+                            <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                            Uploading...
+                          </>
+                        ) : (
+                          <>
+                            <Upload className="h-4 w-4 mr-2" />
+                            Browse
+                          </>
+                        )}
+                      </label>
+                      <span className="text-sm text-gray-500">
+                        JPG, PNG, GIF, WebP (max 5MB)
+                      </span>
+                    </div>
+                  </div>
+
                   <div className="mb-6">
                     <button
                       onClick={() => setShowCustomUrlInput(!showCustomUrlInput)}
@@ -1084,7 +1157,6 @@ export default function AdminSettings() {
                 </button>
               </div>
             </div>
-          )}
         </div>
       )}
 

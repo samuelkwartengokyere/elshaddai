@@ -33,7 +33,9 @@ export async function GET(request: NextRequest) {
         user: {
           adminId: admin.adminId,
           email: admin.email,
-          role: admin.role
+          role: admin.role,
+          name: 'Admin',
+          profileImage: ''
         },
         isInMemoryMode: true
       })
@@ -48,7 +50,9 @@ export async function GET(request: NextRequest) {
         user: {
           adminId: admin.adminId,
           email: admin.email,
-          role: admin.role
+          role: admin.role,
+          name: 'Admin',
+          profileImage: ''
         },
         isInMemoryMode: true
       })
