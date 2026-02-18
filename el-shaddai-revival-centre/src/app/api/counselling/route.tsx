@@ -16,7 +16,7 @@ interface BookingData {
   country: string
   city: string
   counsellorId: string
-  bookingType: string
+  bookingType: 'online' | 'in-person'
   preferredDate: string
   preferredTime: string
   sessionDuration: number
@@ -24,7 +24,7 @@ interface BookingData {
   notes: string
   teamsMeetingUrl?: string
   teamsJoinUrl?: string
-  status: string
+  status: 'pending' | 'confirmed' | 'cancelled' | 'completed'
   confirmationNumber: string
   isPaid: boolean
 }
