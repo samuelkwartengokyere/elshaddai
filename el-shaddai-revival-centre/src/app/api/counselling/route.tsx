@@ -1,17 +1,43 @@
 import { NextRequest, NextResponse } from 'next/server';
-import connectDB from '@/lib/database';
-import CounsellingBooking from '@/models/CounsellingBooking';
+import { v4 as uuidv4 } from 'uuid';
 import { COUNSELLORS, getCounsellorById } from '@/models/Counsellor';
 import { createTeamsMeeting } from '@/lib/teams';
 import { sendBookingConfirmation, sendCounsellorNotification, sendCancellationEmail } from '@/lib/email';
-import { BookingFormData, generateBookingNumber, CounsellingBooking as BookingType } from '@/types/counselling';
+import { BookingFormData, generateBookingNumber, CounsellingBooking } from '@/types/counselling';
+
+// In-memory storage for bookings (replaces MongoDB)
+interface BookingData {
+  id: string
+  createdAt: Date
+  firstName: string
+  lastName: string
+  email: string
+  phone: string
+  country: string
+  city: string
+  counsellorId: string
+  bookingType: string
+  preferredDate: string
+  preferredTime: string
+  sessionDuration: number
+  topic: string
+  notes: string
+  teamsMeetingUrl?: string
+  teamsJoinUrl?: string
+  status: string
+  confirmationNumber: string
+  isPaid: boolean
+}
+
+let inMemoryBookings: BookingData[] = []
+
+function generateBookingId(): string {
+  return `booking-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+}
 
 // GET - Fetch available counsellors and time slots
 export async function GET(request: NextRequest) {
   try {
-    // Connect to database
-    await connectDB();
-    
     const { searchParams } = new URL(request.url);
     const counsellorId = searchParams.get('counsellorId');
     const bookingType = searchParams.get('bookingType') as 'online' | 'in-person' | null;
@@ -42,6 +68,8 @@ export async function GET(request: NextRequest) {
         counsellors: availableCounsellors,
         availableSlots,
       },
+      fallback: true,
+      message: 'Using in-memory storage'
     });
   } catch (error) {
     console.error('Error fetching counselling data:', error);
@@ -55,9 +83,6 @@ export async function GET(request: NextRequest) {
 // POST - Create a new booking
 export async function POST(request: NextRequest) {
   try {
-    // Connect to database
-    await connectDB();
-    
     const formData: BookingFormData = await request.json();
     
     // Validate required fields
@@ -78,15 +103,15 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Generate confirmation number
+    // Generate confirmation number and ID
     const confirmationNumber = generateBookingNumber();
-    const bookingId = `booking-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+    const bookingId = generateBookingId();
     const now = new Date();
     
-    // Create booking object matching the type
-    const bookingForTeams: BookingType = {
+    // Create booking object
+    const newBooking: BookingData = {
       id: bookingId,
-      createdAt: now.toISOString(),
+      createdAt: now,
       firstName: formData.firstName,
       lastName: formData.lastName,
       email: formData.email,
@@ -108,49 +133,89 @@ export async function POST(request: NextRequest) {
     // If online booking, create Teams meeting
     if (formData.bookingType === 'online') {
       try {
-        const teamsMeeting = await createTeamsMeeting(bookingForTeams, formData.sessionDuration);
-        bookingForTeams.teamsMeetingUrl = teamsMeeting.joinWebUrl;
-        bookingForTeams.teamsJoinUrl = teamsMeeting.joinWebUrl;
+        const teamsMeeting = await createTeamsMeeting({
+          id: newBooking.id,
+          createdAt: now.toISOString(),
+          firstName: newBooking.firstName,
+          lastName: newBooking.lastName,
+          email: newBooking.email,
+          phone: newBooking.phone,
+          country: newBooking.country,
+          city: newBooking.city,
+          counsellorId: newBooking.counsellorId,
+          bookingType: newBooking.bookingType,
+          preferredDate: newBooking.preferredDate,
+          preferredTime: newBooking.preferredTime,
+          sessionDuration: newBooking.sessionDuration,
+          topic: newBooking.topic,
+          notes: newBooking.notes,
+          status: newBooking.status,
+          confirmationNumber: newBooking.confirmationNumber,
+          isPaid: newBooking.isPaid,
+        }, formData.sessionDuration);
+        newBooking.teamsMeetingUrl = teamsMeeting.joinWebUrl;
+        newBooking.teamsJoinUrl = teamsMeeting.joinWebUrl;
       } catch (teamsError) {
         console.error('Error creating Teams meeting:', teamsError);
         // Continue without Teams meeting if it fails
       }
     }
     
-    // Save booking to database
-    const newBooking = await CounsellingBooking.create({
-      id: bookingId,
-      createdAt: now,
-      firstName: formData.firstName,
-      lastName: formData.lastName,
-      email: formData.email,
-      phone: formData.phone,
-      country: formData.country,
-      city: formData.city || '',
-      counsellorId: formData.counsellorId,
-      bookingType: formData.bookingType,
-      preferredDate: formData.preferredDate,
-      preferredTime: formData.preferredTime,
-      sessionDuration: formData.sessionDuration,
-      topic: formData.topic,
-      notes: formData.notes || '',
-      teamsMeetingUrl: bookingForTeams.teamsMeetingUrl,
-      teamsJoinUrl: bookingForTeams.teamsJoinUrl,
-      status: 'pending',
-      confirmationNumber,
-      isPaid: false,
-    });
+    // Save booking to in-memory storage
+    inMemoryBookings = [...inMemoryBookings, newBooking];
     
     // Send confirmation email to user
     try {
-      await sendBookingConfirmation(bookingForTeams);
+      await sendBookingConfirmation({
+        id: newBooking.id,
+        createdAt: now.toISOString(),
+        firstName: newBooking.firstName,
+        lastName: newBooking.lastName,
+        email: newBooking.email,
+        phone: newBooking.phone,
+        country: newBooking.country,
+        city: newBooking.city,
+        counsellorId: newBooking.counsellorId,
+        bookingType: newBooking.bookingType,
+        preferredDate: newBooking.preferredDate,
+        preferredTime: newBooking.preferredTime,
+        sessionDuration: newBooking.sessionDuration,
+        topic: newBooking.topic,
+        notes: newBooking.notes,
+        teamsMeetingUrl: newBooking.teamsMeetingUrl,
+        teamsJoinUrl: newBooking.teamsJoinUrl,
+        status: newBooking.status,
+        confirmationNumber: newBooking.confirmationNumber,
+        isPaid: newBooking.isPaid,
+      });
     } catch (emailError) {
       console.error('Error sending confirmation email:', emailError);
     }
     
     // Send notification to counsellor
     try {
-      await sendCounsellorNotification(bookingForTeams, counsellor.email, counsellor.name);
+      await sendCounsellorNotification({
+        id: newBooking.id,
+        createdAt: now.toISOString(),
+        firstName: newBooking.firstName,
+        lastName: newBooking.lastName,
+        email: newBooking.email,
+        phone: newBooking.phone,
+        country: newBooking.country,
+        city: newBooking.city,
+        counsellorId: newBooking.counsellorId,
+        bookingType: newBooking.bookingType,
+        preferredDate: newBooking.preferredDate,
+        preferredTime: newBooking.preferredTime,
+        sessionDuration: newBooking.sessionDuration,
+        topic: newBooking.topic,
+        notes: newBooking.notes,
+        teamsMeetingUrl: newBooking.teamsMeetingUrl,
+        teamsJoinUrl: newBooking.teamsJoinUrl,
+        status: newBooking.status,
+        confirmationNumber: newBooking.confirmationNumber,
+        isPaid: newBooking.isPaid,
+      }, counsellor.email, counsellor.name);
     } catch (emailError) {
       console.error('Error sending counsellor notification:', emailError);
     }
@@ -174,6 +239,7 @@ export async function POST(request: NextRequest) {
           },
         },
       },
+      fallback: true
     });
   } catch (error) {
     console.error('Error creating booking:', error);
@@ -187,9 +253,6 @@ export async function POST(request: NextRequest) {
 // DELETE - Cancel a booking
 export async function DELETE(request: NextRequest) {
   try {
-    // Connect to database
-    await connectDB();
-    
     const { searchParams } = new URL(request.url);
     const confirmationNumber = searchParams.get('confirmationNumber');
     const email = searchParams.get('email');
@@ -201,15 +264,17 @@ export async function DELETE(request: NextRequest) {
       );
     }
     
-    // Find booking in database
-    const booking = await CounsellingBooking.findOne({ confirmationNumber });
+    // Find booking in memory
+    const bookingIndex = inMemoryBookings.findIndex(b => b.confirmationNumber === confirmationNumber);
     
-    if (!booking) {
+    if (bookingIndex === -1) {
       return NextResponse.json(
         { success: false, error: 'Booking not found' },
         { status: 404 }
       );
     }
+    
+    const booking = inMemoryBookings[bookingIndex];
     
     if (booking.email !== email) {
       return NextResponse.json(
@@ -219,35 +284,32 @@ export async function DELETE(request: NextRequest) {
     }
     
     // Update booking status to cancelled
-    booking.status = 'cancelled';
-    await booking.save();
+    inMemoryBookings[bookingIndex].status = 'cancelled';
     
     // Send cancellation email
-    const bookingForEmail: BookingType = {
-      id: booking.id,
-      createdAt: booking.createdAt.toISOString(),
-      firstName: booking.firstName,
-      lastName: booking.lastName,
-      email: booking.email,
-      phone: booking.phone,
-      country: booking.country,
-      city: booking.city || '',
-      counsellorId: booking.counsellorId,
-      bookingType: booking.bookingType,
-      preferredDate: booking.preferredDate,
-      preferredTime: booking.preferredTime,
-      sessionDuration: booking.sessionDuration,
-      topic: booking.topic,
-      notes: booking.notes,
-      teamsMeetingUrl: booking.teamsMeetingUrl,
-      teamsJoinUrl: booking.teamsJoinUrl,
-      status: booking.status,
-      confirmationNumber: booking.confirmationNumber,
-      isPaid: booking.isPaid,
-    };
-    
     try {
-      await sendCancellationEmail(bookingForEmail);
+      await sendCancellationEmail({
+        id: booking.id,
+        createdAt: booking.createdAt.toISOString(),
+        firstName: booking.firstName,
+        lastName: booking.lastName,
+        email: booking.email,
+        phone: booking.phone,
+        country: booking.country,
+        city: booking.city,
+        counsellorId: booking.counsellorId,
+        bookingType: booking.bookingType,
+        preferredDate: booking.preferredDate,
+        preferredTime: booking.preferredTime,
+        sessionDuration: booking.sessionDuration,
+        topic: booking.topic,
+        notes: booking.notes,
+        teamsMeetingUrl: booking.teamsMeetingUrl,
+        teamsJoinUrl: booking.teamsJoinUrl,
+        status: inMemoryBookings[bookingIndex].status,
+        confirmationNumber: booking.confirmationNumber,
+        isPaid: booking.isPaid,
+      });
     } catch (emailError) {
       console.error('Error sending cancellation email:', emailError);
     }
@@ -255,6 +317,7 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Booking cancelled successfully',
+      fallback: true
     });
   } catch (error) {
     console.error('Error cancelling booking:', error);
@@ -371,4 +434,3 @@ function generateAvailableSlots(counsellors: typeof COUNSELLORS): AvailableSlot[
   
   return slots;
 }
-

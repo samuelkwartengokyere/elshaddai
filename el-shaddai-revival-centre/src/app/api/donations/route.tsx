@@ -1,27 +1,46 @@
 import { NextRequest, NextResponse } from 'next/server'
-import connectDB from '@/lib/database'
-import Donation from '@/models/Donation'
-import { initializeTransaction, verifyTransaction, generateReference } from '@/lib/paystack'
+import { v4 as uuidv4 } from 'uuid'
+import { initializeTransaction, generateReference } from '@/lib/paystack'
 import { convertCurrency } from '@/lib/currency'
 
 // Make this route dynamic - don't attempt static generation
 export const dynamic = 'force-dynamic'
+
+// In-memory storage for donations (replaces MongoDB)
+interface DonationType {
+  _id: string
+  amount: number
+  amountUSD: number
+  currency: string
+  exchangeRate: number
+  frequency: string
+  donorName: string
+  donorEmail: string
+  donorPhone?: string
+  donorCountry?: string
+  paymentMethod: string
+  paymentChannel: string
+  status: string
+  paystackReference?: string
+  transactionReference?: string
+  donationType?: string
+  isAnonymous: boolean
+  notes?: string
+  createdAt: Date
+  receiptSent: boolean
+}
+
+let inMemoryDonations: DonationType[] = []
+
+function getInMemoryDonations() {
+  return inMemoryDonations.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+}
 
 /**
  * POST /api/donations - Initialize a donation payment
  */
 export async function POST(request: NextRequest) {
   try {
-    const dbConnection = await connectDB()
-    
-    // Check if database connection is available
-    if (!dbConnection) {
-      return NextResponse.json(
-        { error: 'Database connection not available. Please check your environment variables.' },
-        { status: 503 }
-      )
-    }
-    
     const body = await request.json()
     const {
       amount,
@@ -160,8 +179,9 @@ async function initializePaystackPayment(params: {
     reference
   })
 
-  // Create pending donation record
-  const donation = new Donation({
+  // Create pending donation record in memory
+  const newDonation: DonationType = {
+    _id: uuidv4(),
     amount: parseFloat(amount),
     amountUSD: convertCurrency(parseFloat(amount), currency as 'USD', 'USD'),
     currency,
@@ -180,9 +200,9 @@ async function initializePaystackPayment(params: {
     notes,
     createdAt: new Date(),
     receiptSent: false
-  })
+  }
 
-  await donation.save()
+  inMemoryDonations = [...inMemoryDonations, newDonation]
 
   // Return the authorization URL for the frontend to redirect to
   return NextResponse.json({
@@ -190,8 +210,9 @@ async function initializePaystackPayment(params: {
     paymentChannel: 'paystack',
     authorizationUrl: paystackResponse.data.authorization_url,
     reference: paystackResponse.data.reference,
-    donationId: donation._id,
-    message: 'Payment initialized successfully'
+    donationId: newDonation._id,
+    message: 'Payment initialized successfully',
+    fallback: true
   }, { status: 201 })
 }
 
@@ -230,8 +251,9 @@ async function createManualDonation(params: {
   // Generate reference for tracking
   const reference = generateReference('manual')
 
-  // Create pending donation record
-  const donation = new Donation({
+  // Create pending donation record in memory
+  const newDonation: DonationType = {
+    _id: uuidv4(),
     amount: parseFloat(amount),
     amountUSD,
     currency,
@@ -250,20 +272,21 @@ async function createManualDonation(params: {
     notes,
     createdAt: new Date(),
     receiptSent: false
-  })
+  }
 
-  await donation.save()
+  inMemoryDonations = [...inMemoryDonations, newDonation]
 
   return NextResponse.json({
     success: true,
     paymentChannel: 'manual',
-    donationId: donation._id,
+    donationId: newDonation._id,
     reference,
     message: 'Donation recorded. Please complete your bank transfer and email us at finance@elshaddai.org with your transfer details.',
     bankDetails: {
       currency,
       instructions: 'Please include your name and email in the transfer reference.',
-    }
+    },
+    fallback: true
   }, { status: 201 })
 }
 
@@ -272,29 +295,6 @@ async function createManualDonation(params: {
  */
 export async function GET(request: NextRequest) {
   try {
-    const dbConnection = await connectDB()
-    const isReady = dbConnection !== null
-    
-    // Use fallback mode if database is not connected
-    if (!dbConnection || !isReady) {
-      console.warn('Database not connected, using fallback mode for donations')
-      return NextResponse.json({
-        success: true,
-        donations: [],
-        totals: [],
-        pagination: {
-          page: 1,
-          limit: 10,
-          total: 0,
-          totalPages: 0,
-          hasNext: false,
-          hasPrev: false
-        },
-        fallback: true,
-        message: 'Database unavailable - showing empty donations'
-      })
-    }
-    
     const searchParams = request.nextUrl.searchParams
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
@@ -304,52 +304,62 @@ export async function GET(request: NextRequest) {
     const currency = searchParams.get('currency')
     const sort = searchParams.get('sort') || '-createdAt'
 
-    const skip = (page - 1) * limit
-
-    // Build query
-    const query: Record<string, unknown> = {}
-
+    // Get donations from in-memory storage
+    let donations = getInMemoryDonations()
+    
+    // Filter by status
     if (status) {
-      query.status = status
+      donations = donations.filter(d => d.status === status)
     }
-
+    
+    // Filter by frequency
     if (frequency) {
-      query.frequency = frequency
+      donations = donations.filter(d => d.frequency === frequency)
     }
-
+    
+    // Filter by payment channel
     if (paymentChannel) {
-      query.paymentChannel = paymentChannel
+      donations = donations.filter(d => d.paymentChannel === paymentChannel)
     }
-
+    
+    // Filter by currency
     if (currency) {
-      query.currency = currency
+      donations = donations.filter(d => d.currency === currency)
     }
-
-    // Execute query
-    const donations = await Donation.find(query)
-      .sort(sort as string)
-      .skip(skip)
-      .limit(limit)
-      .lean()
-
-    const total = await Donation.countDocuments(query)
+    
+    // Sort
+    if (sort === 'createdAt') {
+      donations = donations.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
+    } else {
+      donations = donations.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
+    }
+    
+    // Pagination
+    const total = donations.length
+    const skip = (page - 1) * limit
+    const paginatedDonations = donations.slice(skip, skip + limit)
     const totalPages = Math.ceil(total / limit)
 
     // Calculate totals by currency
-    const totals = await Donation.aggregate([
-      { $match: { status: 'completed' } },
-      {
-        $group: {
-          _id: '$currency',
-          total: { $sum: '$amountUSD' },
-          count: { $sum: 1 }
+    const completedDonations = donations.filter(d => d.status === 'completed')
+    const totals = Object.entries(
+      completedDonations.reduce((acc, d) => {
+        if (!acc[d.currency]) {
+          acc[d.currency] = { total: 0, count: 0 }
         }
-      }
-    ])
+        acc[d.currency].total += d.amountUSD
+        acc[d.currency].count += 1
+        return acc
+      }, {} as Record<string, { total: number; count: number }>)
+    ).map(([currency, data]) => ({
+      _id: currency,
+      total: data.total,
+      count: data.count
+    }))
 
     return NextResponse.json({
       success: true,
-      donations,
+      donations: paginatedDonations,
       totals,
       pagination: {
         page,
@@ -358,7 +368,9 @@ export async function GET(request: NextRequest) {
         totalPages,
         hasNext: page < totalPages,
         hasPrev: page > 1
-      }
+      },
+      fallback: true,
+      message: 'Using in-memory storage'
     })
 
   } catch (error) {

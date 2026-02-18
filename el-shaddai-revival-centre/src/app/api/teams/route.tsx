@@ -1,38 +1,33 @@
 import { NextRequest, NextResponse } from 'next/server'
-import connectDB from '@/lib/database'
-import TeamMember, { ITeamMember } from '@/models/TeamMember'
+import { v4 as uuidv4 } from 'uuid'
 
-// Add AbortController for timeout
 const TIMEOUT_MS = 5000
 
+// In-memory storage for team members (replaces MongoDB)
+interface TeamMemberType {
+  _id: string
+  name: string
+  role: string
+  department: string
+  bio: string
+  imageUrl: string
+  email: string
+  phone: string
+  isPublished: boolean
+  isLeadership: boolean
+  order: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+let inMemoryTeamMembers: TeamMemberType[] = []
+
+function getInMemoryTeamMembers() {
+  return inMemoryTeamMembers.sort((a, b) => a.order - b.order)
+}
+
 export async function GET(request: NextRequest) {
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
-  
   try {
-    const dbConnection = await connectDB()
-    const isReady = dbConnection !== null
-    
-    // Use fallback mode if database is not connected
-    if (!dbConnection || !isReady) {
-      console.warn('Database not connected, using fallback mode for teams')
-      clearTimeout(timeoutId)
-      return NextResponse.json({
-        success: true,
-        teamMembers: [],
-        pagination: {
-          page: 1,
-          limit: 10,
-          total: 0,
-          totalPages: 0,
-          hasNext: false,
-          hasPrev: false
-        },
-        fallback: true,
-        message: 'Database unavailable - showing empty team'
-      })
-    }
-    
     const searchParams = request.nextUrl.searchParams
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
@@ -41,46 +36,48 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search')
     const sort = searchParams.get('sort') || 'order'
 
-    const skip = (page - 1) * limit
-
-    // Build query
-    const query: Record<string, unknown> = { isPublished: true }
-
+    // Get team members from in-memory storage
+    let teamMembers = getInMemoryTeamMembers()
+    
+    // Filter by published
+    teamMembers = teamMembers.filter(t => t.isPublished)
+    
+    // Filter by department
     if (department && department !== 'all') {
-      query.department = department
+      teamMembers = teamMembers.filter(t => t.department === department)
     }
-
+    
+    // Filter by leadership
     if (leadershipOnly) {
-      query.isLeadership = true
+      teamMembers = teamMembers.filter(t => t.isLeadership)
     }
-
+    
+    // Filter by search
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { role: { $regex: search, $options: 'i' } },
-        { department: { $regex: search, $options: 'i' } }
-      ]
+      const searchLower = search.toLowerCase()
+      teamMembers = teamMembers.filter(t => 
+        t.name.toLowerCase().includes(searchLower) ||
+        t.role.toLowerCase().includes(searchLower) ||
+        t.department.toLowerCase().includes(searchLower)
+      )
     }
-
-    // Execute query with timeout
-    const teamMembers = await TeamMember.find(query)
-      .sort(sort as string)
-      .skip(skip)
-      .limit(limit)
-      .lean()
-      .collation({ locale: 'en', strength: 2 })
-      .maxTimeMS(TIMEOUT_MS - 1000)
-
-    const total = await TeamMember.countDocuments(query)
-      .maxTimeMS(TIMEOUT_MS - 1000)
     
+    // Sort
+    if (sort === 'order') {
+      teamMembers = teamMembers.sort((a, b) => a.order - b.order)
+    } else {
+      teamMembers = teamMembers.sort((a, b) => a.name.localeCompare(b.name))
+    }
+    
+    // Pagination
+    const total = teamMembers.length
+    const skip = (page - 1) * limit
+    const paginatedTeamMembers = teamMembers.slice(skip, skip + limit)
     const totalPages = Math.ceil(total / limit)
-    
-    clearTimeout(timeoutId)
 
     return NextResponse.json({
       success: true,
-      teamMembers,
+      teamMembers: paginatedTeamMembers,
       pagination: {
         page,
         limit,
@@ -88,18 +85,12 @@ export async function GET(request: NextRequest) {
         totalPages,
         hasNext: page < totalPages,
         hasPrev: page > 1
-      }
+      },
+      fallback: true,
+      message: 'Using in-memory storage'
     })
 
   } catch (error) {
-    clearTimeout(timeoutId)
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.error('Teams API request timed out')
-      return NextResponse.json(
-        { error: 'Request timed out. Database connection may be slow.' },
-        { status: 503 }
-      )
-    }
     console.error('Error fetching team members:', error)
     return NextResponse.json(
       { error: 'Failed to fetch team members' },
@@ -110,29 +101,23 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const dbConnection = await connectDB()
-    
-    if (!dbConnection) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
-    
     const body = await request.json()
     
-    const teamMember = new TeamMember({
+    const newTeamMember: TeamMemberType = {
+      _id: uuidv4(),
       ...body,
+      isPublished: true,
       createdAt: new Date(),
       updatedAt: new Date()
-    })
+    }
 
-    await teamMember.save()
+    inMemoryTeamMembers = [...inMemoryTeamMembers, newTeamMember]
 
     return NextResponse.json({
       success: true,
-      teamMember,
-      message: 'Team member created successfully'
+      teamMember: newTeamMember,
+      message: 'Team member created successfully',
+      fallback: true
     }, { status: 201 })
 
   } catch (error) {
@@ -146,15 +131,6 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const dbConnection = await connectDB()
-    
-    if (!dbConnection) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
-    
     const body = await request.json()
     const memberId = request.nextUrl.searchParams.get('id')
     
@@ -165,26 +141,27 @@ export async function PUT(request: NextRequest) {
       )
     }
     
-    const updatedMember = await TeamMember.findByIdAndUpdate(
-      memberId,
-      {
-        ...body,
-        updatedAt: new Date()
-      },
-      { new: true, runValidators: true }
-    )
+    const memberIndex = inMemoryTeamMembers.findIndex(t => t._id === memberId)
     
-    if (!updatedMember) {
+    if (memberIndex === -1) {
       return NextResponse.json(
         { error: 'Team member not found' },
         { status: 404 }
       )
     }
+    
+    // Update the team member
+    inMemoryTeamMembers[memberIndex] = {
+      ...inMemoryTeamMembers[memberIndex],
+      ...body,
+      updatedAt: new Date()
+    }
 
     return NextResponse.json({
       success: true,
-      teamMember: updatedMember,
-      message: 'Team member updated successfully'
+      teamMember: inMemoryTeamMembers[memberIndex],
+      message: 'Team member updated successfully',
+      fallback: true
     })
 
   } catch (error) {
@@ -195,4 +172,3 @@ export async function PUT(request: NextRequest) {
     )
   }
 }
-

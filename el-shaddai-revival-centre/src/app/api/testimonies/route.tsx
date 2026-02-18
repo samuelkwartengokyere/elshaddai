@@ -1,38 +1,31 @@
 import { NextRequest, NextResponse } from 'next/server'
-import connectDB from '@/lib/database'
-import Testimony, { ITestimony } from '@/models/Testimony'
+import { v4 as uuidv4 } from 'uuid'
 
-// Add AbortController for timeout
 const TIMEOUT_MS = 5000
 
+// In-memory storage for testimonies (replaces MongoDB)
+interface TestimonyType {
+  _id: string
+  name: string
+  title: string
+  content: string
+  imageUrl?: string
+  category: string
+  isPublished: boolean
+  isFeatured: boolean
+  date: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+let inMemoryTestimonies: TestimonyType[] = []
+
+function getInMemoryTestimonies() {
+  return inMemoryTestimonies.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+}
+
 export async function GET(request: NextRequest) {
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
-  
   try {
-    const dbConnection = await connectDB()
-    const isReady = dbConnection !== null
-    
-    // Use fallback mode if database is not connected
-    if (!dbConnection || !isReady) {
-      console.warn('Database not connected, using fallback mode for testimonies')
-      clearTimeout(timeoutId)
-      return NextResponse.json({
-        success: true,
-        testimonies: [],
-        pagination: {
-          page: 1,
-          limit: 10,
-          total: 0,
-          totalPages: 0,
-          hasNext: false,
-          hasPrev: false
-        },
-        fallback: true,
-        message: 'Database unavailable - showing empty testimonies'
-      })
-    }
-    
     const searchParams = request.nextUrl.searchParams
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
@@ -41,56 +34,48 @@ export async function GET(request: NextRequest) {
     const search = searchParams.get('search')
     const sort = searchParams.get('sort') || '-date'
 
-    const skip = (page - 1) * limit
-
-    // Build query
-    const query: Record<string, unknown> = { isPublished: true }
-
+    // Get testimonies from in-memory storage
+    let testimonies = getInMemoryTestimonies()
+    
+    // Filter by published
+    testimonies = testimonies.filter(t => t.isPublished)
+    
+    // Filter by category
     if (category && category !== 'all') {
-      query.category = category
+      testimonies = testimonies.filter(t => t.category === category)
     }
-
+    
+    // Filter by featured
     if (featured) {
-      query.isFeatured = true
+      testimonies = testimonies.filter(t => t.isFeatured)
     }
-
+    
+    // Filter by search
     if (search) {
-      query.$or = [
-        { name: { $regex: search, $options: 'i' } },
-        { title: { $regex: search, $options: 'i' } },
-        { content: { $regex: search, $options: 'i' } }
-      ]
-    }
-
-    // Execute query with timeout - wrapped in try-catch for graceful error handling
-    let testimonies: ITestimony[] = []
-    let total = 0
-    
-    try {
-      testimonies = await Testimony.find(query)
-        .sort(sort as string)
-        .skip(skip)
-        .limit(limit)
-        .lean()
-        .collation({ locale: 'en', strength: 2 })
-        .maxTimeMS(TIMEOUT_MS - 1000) as unknown as ITestimony[]
-
-      total = await Testimony.countDocuments(query)
-        .maxTimeMS(TIMEOUT_MS - 1000)
-    } catch (dbError) {
-      console.error('Database query error:', dbError)
-      // Return empty results instead of error
-      testimonies = []
-      total = 0
+      const searchLower = search.toLowerCase()
+      testimonies = testimonies.filter(t => 
+        t.name.toLowerCase().includes(searchLower) ||
+        t.title.toLowerCase().includes(searchLower) ||
+        t.content.toLowerCase().includes(searchLower)
+      )
     }
     
+    // Sort
+    if (sort === 'date') {
+      testimonies = testimonies.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+    } else {
+      testimonies = testimonies.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    }
+    
+    // Pagination
+    const total = testimonies.length
+    const skip = (page - 1) * limit
+    const paginatedTestimonies = testimonies.slice(skip, skip + limit)
     const totalPages = Math.ceil(total / limit)
-    
-    clearTimeout(timeoutId)
 
     return NextResponse.json({
       success: true,
-      testimonies,
+      testimonies: paginatedTestimonies,
       pagination: {
         page,
         limit,
@@ -98,18 +83,12 @@ export async function GET(request: NextRequest) {
         totalPages,
         hasNext: page < totalPages,
         hasPrev: page > 1
-      }
+      },
+      fallback: true,
+      message: 'Using in-memory storage'
     })
 
   } catch (error) {
-    clearTimeout(timeoutId)
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.error('Testimonies API request timed out')
-      return NextResponse.json(
-        { error: 'Request timed out. Database connection may be slow.' },
-        { status: 503 }
-      )
-    }
     console.error('Error fetching testimonies:', error)
     return NextResponse.json(
       { error: 'Failed to fetch testimonies' },
@@ -120,30 +99,24 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const dbConnection = await connectDB()
-    
-    if (!dbConnection) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
-    
     const body = await request.json()
     
-    const testimony = new Testimony({
+    const newTestimony: TestimonyType = {
+      _id: uuidv4(),
       ...body,
-      date: new Date(body.date),
+      date: body.date || new Date().toISOString(),
+      isPublished: true,
       createdAt: new Date(),
       updatedAt: new Date()
-    })
+    }
 
-    await testimony.save()
+    inMemoryTestimonies = [...inMemoryTestimonies, newTestimony]
 
     return NextResponse.json({
       success: true,
-      testimony,
-      message: 'Testimony created successfully'
+      testimony: newTestimony,
+      message: 'Testimony created successfully',
+      fallback: true
     }, { status: 201 })
 
   } catch (error) {
@@ -157,15 +130,6 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const dbConnection = await connectDB()
-    
-    if (!dbConnection) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
-    
     const body = await request.json()
     const testimonyId = request.nextUrl.searchParams.get('id')
     
@@ -176,27 +140,28 @@ export async function PUT(request: NextRequest) {
       )
     }
     
-    const updatedTestimony = await Testimony.findByIdAndUpdate(
-      testimonyId,
-      {
-        ...body,
-        date: body.date ? new Date(body.date) : undefined,
-        updatedAt: new Date()
-      },
-      { new: true, runValidators: true }
-    )
+    const testimonyIndex = inMemoryTestimonies.findIndex(t => t._id === testimonyId)
     
-    if (!updatedTestimony) {
+    if (testimonyIndex === -1) {
       return NextResponse.json(
         { error: 'Testimony not found' },
         { status: 404 }
       )
     }
+    
+    // Update the testimony
+    inMemoryTestimonies[testimonyIndex] = {
+      ...inMemoryTestimonies[testimonyIndex],
+      ...body,
+      date: body.date || inMemoryTestimonies[testimonyIndex].date,
+      updatedAt: new Date()
+    }
 
     return NextResponse.json({
       success: true,
-      testimony: updatedTestimony,
-      message: 'Testimony updated successfully'
+      testimony: inMemoryTestimonies[testimonyIndex],
+      message: 'Testimony updated successfully',
+      fallback: true
     })
 
   } catch (error) {
@@ -210,15 +175,6 @@ export async function PUT(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const dbConnection = await connectDB()
-    
-    if (!dbConnection) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
-    
     const testimonyId = request.nextUrl.searchParams.get('id')
     
     if (!testimonyId) {
@@ -228,18 +184,21 @@ export async function DELETE(request: NextRequest) {
       )
     }
     
-    const deletedTestimony = await Testimony.findByIdAndDelete(testimonyId)
+    const testimonyIndex = inMemoryTestimonies.findIndex(t => t._id === testimonyId)
     
-    if (!deletedTestimony) {
+    if (testimonyIndex === -1) {
       return NextResponse.json(
         { error: 'Testimony not found' },
         { status: 404 }
       )
     }
+    
+    inMemoryTestimonies = inMemoryTestimonies.filter(t => t._id !== testimonyId)
 
     return NextResponse.json({
       success: true,
-      message: 'Testimony deleted successfully'
+      message: 'Testimony deleted successfully',
+      fallback: true
     })
 
   } catch (error) {
@@ -250,4 +209,3 @@ export async function DELETE(request: NextRequest) {
     )
   }
 }
-

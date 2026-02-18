@@ -2,40 +2,29 @@ import { NextRequest, NextResponse } from 'next/server'
 import { writeFile } from 'fs/promises'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
-import connectDB from '@/lib/database'
-import Media, { IMedia } from '@/models/Media'
 
-// Add AbortController for timeout
 const TIMEOUT_MS = 5000
 
+// In-memory storage for media (replaces MongoDB)
+interface MediaType {
+  _id: string
+  title: string
+  description?: string
+  url: string
+  type: 'image' | 'video' | 'document'
+  category: 'service' | 'event' | 'ministry' | 'other'
+  date: string
+  uploadedAt: Date
+}
+
+let inMemoryMedia: MediaType[] = []
+
+function getInMemoryMedia() {
+  return inMemoryMedia.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
+}
+
 export async function GET(request: NextRequest) {
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
-  
   try {
-    const dbConnection = await connectDB()
-    const isReady = dbConnection !== null
-    
-    // Use fallback mode if database is not connected
-    if (!dbConnection || !isReady) {
-      console.warn('Database not connected, using fallback mode for media')
-      clearTimeout(timeoutId)
-      return NextResponse.json({
-        success: true,
-        media: [],
-        pagination: {
-          page: 1,
-          limit: 10,
-          total: 0,
-          totalPages: 0,
-          hasNext: false,
-          hasPrev: false
-        },
-        fallback: true,
-        message: 'Database unavailable - showing empty media'
-      })
-    }
-    
     const searchParams = request.nextUrl.searchParams
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
@@ -43,48 +32,35 @@ export async function GET(request: NextRequest) {
     const category = searchParams.get('category')
     const sort = searchParams.get('sort') || '-uploadedAt'
 
-    const skip = (page - 1) * limit
-
-    // Build query
-    const query: Record<string, unknown> = {}
-
+    // Get media from in-memory storage
+    let media = getInMemoryMedia()
+    
+    // Filter by type
     if (type) {
-      query.type = type
+      media = media.filter(m => m.type === type)
     }
-
+    
+    // Filter by category
     if (category) {
-      query.category = category
-    }
-
-    // Execute query with timeout - wrapped in try-catch for graceful error handling
-    let media: IMedia[] = []
-    let total = 0
-    
-    try {
-      media = await Media.find(query)
-        .sort(sort as string)
-        .skip(skip)
-        .limit(limit)
-        .lean()
-        .collation({ locale: 'en', strength: 2 })
-        .maxTimeMS(TIMEOUT_MS - 1000) as unknown as IMedia[]
-
-      total = await Media.countDocuments(query)
-        .maxTimeMS(TIMEOUT_MS - 1000)
-    } catch (dbError) {
-      console.error('Database query error:', dbError)
-      // Return empty results instead of error
-      media = []
-      total = 0
+      media = media.filter(m => m.category === category)
     }
     
+    // Sort
+    if (sort === 'uploadedAt') {
+      media = media.sort((a, b) => new Date(a.uploadedAt).getTime() - new Date(b.uploadedAt).getTime())
+    } else {
+      media = media.sort((a, b) => new Date(b.uploadedAt).getTime() - new Date(a.uploadedAt).getTime())
+    }
+    
+    // Pagination
+    const total = media.length
+    const skip = (page - 1) * limit
+    const paginatedMedia = media.slice(skip, skip + limit)
     const totalPages = Math.ceil(total / limit)
-    
-    clearTimeout(timeoutId)
 
     return NextResponse.json({
       success: true,
-      media,
+      media: paginatedMedia,
       pagination: {
         page,
         limit,
@@ -92,18 +68,12 @@ export async function GET(request: NextRequest) {
         totalPages,
         hasNext: page < totalPages,
         hasPrev: page > 1
-      }
+      },
+      fallback: true,
+      message: 'Using in-memory storage'
     })
 
   } catch (error) {
-    clearTimeout(timeoutId)
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.error('Media API request timed out')
-      return NextResponse.json(
-        { error: 'Request timed out. Database connection may be slow.' },
-        { status: 503 }
-      )
-    }
     console.error('Error fetching media:', error)
     return NextResponse.json(
       { error: 'Failed to fetch media' },
@@ -114,16 +84,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const dbConnection = await connectDB()
-    
-    // Check if database connection is available
-    if (!dbConnection) {
-      return NextResponse.json(
-        { error: 'Database connection not available. Please check your environment variables.' },
-        { status: 503 }
-      )
-    }
-    
     const formData = await request.formData()
     const file = formData.get('file') as File
     const title = formData.get('title') as string
@@ -146,7 +106,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate unique filename
+    // Generate unique filename and save file
     const bytes = await file.arrayBuffer()
     const buffer = Buffer.from(bytes)
     const extension = path.extname(file.name)
@@ -158,23 +118,25 @@ export async function POST(request: NextRequest) {
 
     await writeFile(filepath, buffer)
 
-    // Save media to database
-    const media = new Media({
+    // Save media to in-memory storage
+    const newMedia: MediaType = {
+      _id: uuidv4(),
       title,
       description: description || undefined,
       url: `/uploads/media/${filename}`,
       type: type as 'image' | 'video' | 'document',
       category: category as 'service' | 'event' | 'ministry' | 'other',
-      date: new Date(date),
+      date: new Date(date).toISOString(),
       uploadedAt: new Date()
-    })
+    }
 
-    await media.save()
+    inMemoryMedia = [...inMemoryMedia, newMedia]
 
     return NextResponse.json({
       success: true,
       message: 'Media uploaded successfully',
-      media
+      media: newMedia,
+      fallback: true
     }, { status: 201 })
 
   } catch (error) {
@@ -188,15 +150,6 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const dbConnection = await connectDB()
-    
-    if (!dbConnection) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
-    
     const body = await request.json()
     const mediaId = request.nextUrl.searchParams.get('id')
     
@@ -207,30 +160,30 @@ export async function PUT(request: NextRequest) {
       )
     }
     
-    const updatedMedia = await Media.findByIdAndUpdate(
-      mediaId,
-      {
-        title: body.title,
-        description: body.description,
-        type: body.type,
-        category: body.category,
-        date: body.date ? new Date(body.date) : undefined,
-        updatedAt: new Date()
-      },
-      { new: true, runValidators: true }
-    )
+    const mediaIndex = inMemoryMedia.findIndex(m => m._id === mediaId)
     
-    if (!updatedMedia) {
+    if (mediaIndex === -1) {
       return NextResponse.json(
         { error: 'Media not found' },
         { status: 404 }
       )
     }
+    
+    // Update the media
+    inMemoryMedia[mediaIndex] = {
+      ...inMemoryMedia[mediaIndex],
+      title: body.title || inMemoryMedia[mediaIndex].title,
+      description: body.description || inMemoryMedia[mediaIndex].description,
+      type: body.type || inMemoryMedia[mediaIndex].type,
+      category: body.category || inMemoryMedia[mediaIndex].category,
+      date: body.date ? new Date(body.date).toISOString() : inMemoryMedia[mediaIndex].date
+    }
 
     return NextResponse.json({
       success: true,
-      media: updatedMedia,
-      message: 'Media updated successfully'
+      media: inMemoryMedia[mediaIndex],
+      message: 'Media updated successfully',
+      fallback: true
     })
 
   } catch (error) {

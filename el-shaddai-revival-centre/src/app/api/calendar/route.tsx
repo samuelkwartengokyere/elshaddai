@@ -1,68 +1,62 @@
 import { NextRequest, NextResponse } from 'next/server'
-import connectDB from '@/lib/database'
-import CalendarEvent from '@/models/CalendarEvent'
+import { v4 as uuidv4 } from 'uuid'
 
 const TIMEOUT_MS = 10000
 
+// In-memory storage for calendar events (replaces MongoDB)
+interface CalendarEventType {
+  _id: string
+  title: string
+  description: string
+  date: string
+  time: string
+  endTime?: string
+  location: string
+  category: string
+  isPublished: boolean
+  year: number
+  createdAt: Date
+  updatedAt: Date
+}
+
+let inMemoryCalendarEvents: CalendarEventType[] = []
+
+function getInMemoryCalendarEvents() {
+  return inMemoryCalendarEvents.sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime())
+}
+
 // GET - Fetch all calendar events
 export async function GET(request: NextRequest) {
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
-  
   try {
-    const dbConnection = await connectDB()
-    const isReady = dbConnection !== null
-    
-    // Use fallback mode if database is not connected
-    if (!dbConnection || !isReady) {
-      console.warn('Database not connected, using fallback mode for calendar')
-      clearTimeout(timeoutId)
-      return NextResponse.json({
-        success: true,
-        events: [],
-        count: 0,
-        fallback: true,
-        message: 'Database unavailable - showing empty calendar'
-      })
-    }
-    
     const searchParams = request.nextUrl.searchParams
     const year = searchParams.get('year')
     const category = searchParams.get('category')
     
-    // Build query
-    const query: Record<string, unknown> = { isPublished: true }
+    // Get events from in-memory storage
+    let events = getInMemoryCalendarEvents()
     
+    // Filter by year
     if (year) {
-      query.year = parseInt(year)
+      events = events.filter(e => e.year === parseInt(year))
     }
     
+    // Filter by category
     if (category && category !== 'all') {
-      query.category = category
+      events = events.filter(e => e.category === category)
     }
-
-    const events = await CalendarEvent.find(query)
-      .sort({ date: 1 })
-      .lean()
-      .maxTimeMS(TIMEOUT_MS - 1000)
     
-    clearTimeout(timeoutId)
+    // Only return published events
+    events = events.filter(e => e.isPublished)
 
     return NextResponse.json({
       success: true,
       events,
-      count: events.length
+      count: events.length,
+      fallback: true,
+      message: 'Using in-memory storage'
     })
 
   } catch (error) {
-    clearTimeout(timeoutId)
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.error('Calendar events API request timed out')
-      return NextResponse.json(
-        { error: 'Request timed out. Database connection may be slow.' },
-        { status: 503 }
-      )
-    }
     console.error('Error fetching calendar events:', error)
     return NextResponse.json(
       { error: 'Failed to fetch calendar events' },
@@ -74,50 +68,51 @@ export async function GET(request: NextRequest) {
 // POST - Create new calendar event or bulk import
 export async function POST(request: NextRequest) {
   try {
-    const dbConnection = await connectDB()
-    
-    if (!dbConnection) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
-    
     const body = await request.json()
     
     // Check if bulk import
     if (Array.isArray(body)) {
       // Bulk insert
-      const events = body.map(event => ({
-        ...event,
-        isPublished: true,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      }))
+      const newEvents = body.map(event => {
+        const year = event.date ? new Date(event.date).getFullYear() : new Date().getFullYear()
+        return {
+          _id: uuidv4(),
+          ...event,
+          isPublished: true,
+          year,
+          createdAt: new Date(),
+          updatedAt: new Date()
+        }
+      })
       
-      const result = await CalendarEvent.insertMany(events, { ordered: false })
+      inMemoryCalendarEvents = [...inMemoryCalendarEvents, ...newEvents]
       
       return NextResponse.json({
         success: true,
-        count: result.length,
-        message: `${result.length} calendar events imported successfully`
+        count: newEvents.length,
+        message: `${newEvents.length} calendar events imported successfully`,
+        fallback: true
       }, { status: 201 })
     }
     
     // Single event creation
-    const calendarEvent = new CalendarEvent({
+    const year = body.date ? new Date(body.date).getFullYear() : new Date().getFullYear()
+    const newEvent: CalendarEventType = {
+      _id: uuidv4(),
       ...body,
       isPublished: true,
+      year,
       createdAt: new Date(),
       updatedAt: new Date()
-    })
+    }
 
-    await calendarEvent.save()
+    inMemoryCalendarEvents = [...inMemoryCalendarEvents, newEvent]
 
     return NextResponse.json({
       success: true,
-      event: calendarEvent,
-      message: 'Calendar event created successfully'
+      event: newEvent,
+      message: 'Calendar event created successfully',
+      fallback: true
     }, { status: 201 })
 
   } catch (error) {
@@ -132,24 +127,16 @@ export async function POST(request: NextRequest) {
 // DELETE - Delete calendar event(s)
 export async function DELETE(request: NextRequest) {
   try {
-    const dbConnection = await connectDB()
-    
-    if (!dbConnection) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
-    
     const searchParams = request.nextUrl.searchParams
     const id = searchParams.get('id')
     const year = searchParams.get('year')
     
     if (id) {
       // Delete single event
-      const deletedEvent = await CalendarEvent.findByIdAndDelete(id)
+      const initialLength = inMemoryCalendarEvents.length
+      inMemoryCalendarEvents = inMemoryCalendarEvents.filter(e => e._id !== id)
       
-      if (!deletedEvent) {
+      if (inMemoryCalendarEvents.length === initialLength) {
         return NextResponse.json(
           { error: 'Event not found' },
           { status: 404 }
@@ -158,18 +145,21 @@ export async function DELETE(request: NextRequest) {
       
       return NextResponse.json({
         success: true,
-        message: 'Calendar event deleted successfully'
+        message: 'Calendar event deleted successfully',
+        fallback: true
       })
     }
     
     if (year) {
       // Delete all events for a year
-      const result = await CalendarEvent.deleteMany({ year: parseInt(year) })
+      const initialLength = inMemoryCalendarEvents.length
+      inMemoryCalendarEvents = inMemoryCalendarEvents.filter(e => e.year !== parseInt(year))
       
       return NextResponse.json({
         success: true,
-        count: result.deletedCount,
-        message: `${result.deletedCount} events deleted for year ${year}`
+        count: initialLength - inMemoryCalendarEvents.length,
+        message: `${initialLength - inMemoryCalendarEvents.length} events deleted for year ${year}`,
+        fallback: true
       })
     }
     
@@ -190,15 +180,6 @@ export async function DELETE(request: NextRequest) {
 // PUT - Update calendar event
 export async function PUT(request: NextRequest) {
   try {
-    const dbConnection = await connectDB()
-    
-    if (!dbConnection) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
-    
     const body = await request.json()
     const eventId = request.nextUrl.searchParams.get('id')
     
@@ -209,26 +190,30 @@ export async function PUT(request: NextRequest) {
       )
     }
     
-    const updatedEvent = await CalendarEvent.findByIdAndUpdate(
-      eventId,
-      {
-        ...body,
-        updatedAt: new Date()
-      },
-      { new: true, runValidators: true }
-    )
+    const eventIndex = inMemoryCalendarEvents.findIndex(e => e._id === eventId)
     
-    if (!updatedEvent) {
+    if (eventIndex === -1) {
       return NextResponse.json(
         { error: 'Event not found' },
         { status: 404 }
       )
     }
+    
+    const year = body.date ? new Date(body.date).getFullYear() : inMemoryCalendarEvents[eventIndex].year
+    
+    // Update the event
+    inMemoryCalendarEvents[eventIndex] = {
+      ...inMemoryCalendarEvents[eventIndex],
+      ...body,
+      year,
+      updatedAt: new Date()
+    }
 
     return NextResponse.json({
       success: true,
-      event: updatedEvent,
-      message: 'Calendar event updated successfully'
+      event: inMemoryCalendarEvents[eventIndex],
+      message: 'Calendar event updated successfully',
+      fallback: true
     })
 
   } catch (error) {
@@ -239,4 +224,3 @@ export async function PUT(request: NextRequest) {
     )
   }
 }
-

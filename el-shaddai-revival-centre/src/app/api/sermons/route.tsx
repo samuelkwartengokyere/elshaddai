@@ -1,9 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import connectDB from '@/lib/database'
-import Sermon, { ISermon } from '@/models/Sermon'
-
-// Add AbortController for timeout
-const TIMEOUT_MS = 5000
+import { v4 as uuidv4 } from 'uuid'
 
 // Define YouTube video type
 interface YouTubeVideo {
@@ -26,77 +22,47 @@ interface YouTubeVideo {
   viewCount: string
 }
 
+// In-memory storage for sermons (replaces MongoDB)
+interface SermonType {
+  [key: string]: unknown
+  _id: string
+  title: string
+  speaker: string
+  date: string
+  description: string
+  thumbnail: string
+  videoUrl: string
+  embedUrl: string
+  audioUrl: string | null
+  duration: string
+  durationSeconds: number
+  series: string | null
+  biblePassage: string | null
+  tags: string[]
+  isYouTube: boolean
+  viewCount: string
+  source: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+let inMemorySermons: SermonType[] = []
+
+function getInMemorySermons() {
+  return inMemorySermons.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+}
+
 export async function GET(request: NextRequest) {
-  const controller = new AbortController()
-  const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
-  
   try {
-    const dbConnection = await connectDB()
-    const isReady = dbConnection !== null
-    
     const searchParams = request.nextUrl.searchParams
     const includeYouTube = searchParams.get('youtube') !== 'false'
-    const forceRefresh = searchParams.get('refresh') === 'true'
+    const forceRefresh = searchParams.get('youtube') === 'refresh'
     
-    let sermons: Record<string, unknown>[] = []
     let youtubeVideos: YouTubeVideo[] = []
-    let total = 0
     let youtubeTotal = 0
 
-    // Use fallback mode if database is not connected
-    if (!dbConnection || !isReady) {
-      console.warn('Database not connected, using fallback mode for sermons (YouTube only)')
-      // Skip database sermons, only fetch YouTube videos
-    } else {
-      // Fetch database sermons if connected
-      try {
-        const page = parseInt(searchParams.get('page') || '1')
-        const limit = parseInt(searchParams.get('limit') || '10')
-        const speaker = searchParams.get('speaker')
-        const series = searchParams.get('series')
-        const search = searchParams.get('search')
-        const sort = searchParams.get('sort') || '-date'
-
-        const skip = (page - 1) * limit
-
-        // Build query
-        const query: Record<string, unknown> = {}
-
-        if (speaker) {
-          query.speaker = { $regex: speaker, $options: 'i' }
-        }
-
-        if (series) {
-          query.series = { $regex: series, $options: 'i' }
-        }
-
-        if (search) {
-          query.$or = [
-            { title: { $regex: search, $options: 'i' } },
-            { description: { $regex: search, $options: 'i' } },
-            { speaker: { $regex: search, $options: 'i' } },
-            { biblePassage: { $regex: search, $options: 'i' } }
-          ]
-        }
-
-        // Execute query with abort signal
-        const sermonResults = await Sermon.find(query)
-          .sort(sort as string)
-          .skip(skip)
-          .limit(limit)
-          .lean()
-          .collation({ locale: 'en', strength: 2 })
-          .maxTimeMS(TIMEOUT_MS - 1000)
-
-        sermons = sermonResults.map(s => ({ ...s, source: 'database', date: s.date?.toString() || new Date().toISOString() }))
-
-        total = await Sermon.countDocuments(query)
-          .maxTimeMS(TIMEOUT_MS - 1000)
-      } catch (dbError) {
-        console.error('Database query error:', dbError)
-        // Continue with empty sermons array
-      }
-    }
+    // Get sermons from in-memory storage
+    let sermons = getInMemorySermons()
 
     // Fetch YouTube videos if enabled
     if (includeYouTube) {
@@ -121,16 +87,10 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Combine and sort sermons (database + YouTube)
-    interface SermonItem {
-      source: string
-      date: string
-      [key: string]: unknown
-    }
-
-    const combinedSermons: SermonItem[] = [
-      ...sermons as SermonItem[],
-      ...youtubeVideos.map(v => ({ ...v, source: 'youtube' }) as SermonItem)
+// Combine and sort sermons (in-memory + YouTube)
+    const combinedSermons: SermonType[] = [
+      ...sermons,
+      ...youtubeVideos.map(v => ({ ...v, source: 'youtube', createdAt: new Date(), updatedAt: new Date() } as unknown as SermonType))
     ]
 
     // Sort by date (newest first)
@@ -143,18 +103,16 @@ export async function GET(request: NextRequest) {
     // Calculate pagination for combined results
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
-    const totalCombined = total + youtubeTotal
+    const totalCombined = sermons.length + youtubeTotal
     const totalPages = Math.ceil(totalCombined / limit)
     const skip = (page - 1) * limit
     const paginatedSermons = combinedSermons.slice(skip, skip + limit)
-
-    clearTimeout(timeoutId)
 
     return NextResponse.json({
       success: true,
       sermons: paginatedSermons,
       youtubeCount: youtubeTotal,
-      databaseCount: total,
+      databaseCount: sermons.length,
       pagination: {
         page,
         limit,
@@ -162,18 +120,12 @@ export async function GET(request: NextRequest) {
         totalPages,
         hasNext: page < totalPages,
         hasPrev: page > 1
-      }
+      },
+      fallback: true,
+      message: 'Using in-memory storage'
     })
 
   } catch (error) {
-    clearTimeout(timeoutId)
-    if (error instanceof Error && error.name === 'AbortError') {
-      console.error('Sermons API request timed out')
-      return NextResponse.json(
-        { error: 'Request timed out. Database connection may be slow.' },
-        { status: 503 }
-      )
-    }
     console.error('Error fetching sermons:', error)
     return NextResponse.json(
       { error: 'Failed to fetch sermons' },
@@ -184,31 +136,37 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const dbConnection = await connectDB()
-    
-    // Check if database connection is available
-    if (!dbConnection) {
-      return NextResponse.json(
-        { error: 'Database connection not available. Please check your environment variables.' },
-        { status: 503 }
-      )
-    }
-    
     const body = await request.json()
     
-    const sermon = new Sermon({
-      ...body,
-      date: new Date(body.date),
+    const newSermon: SermonType = {
+      _id: uuidv4(),
+      title: body.title || '',
+      speaker: body.speaker || '',
+      date: body.date || new Date().toISOString(),
+      description: body.description || '',
+      thumbnail: body.thumbnail || '',
+      videoUrl: body.videoUrl || '',
+      embedUrl: body.embedUrl || '',
+      audioUrl: body.audioUrl || null,
+      duration: body.duration || '',
+      durationSeconds: body.durationSeconds || 0,
+      series: body.series || null,
+      biblePassage: body.biblePassage || null,
+      tags: body.tags || [],
+      isYouTube: false,
+      viewCount: '0',
+      source: 'database',
       createdAt: new Date(),
       updatedAt: new Date()
-    })
+    }
 
-    await sermon.save()
+    inMemorySermons = [...inMemorySermons, newSermon]
 
     return NextResponse.json({
       success: true,
-      sermon,
-      message: 'Sermon created successfully'
+      sermon: newSermon,
+      message: 'Sermon created successfully (in-memory)',
+      fallback: true
     }, { status: 201 })
 
   } catch (error) {
@@ -222,15 +180,6 @@ export async function POST(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const dbConnection = await connectDB()
-    
-    if (!dbConnection) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
-    
     const body = await request.json()
     const sermonId = request.nextUrl.searchParams.get('id')
     
@@ -241,27 +190,28 @@ export async function PUT(request: NextRequest) {
       )
     }
     
-    const updatedSermon = await Sermon.findByIdAndUpdate(
-      sermonId,
-      {
-        ...body,
-        date: body.date ? new Date(body.date) : undefined,
-        updatedAt: new Date()
-      },
-      { new: true, runValidators: true }
-    )
+    const sermonIndex = inMemorySermons.findIndex(s => s._id === sermonId)
     
-    if (!updatedSermon) {
+    if (sermonIndex === -1) {
       return NextResponse.json(
         { error: 'Sermon not found' },
         { status: 404 }
       )
     }
+    
+    // Update the sermon
+    inMemorySermons[sermonIndex] = {
+      ...inMemorySermons[sermonIndex],
+      ...body,
+      date: body.date || inMemorySermons[sermonIndex].date,
+      updatedAt: new Date()
+    }
 
     return NextResponse.json({
       success: true,
-      sermon: updatedSermon,
-      message: 'Sermon updated successfully'
+      sermon: inMemorySermons[sermonIndex],
+      message: 'Sermon updated successfully (in-memory)',
+      fallback: true
     })
 
   } catch (error) {
@@ -273,3 +223,39 @@ export async function PUT(request: NextRequest) {
   }
 }
 
+export async function DELETE(request: NextRequest) {
+  try {
+    const sermonId = request.nextUrl.searchParams.get('id')
+    
+    if (!sermonId) {
+      return NextResponse.json(
+        { error: 'Sermon ID is required' },
+        { status: 400 }
+      )
+    }
+    
+    const sermonIndex = inMemorySermons.findIndex(s => s._id === sermonId)
+    
+    if (sermonIndex === -1) {
+      return NextResponse.json(
+        { error: 'Sermon not found' },
+        { status: 404 }
+      )
+    }
+    
+    inMemorySermons = inMemorySermons.filter(s => s._id !== sermonId)
+
+    return NextResponse.json({
+      success: true,
+      message: 'Sermon deleted successfully (in-memory)',
+      fallback: true
+    })
+
+  } catch (error) {
+    console.error('Error deleting sermon:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete sermon' },
+      { status: 500 }
+    )
+  }
+}

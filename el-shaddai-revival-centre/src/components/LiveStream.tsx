@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
-import { Play, Users, MessageCircle, Clock, Calendar, RefreshCw } from 'lucide-react'
+import { Play, Users, MessageCircle, Clock, Calendar, RefreshCw, AlertCircle } from 'lucide-react'
 
 interface StreamInfo {
   title: string
@@ -152,9 +152,54 @@ export default function LiveStream() {
     }
   }, [fetchLiveStatus])
 
-  // YouTube channel ID from environment
-  const youtubeChannelId = process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || 'YOUR_CHANNEL_ID'
-  const embedUrl = `https://www.youtube.com/embed/live_stream?channel=${youtubeChannelId}`
+  // YouTube channel ID - try settings first, then fallback to environment variable
+  const [youtubeChannelId, setYoutubeChannelId] = useState<string>('')
+
+  // Fetch YouTube channel ID from settings
+  useEffect(() => {
+    async function fetchYouTubeSettings() {
+      try {
+        const response = await fetch('/api/settings')
+        const data = await response.json()
+        
+        if (data.success && data.settings?.youtube) {
+          // Use channel ID from settings if available
+          const channelId = data.settings.youtube.channelId || data.settings.youtube.channelUrl || ''
+          setYoutubeChannelId(channelId)
+        } else {
+          // Fallback to environment variable
+          setYoutubeChannelId(process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || '')
+        }
+      } catch (error) {
+        console.error('Error fetching YouTube settings:', error)
+        // Fallback to environment variable
+        setYoutubeChannelId(process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || '')
+      }
+    }
+    
+    fetchYouTubeSettings()
+  }, [])
+
+  // Build embed URL from channel ID
+  const getEmbedUrl = () => {
+    const channelId = youtubeChannelId || process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || ''
+    if (!channelId) return ''
+    
+    // If it looks like a full URL, extract the channel ID
+    if (channelId.includes('youtube.com')) {
+      const match = channelId.match(/channel\/([a-zA-Z0-9_-]+)/)
+      if (match) return `https://www.youtube.com/embed/live_stream?channel=${match[1]}`
+      
+      // Handle @username URLs
+      const usernameMatch = channelId.match(/@([a-zA-Z0-9_-]+)/)
+      if (usernameMatch) return `https://www.youtube.com/embed/${usernameMatch[1]}`
+    }
+    
+    // Assume it's a channel ID
+    return `https://www.youtube.com/embed/live_stream?channel=${channelId}`
+  }
+  
+  const embedUrl = getEmbedUrl()
 
   return (
     <section className="py-12 bg-gradient-to-b from-gray-50 to-white">
@@ -165,16 +210,47 @@ export default function LiveStream() {
         </div>
 
         <div className="max-w-6xl mx-auto">
+          {/* YouTube not configured message */}
+          {!embedUrl && (
+            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
+              <div className="flex items-start">
+                <AlertCircle className="h-5 w-5 text-yellow-500 mr-3 mt-0.5" />
+                <div>
+                  <h3 className="font-medium text-yellow-700">YouTube Channel Not Configured</h3>
+                  <p className="text-sm text-yellow-600 mt-1">
+                    To enable live streaming, please configure your YouTube channel in the admin settings.
+                  </p>
+                  <a
+                    href="/admin/settings"
+                    className="inline-block mt-3 text-sm text-accent hover:text-red-600 font-medium"
+                  >
+                    Go to Settings →
+                  </a>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="bg-black rounded-xl overflow-hidden shadow-2xl">
             {/* Video Player */}
             <div className="relative pt-[56.25%]"> {/* 16:9 Aspect Ratio */}
-              <iframe
-                src={embedUrl}
-                className="absolute top-0 left-0 w-full h-full"
-                allowFullScreen
-                title="Live Stream"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-              />
+              {embedUrl ? (
+                <iframe
+                  src={embedUrl}
+                  className="absolute top-0 left-0 w-full h-full"
+                  allowFullScreen
+                  title="Live Stream"
+                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                />
+              ) : (
+                <div className="absolute top-0 left-0 w-full h-full bg-gray-900 flex items-center justify-center">
+                  <div className="text-center text-gray-400 p-4">
+                    <Play className="h-16 w-16 mx-auto mb-4 opacity-50" />
+                    <p className="text-lg">Live stream player not available</p>
+                    <p className="text-sm mt-2">Configure YouTube channel in admin settings</p>
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Stream Info */}

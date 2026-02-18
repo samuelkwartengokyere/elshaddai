@@ -213,7 +213,7 @@ export default function AdminSettings() {
     }
   }
 
-  const handleSave = async () => {
+  const handleSave = async (autoSyncAfterSave = false) => {
     setSaving(true)
     setMessage(null)
 
@@ -270,6 +270,14 @@ export default function AdminSettings() {
               syncError: data.settings.youtube.syncError || ''
             })
           }
+        }
+        
+        // Auto-sync after save if requested and YouTube settings are configured
+        if (autoSyncAfterSave && (youtubeSettings.channelId || youtubeSettings.channelUrl)) {
+          // Trigger sync after a short delay to let the settings save complete
+          setTimeout(() => {
+            handleSyncYouTube()
+          }, 500)
         }
       } else {
         setMessage({ type: 'error', text: data.error || 'Failed to save settings' })
@@ -964,23 +972,42 @@ export default function AdminSettings() {
           </div>
 
           <div className="mt-8 pt-6 border-t border-gray-200">
-            <button
-              onClick={handleSave}
-              disabled={saving}
-              className="flex items-center px-6 py-3 bg-accent text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? (
-                <>
-                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
-                  Saving...
-                </>
-              ) : (
-                <>
-                  <Save className="h-5 w-5 mr-2" />
-                  Save YouTube Settings
-                </>
-              )}
-            </button>
+            <div className="flex flex-wrap gap-4">
+              <button
+                onClick={() => handleSave(false)}
+                disabled={saving}
+                className="flex items-center px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {saving ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    Saving...
+                  </>
+                ) : (
+                  <>
+                    <Save className="h-5 w-5 mr-2" />
+                    Save Settings
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => handleSave(true)}
+                disabled={saving || syncing || (!youtubeSettings.channelId && !youtubeSettings.channelUrl)}
+                className="flex items-center px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {(saving || syncing) ? (
+                  <>
+                    <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                    Saving & Syncing...
+                  </>
+                ) : (
+                  <>
+                    <RefreshCw className="h-5 w-5 mr-2" />
+                    Save & Sync Now
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -1343,7 +1370,7 @@ export default function AdminSettings() {
       {activeTab === 'branding' && (
         <div className="mt-8 flex justify-end">
           <button
-            onClick={handleSave}
+            onClick={() => handleSave(false)}
             disabled={saving}
             className="flex items-center px-6 py-3 bg-accent text-white rounded-lg hover:bg-red-700 transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed"
           >

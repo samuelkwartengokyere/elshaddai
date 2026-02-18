@@ -243,7 +243,31 @@ export default function AdminDashboard() {
 
       {error && (
         <div className="mb-6 p-4 bg-yellow-50 border border-yellow-200 text-yellow-700 rounded-lg">
-          {error} - Showing demo data
+          {error} - Showing limited data
+        </div>
+      )}
+
+      {/* Database Connection Alert */}
+      {connectionStatus === 'disconnected' && (
+        <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
+          <div className="flex items-start">
+            <AlertCircle className="h-5 w-5 text-red-500 mr-3 mt-0.5" />
+            <div>
+              <h3 className="font-medium text-red-700">Database Connection Required</h3>
+              <p className="text-sm text-red-600 mt-1">
+                The admin panel is running in limited mode without a database connection. To enable full functionality:
+              </p>
+              <ol className="text-sm text-red-600 mt-2 list-decimal list-inside space-y-1">
+                <li>Add <code className="bg-red-100 px-1 rounded">MONGODB_URI</code> to your <code className="bg-red-100 px-1 rounded">.env.local</code> file</li>
+                <li>Get a free MongoDB Atlas account at <a href="https://mongodb.com/atlas" target="_blank" rel="noopener noreferrer" className="underline">mongodb.com</a></li>
+                <li>Copy your connection string and replace the password</li>
+                <li>Restart the development server</li>
+              </ol>
+              <p className="text-sm text-red-600 mt-3">
+                <strong>Note:</strong> YouTube videos will still work if configured in Settings.
+              </p>
+            </div>
+          </div>
         </div>
       )}
 
