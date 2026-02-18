@@ -83,6 +83,11 @@ async function syncYouTubeVideos(channelId: string, channelUrl: string, apiKey: 
   }
 }
 
+// Use globalThis to persist settings across serverless function invocations
+const globalForSettings = globalThis as unknown as {
+  inMemorySettings: Record<string, unknown> | undefined
+}
+
 // Default settings fallback
 const defaultSettings = {
   churchName: 'El-Shaddai Revival Centre',
@@ -90,8 +95,12 @@ const defaultSettings = {
   logoUrl: 'https://pentecost.ca/wp-content/uploads/2025/03/The-Church-Pentecost-Logo-1.png'
 }
 
-// In-memory storage for settings (replaces MongoDB)
-let inMemorySettings: Record<string, unknown> = { ...defaultSettings }
+// Initialize global settings if not exists
+if (!globalForSettings.inMemorySettings) {
+  globalForSettings.inMemorySettings = { ...defaultSettings }
+}
+
+let inMemorySettings: Record<string, unknown> = globalForSettings.inMemorySettings
 
 function getInMemorySettings() {
   return { 
@@ -110,6 +119,8 @@ function setInMemorySettings(settings: Partial<{ churchName: string; churchTagli
   if (settings.logoUrl !== undefined) {
     inMemorySettings = { ...inMemorySettings, logoUrl: settings.logoUrl }
   }
+  // Persist to global to survive across invocations
+  globalForSettings.inMemorySettings = inMemorySettings
 }
 
 export async function GET() {
