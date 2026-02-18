@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import connectDB, { isConnectionReady } from '@/lib/database'
 import Settings from '@/models/Settings'
 import { getInMemoryYouTubeSettings } from '@/lib/youtubeStorage'
+import { checkChannelLiveStatus, extractChannelId, getChannelIdFromUsername } from '@/lib/youtube'
 
 // In-memory cache for live stream status
 let cachedLiveStatus: {
@@ -11,14 +12,18 @@ let cachedLiveStatus: {
     viewerCount: number
     scheduledStartTime?: string
     actualStartTime?: string
+    videoId?: string
+    embedUrl?: string
   } | null
+  liveVideoId?: string
   lastUpdate: Date | null
 } | null = null
 let lastCacheUpdate: Date | null = null
-const CACHE_DURATION_MS = 5 * 60 * 1000 // 5 minutes cache
+const CACHE_DURATION_MS = 30 * 1000 // 30 seconds cache for live status
 
 interface YouTubeConfigType {
   channelId?: string
+  channelUrl?: string
   apiKey?: string
 }
 
@@ -81,10 +86,13 @@ export async function GET(request: NextRequest) {
     // Get YouTube configuration from database or in-memory
     const youtubeConfig = (settings?.youtube as YouTubeConfigType) || getInMemoryYouTubeSettings()
     
-    const channelId = youtubeConfig?.channelId || process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || ''
+    // Get channel ID - try config first, then environment variable
+    let channelId = youtubeConfig?.channelId || process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || ''
+    const apiKey = youtubeConfig?.apiKey || process.env.YOUTUBE_API_KEY || ''
+    const channelUrl = youtubeConfig?.channelUrl || ''
 
     // Check if YouTube is configured
-    if (!channelId) {
+    if (!channelId && !channelUrl) {
       // Return fallback based on time if not configured
       const fallbackStatus = getTimeBasedLiveStatus()
       return NextResponse.json({
@@ -98,32 +106,88 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Use time-based live detection (YouTube embed handles actual live detection)
+    // Resolve channel ID from URL if needed
+    if (!channelId && channelUrl) {
+      // Try to extract channel ID from URL
+      const extractedId = extractChannelId(channelUrl)
+      if (extractedId) {
+        channelId = extractedId
+      } else if (apiKey) {
+        // For @username URLs, need to use API to get channel ID
+        const atMatch = channelUrl.match(/youtube\.com\/@([a-zA-Z0-9_-]+)/)
+        const cMatch = channelUrl.match(/youtube\.com\/c\/([a-zA-Z0-9_-]+)/)
+        const userMatch = channelUrl.match(/youtube\.com\/user\/([a-zA-Z0-9_-]+)/)
+        
+        const usernameMatch = atMatch || cMatch || userMatch
+        
+        if (usernameMatch) {
+          console.log(`[Live API] Resolving channel ID from username: ${usernameMatch[1]}`)
+          channelId = await getChannelIdFromUsername(usernameMatch[1], apiKey) || ''
+        }
+      }
+    }
+
+    // Check if we have an API key to check actual live status
+    let isLive = false
+    let liveVideoId: string | undefined
+    let liveVideoTitle: string | undefined
+    let viewerCount = 0
+
+    if (channelId && apiKey) {
+      // Use YouTube API to check for actual live streams
+      console.log(`[Live API] Checking YouTube API for live streams on channel: ${channelId}`)
+      const liveStatus = await checkChannelLiveStatus(channelId, apiKey)
+      
+      if (liveStatus.isLive && liveStatus.liveVideo) {
+        isLive = true
+        liveVideoId = liveStatus.liveVideo.id
+        liveVideoTitle = liveStatus.liveVideo.title
+        viewerCount = parseInt(liveStatus.liveVideo.viewCount) || 0
+        console.log(`[Live API] Found live stream: ${liveVideoTitle}`)
+      } else {
+        console.log('[Live API] No live stream found on YouTube')
+      }
+    } else {
+      console.log('[Live API] No API key available, using time-based detection')
+    }
+
+    // Fall back to time-based detection if no actual live stream found
     const timeBasedStatus = getTimeBasedLiveStatus()
     
+    // If no actual live stream, use time-based detection
+    if (!isLive && timeBasedStatus.isLive) {
+      isLive = true
+      liveVideoTitle = getServiceTitle(timeBasedStatus.serviceType || '')
+      viewerCount = estimateViewerCount(timeBasedStatus.serviceType || '')
+    }
+
     // Update cache
     cachedLiveStatus = {
-      isLive: timeBasedStatus.isLive,
-      streamInfo: timeBasedStatus.isLive ? {
-        title: getServiceTitle(timeBasedStatus.serviceType || ''),
-        viewerCount: estimateViewerCount(timeBasedStatus.serviceType || ''),
-        scheduledStartTime: timeBasedStatus.scheduledTime
+      isLive,
+      streamInfo: isLive ? {
+        title: liveVideoTitle || getServiceTitle(timeBasedStatus.serviceType || ''),
+        viewerCount,
+        scheduledStartTime: timeBasedStatus.scheduledTime,
+        videoId: liveVideoId,
+        embedUrl: liveVideoId ? `https://www.youtube.com/embed/${liveVideoId}` : undefined
       } : null,
+      liveVideoId,
       lastUpdate: now
     }
     lastCacheUpdate = now
 
     return NextResponse.json({
       success: true,
-      isLive: timeBasedStatus.isLive,
+      isLive,
       configured: true,
       channelId,
       streamInfo: cachedLiveStatus.streamInfo,
       cached: false,
       lastUpdate: now,
-      method: 'time-based',
-      fallback: timeBasedStatus,
-      message: 'Using time-based detection. YouTube embed will show live content automatically.'
+      method: apiKey ? 'youtube-api' : 'time-based',
+      message: apiKey 
+        ? (isLive ? 'Live stream detected on YouTube' : 'No live stream found on YouTube')
+        : 'Using time-based detection. Add API key to check actual YouTube live status.'
     })
 
   } catch (error) {

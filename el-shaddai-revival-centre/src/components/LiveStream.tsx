@@ -8,6 +8,8 @@ interface StreamInfo {
   viewerCount: number
   scheduledStartTime?: string
   actualStartTime?: string
+  videoId?: string
+  embedUrl?: string
 }
 
 interface LiveStatus {
@@ -21,6 +23,7 @@ interface LiveStatus {
     scheduledTime?: string
   }
   error?: string
+  method?: string
 }
 
 export default function LiveStream() {
@@ -30,6 +33,7 @@ export default function LiveStream() {
   const [streamTitle, setStreamTitle] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [liveEmbedUrl, setLiveEmbedUrl] = useState<string>('')
 
   // Service times configuration
   const serviceTimes = [
@@ -93,10 +97,17 @@ export default function LiveStream() {
         if (data.isLive && data.streamInfo) {
           setViewers(data.streamInfo.viewerCount)
           setStreamTitle(data.streamInfo.title)
+          // Set the live embed URL if available (actual YouTube live video)
+          if (data.streamInfo.embedUrl) {
+            setLiveEmbedUrl(data.streamInfo.embedUrl)
+          } else if (data.streamInfo.videoId) {
+            setLiveEmbedUrl(`https://www.youtube.com/embed/${data.streamInfo.videoId}`)
+          }
         } else {
           // Use estimated viewers based on time if not live
           setViewers(0)
           setStreamTitle('')
+          setLiveEmbedUrl('')
         }
       } else if (data.fallback?.isLive) {
         // Fallback to time-based detection
@@ -180,8 +191,13 @@ export default function LiveStream() {
     fetchYouTubeSettings()
   }, [])
 
-  // Build embed URL from channel ID
+  // Build embed URL - prefer actual live video URL, fallback to channel-based embed
   const getEmbedUrl = () => {
+    // If we have an actual live video embed URL from the API, use it
+    if (liveEmbedUrl) {
+      return liveEmbedUrl
+    }
+    
     const channelId = youtubeChannelId || process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || ''
     if (!channelId) return ''
     

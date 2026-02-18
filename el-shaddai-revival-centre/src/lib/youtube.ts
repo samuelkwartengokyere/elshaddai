@@ -465,16 +465,109 @@ export function getEmbedHtml(videoId: string, options: {
   ></iframe>`
 }
 
+/**
+ * Fetch live streams from a YouTube channel
+ * Uses the YouTube Data API search endpoint with eventType=live
+ */
+export async function fetchLiveStreams(
+  channelId: string,
+  apiKey: string,
+  options: {
+    maxResults?: number
+  } = {}
+): Promise<YouTubeVideo[]> {
+  const { maxResults = 5 } = options
+
+  try {
+    // Use the search endpoint to find live broadcasts from the channel
+    const response = await axios.get(`${YOUTUBE_API_BASE_URL}/search`, {
+      params: {
+        part: 'snippet',
+        channelId: channelId,
+        eventType: 'live',
+        type: 'video',
+        maxResults,
+        key: apiKey
+      }
+    })
+
+    if (!response.data.items || response.data.items.length === 0) {
+      return []
+    }
+
+    // Get video IDs from search results
+    const videoIds = response.data.items
+      .map((item: { id?: { videoId?: string } }) => item.id?.videoId || '')
+      .filter(Boolean)
+      .join(',')
+
+    if (!videoIds) {
+      return []
+    }
+
+    // Get full video details including live streaming info
+    const videosResponse = await axios.get(`${YOUTUBE_API_BASE_URL}/videos`, {
+      params: {
+        part: 'snippet,contentDetails,statistics,liveStreamingDetails',
+        id: videoIds,
+        key: apiKey
+      }
+    })
+
+    return videosResponse.data.items.map(transformYouTubeVideo)
+  } catch (error) {
+    console.error('Error fetching live streams:', error)
+    return []
+  }
+}
+
+/**
+ * Check if a YouTube channel has any live streams
+ * Returns live stream info if available, null otherwise
+ */
+export async function checkChannelLiveStatus(
+  channelId: string,
+  apiKey: string
+): Promise<{
+  isLive: boolean
+  liveVideo?: YouTubeVideo
+  error?: string
+}> {
+  try {
+    const liveStreams = await fetchLiveStreams(channelId, apiKey, { maxResults: 1 })
+
+    if (liveStreams.length > 0) {
+      return {
+        isLive: true,
+        liveVideo: liveStreams[0]
+      }
+    }
+
+    return { isLive: false }
+  } catch (error) {
+    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
+    console.error('Error checking channel live status:', errorMessage)
+    return {
+      isLive: false,
+      error: errorMessage
+    }
+  }
+}
+
 export default {
   extractVideoId,
   extractChannelId,
+  getChannelIdFromUsername,
   formatDuration,
   durationToSeconds,
   transformYouTubeVideo,
   fetchChannelDetails,
   fetchChannelVideos,
+  fetchAllChannelVideos,
   searchVideos,
   youTubeVideoToSermon,
-  getEmbedHtml
+  getEmbedHtml,
+  fetchLiveStreams,
+  checkChannelLiveStatus
 }
 
