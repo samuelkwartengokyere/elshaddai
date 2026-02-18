@@ -16,22 +16,119 @@ const CACHE_DURATION_MS = 5 * 60 * 1000 // 5 minutes
 // Auto-sync state
 let autoSyncInterval: NodeJS.Timeout | null = null
 let isInitialized = false
+let initializationAttempted = false
 
 // Initialize YouTube settings from environment variables on startup
-function initializeYouTubeFromEnv() {
+// This is the PRIMARY source - environment variables are always available on server start
+function initializeYouTubeFromEnv(): YouTubeConfigType {
   // Check both YOUTUBE_CHANNEL_ID and NEXT_PUBLIC_YOUTUBE_CHANNEL_ID
-  const envChannelId = process.env.YOUTUBE_CHANNEL_ID || process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID
-  const envApiKey = process.env.YOUTUBE_API_KEY
+  let envChannelId = process.env.YOUTUBE_CHANNEL_ID || process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID
+  const envApiKey = process.env.YOUTUBE_API_KEY || process.env.NEXT_PUBLIC_YOUTUBE_API_KEY
   const envChannelUrl = process.env.YOUTUBE_CHANNEL_URL || process.env.NEXT_PUBLIC_YOUTUBE_URL
   
-  if (envChannelId || envChannelUrl || envApiKey) {
-    const currentSettings = getInMemoryYouTubeSettings()
-    setInMemoryYouTubeSettings({
-      channelId: envChannelId || currentSettings.channelId,
-      channelUrl: envChannelUrl || currentSettings.channelUrl,
-      apiKey: envApiKey || currentSettings.apiKey,
-    })
+  // Check if the channel ID is actually a YouTube handle (starts with @)
+  // Handles need to be resolved to channel IDs using the API
+  let resolvedChannelUrl = envChannelUrl || ''
+  
+  if (envChannelId && envChannelId.startsWith('@')) {
+    // It's a handle! Convert to URL format for resolution
+    // Store as channelUrl so it gets resolved later
+    resolvedChannelUrl = `https://www.youtube.com/${envChannelId}`
+    console.log('[YouTube Init] Detected YouTube handle, converting to URL:', resolvedChannelUrl)
+    // Clear the channelId since we need to resolve it
+    envChannelId = ''
   }
+  
+  const settings: YouTubeConfigType = {
+    channelId: envChannelId || '',
+    channelName: '',
+    channelUrl: resolvedChannelUrl,
+    apiKey: envApiKey || '',
+    autoSync: true, // Enable auto-sync by default when env vars are set
+    syncInterval: 6,
+    lastSync: null,
+    syncStatus: 'idle',
+    syncError: ''
+  }
+  
+  if (envChannelId || resolvedChannelUrl || envApiKey) {
+    console.log('[YouTube Init] Found environment variables, configuring YouTube...')
+    console.log('[YouTube Init] Channel ID:', envChannelId || '(needs resolution)')
+    console.log('[YouTube Init] Channel URL:', resolvedChannelUrl)
+    console.log('[YouTube Init] Has API Key:', !!envApiKey)
+    setInMemoryYouTubeSettings(settings)
+  }
+  
+  return settings
+}
+
+// Fetch settings from Settings API
+async function fetchSettingsFromAPI(origin: string): Promise<YouTubeConfigType | null> {
+  try {
+    const settingsResponse = await fetch(`${origin}/api/settings`, { 
+      cache: 'no-store'
+    })
+    
+    if (settingsResponse.ok) {
+      const settingsData = await settingsResponse.json()
+      
+      if (settingsData.success && settingsData.settings?.youtube) {
+        const ytSettings = settingsData.settings.youtube
+        return {
+          channelId: ytSettings.channelId || '',
+          channelName: ytSettings.channelName || '',
+          channelUrl: ytSettings.channelUrl || '',
+          apiKey: ytSettings.apiKey || '',
+          autoSync: ytSettings.autoSync ?? true,
+          syncInterval: ytSettings.syncInterval ?? 6,
+          lastSync: ytSettings.lastSync ? new Date(ytSettings.lastSync) : null,
+          syncStatus: ytSettings.syncStatus || 'idle',
+          syncError: ytSettings.syncError || ''
+        }
+      }
+    }
+  } catch (settingsError) {
+    console.log('[YouTube Init] Settings API not available, using env vars')
+  }
+  return null
+}
+
+// Get effective channel ID from config (resolves from URL if needed)
+async function getEffectiveChannelId(config: YouTubeConfigType): Promise<string> {
+  // If we already have a channel ID, use it
+  if (config.channelId) {
+    return config.channelId
+  }
+  
+  // Try to extract from URL
+  if (config.channelUrl) {
+    // First try direct extraction (for /channel/ URLs)
+    const extractedId = extractChannelId(config.channelUrl)
+    if (extractedId) {
+      console.log('[YouTube] Extracted channel ID from URL:', extractedId)
+      return extractedId
+    }
+    
+    // For @username URLs, need to use API to resolve
+    if (config.apiKey) {
+      const atMatch = config.channelUrl.match(/youtube\.com\/@([a-zA-Z0-9_-]+)/)
+      const cMatch = config.channelUrl.match(/youtube\.com\/c\/([a-zA-Z0-9_-]+)/)
+      const userMatch = config.channelUrl.match(/youtube\.com\/user\/([a-zA-Z0-9_-]+)/)
+      
+      const usernameMatch = atMatch || cMatch || userMatch
+      
+      if (usernameMatch) {
+        console.log(`[YouTube] Resolving channel ID from username: ${usernameMatch[1]}`)
+        const resolvedId = await getChannelIdFromUsername(usernameMatch[1], config.apiKey)
+        if (resolvedId) {
+          console.log('[YouTube] Resolved channel ID:', resolvedId)
+          return resolvedId
+        }
+      }
+    }
+  }
+  
+  return ''
 }
 
 // Auto-sync function to fetch videos from YouTube
@@ -49,32 +146,13 @@ async function performAutoSync(): Promise<{ success: boolean; videosCount: numbe
     }
     
     // Get effective channel ID
-    let effectiveChannelId = youtubeConfig.channelId || ''
-    
-    if (!effectiveChannelId && youtubeConfig.channelUrl) {
-      const extractedId = extractChannelId(youtubeConfig.channelUrl)
-      if (extractedId) {
-        effectiveChannelId = extractedId
-      } else {
-        // Try to resolve from username
-        const atMatch = youtubeConfig.channelUrl.match(/youtube\.com\/@([a-zA-Z0-9_-]+)/)
-        const cMatch = youtubeConfig.channelUrl.match(/youtube\.com\/c\/([a-zA-Z0-9_-]+)/)
-        const userMatch = youtubeConfig.channelUrl.match(/youtube\.com\/user\/([a-zA-Z0-9_-]+)/)
-        
-        const usernameMatch = atMatch || cMatch || userMatch
-        
-        if (usernameMatch) {
-          const resolvedId = await getChannelIdFromUsername(usernameMatch[1], youtubeConfig.apiKey)
-          if (resolvedId) {
-            effectiveChannelId = resolvedId
-          }
-        }
-      }
-    }
+    let effectiveChannelId = await getEffectiveChannelId(youtubeConfig)
     
     if (!effectiveChannelId) {
       return { success: false, videosCount: 0, error: 'Could not resolve channel ID' }
     }
+    
+    console.log(`[Auto-Sync] Fetching videos from channel: ${effectiveChannelId}`)
     
     // Fetch videos
     const videos = await fetchAllChannelVideos(
@@ -122,7 +200,7 @@ function startAutoSync(intervalHours: number = 6) {
   // Start the interval
   autoSyncInterval = setInterval(async () => {
     const config = getInMemoryYouTubeSettings()
-    if (config.autoSync && config.channelId && config.apiKey) {
+    if (config.autoSync && config.apiKey && (config.channelId || config.channelUrl)) {
       console.log(`[Auto-Sync] Starting scheduled sync (every ${intervalHours} hours)...`)
       await performAutoSync()
     }
@@ -132,44 +210,73 @@ function startAutoSync(intervalHours: number = 6) {
 }
 
 // Initialize auto-sync based on settings
-function initializeAutoSync() {
-  if (isInitialized) return
+async function initializeAutoSync(origin: string) {
+  if (initializationAttempted) return
+  initializationAttempted = true
   
-  const config = getInMemoryYouTubeSettings()
+  // First, initialize from environment variables
+  const envSettings = initializeYouTubeFromEnv()
+  
+  // Then try to get settings from Settings API (overrides env vars if available)
+  const apiSettings = await fetchSettingsFromAPI(origin)
+  
+  let config: YouTubeConfigType
+  
+  if (apiSettings && (apiSettings.channelId || apiSettings.channelUrl) && apiSettings.apiKey) {
+    // Use API settings if available
+    console.log('[Auto-Sync] Using settings from Settings API')
+    config = apiSettings
+    setInMemoryYouTubeSettings(config)
+  } else if (envSettings.apiKey && (envSettings.channelId || envSettings.channelUrl)) {
+    // Use environment variable settings
+    console.log('[Auto-Sync] Using settings from environment variables')
+    config = envSettings
+  } else {
+    // No settings available
+    console.log('[Auto-Sync] No YouTube configuration found')
+    isInitialized = true
+    return
+  }
   
   if (config.autoSync && (config.channelId || config.channelUrl) && config.apiKey) {
     // Perform initial sync
     console.log('[Auto-Sync] Performing initial sync on startup...')
-    performAutoSync().then(result => {
-      if (result.success) {
-        console.log(`[Auto-Sync] Initial sync complete: ${result.videosCount} videos`)
-      } else {
-        console.log(`[Auto-Sync] Initial sync failed: ${result.error}`)
-      }
-    })
     
-    // Start periodic sync
-    const intervalHours = config.syncInterval || 6
-    startAutoSync(intervalHours)
+    // Try to resolve channel ID if needed
+    const effectiveChannelId = await getEffectiveChannelId(config)
+    
+    if (effectiveChannelId) {
+      // Update config with effective channel ID
+      setInMemoryYouTubeSettings({ channelId: effectiveChannelId })
+      
+      await performAutoSync()
+      
+      // Start periodic sync
+      const intervalHours = config.syncInterval || 6
+      startAutoSync(intervalHours)
+    } else {
+      console.log('[Auto-Sync] Could not resolve channel ID, skipping initial sync')
+    }
   }
   
   isInitialized = true
 }
 
-// Call initialization on module load
-initializeYouTubeFromEnv()
-// Delay auto-sync initialization to allow settings to be loaded
-setTimeout(() => {
-  initializeAutoSync()
-}, 2000) // Wait 2 seconds for settings to potentially load
-
 // GET - Fetch cached YouTube videos or sync status
 export async function GET(request: NextRequest) {
+  // Initialize on first request
+  if (!initializationAttempted) {
+    await initializeAutoSync(request.nextUrl.origin)
+  }
+  
   try {
     const searchParams = request.nextUrl.searchParams
     const forceRefresh = searchParams.get('refresh') === 'true'
     
-    // Try to get YouTube config from Settings API first, then fall back to in-memory
+    // Ensure env vars are always loaded as fallback
+    const envSettings = initializeYouTubeFromEnv()
+    
+    // Try to get YouTube config from Settings API first
     let youtubeConfig = getInMemoryYouTubeSettings()
     
     try {
@@ -193,8 +300,11 @@ export async function GET(request: NextRequest) {
         }
       }
     } catch (settingsError) {
-      console.error('Failed to fetch settings from Settings API:', settingsError)
-      // Continue with in-memory settings
+      console.log('[YouTube API] Settings API not available, using env vars')
+      // Use env settings as fallback
+      if (envSettings.apiKey && (envSettings.channelId || envSettings.channelUrl)) {
+        youtubeConfig = { ...youtubeConfig, ...envSettings }
+      }
     }
 
     // Check if we have either channelId or channelUrl
@@ -209,54 +319,27 @@ export async function GET(request: NextRequest) {
       }, { status: 400 })
     }
 
-    // Get effective channel ID (extract from URL if needed)
-    let effectiveChannelId = youtubeConfig.channelId || ''
-    
-    if (!effectiveChannelId && youtubeConfig.channelUrl) {
-      // Try to extract channel ID from URL (for /channel/ URLs)
-      const extractedId = extractChannelId(youtubeConfig.channelUrl)
-      if (extractedId) {
-        effectiveChannelId = extractedId
-      } else if (youtubeConfig.apiKey) {
-        // For @username, /c/, or /user/ URLs, need to use API to get channel ID
-        const atMatch = youtubeConfig.channelUrl.match(/youtube\.com\/@([a-zA-Z0-9_-]+)/)
-        const cMatch = youtubeConfig.channelUrl.match(/youtube\.com\/c\/([a-zA-Z0-9_-]+)/)
-        const userMatch = youtubeConfig.channelUrl.match(/youtube\.com\/user\/([a-zA-Z0-9_-]+)/)
-        
-        const usernameMatch = atMatch || cMatch || userMatch
-        
-        if (usernameMatch) {
-          const resolvedId = await getChannelIdFromUsername(usernameMatch[1], youtubeConfig.apiKey)
-          if (resolvedId) {
-            effectiveChannelId = resolvedId
-            // Update the channelId in memory with the resolved ID
-            setInMemoryYouTubeSettings({ channelId: resolvedId })
-          }
-        }
-      }
-    }
-
-    // If channelId looks like a handle (@username), try to resolve it
-    if (!effectiveChannelId && youtubeConfig.channelId?.startsWith('@')) {
-      const handle = youtubeConfig.channelId.replace('@', '')
-      if (youtubeConfig.apiKey) {
-        const resolvedId = await getChannelIdFromUsername(handle, youtubeConfig.apiKey)
-        if (resolvedId) {
-          effectiveChannelId = resolvedId
-          // Update the channelId in memory with the resolved ID
-          setInMemoryYouTubeSettings({ channelId: resolvedId })
-        }
-      }
-    }
+    // Get effective channel ID (resolve from URL if needed)
+    let effectiveChannelId = await getEffectiveChannelId(youtubeConfig)
 
     if (!effectiveChannelId) {
       return NextResponse.json({
         success: false,
-        error: 'Could not extract channel ID from configuration',
+        error: 'Could not extract channel ID from configuration. Please check your channel URL or provide a channel ID.',
         videos: [],
         configured: true,
-        needsChannelId: true
+        needsChannelId: true,
+        config: {
+          channelId: youtubeConfig.channelId,
+          channelUrl: youtubeConfig.channelUrl,
+          hasApiKey: !!youtubeConfig.apiKey
+        }
       }, { status: 400 })
+    }
+
+    // Update in-memory with resolved channel ID
+    if (effectiveChannelId !== youtubeConfig.channelId) {
+      setInMemoryYouTubeSettings({ channelId: effectiveChannelId })
     }
 
     // Check cache
@@ -295,7 +378,8 @@ export async function GET(request: NextRequest) {
         cached: false,
         lastUpdate: now,
         configured: true,
-        autoSynced: true
+        autoSynced: true,
+        channelId: effectiveChannelId
       })
     }
 
@@ -305,7 +389,8 @@ export async function GET(request: NextRequest) {
         videos: cachedVideos,
         cached: true,
         lastUpdate: lastUpdate,
-        configured: true
+        configured: true,
+        channelId: effectiveChannelId
       })
     }
 
@@ -334,7 +419,8 @@ export async function GET(request: NextRequest) {
         videos: sermonVideos,
         cached: false,
         lastUpdate: now,
-        configured: true
+        configured: true,
+        channelId: effectiveChannelId
       })
     } else {
       // Try without API key (limited requests)
@@ -382,6 +468,17 @@ export async function POST(request: NextRequest) {
         console.error('Failed to fetch settings from Settings API:', settingsError)
       }
     }
+    
+    // Fall back to environment variables if still not available
+    if (!channelId && !channelUrl) {
+      const envSettings = initializeYouTubeFromEnv()
+      if (envSettings.apiKey && (envSettings.channelId || envSettings.channelUrl)) {
+        channelId = envSettings.channelId
+        channelUrl = envSettings.channelUrl
+        apiKey = envSettings.apiKey
+        console.log('Using YouTube settings from environment variables')
+      }
+    }
 
     // If channelUrl is provided but channelId is not, try to extract channel ID from URL
     let finalChannelId = channelId || ''
@@ -401,6 +498,7 @@ export async function POST(request: NextRequest) {
         const usernameMatch = atMatch || cMatch || userMatch
         
         if (usernameMatch) {
+          console.log(`[POST] Resolving channel ID from username: ${usernameMatch[1]}`)
           finalChannelId = await getChannelIdFromUsername(usernameMatch[1], apiKey)
         }
       }
@@ -430,6 +528,8 @@ export async function POST(request: NextRequest) {
         needsChannelId: true
       }, { status: 400 })
     }
+
+    console.log(`[POST] Using channel ID: ${finalChannelId}`)
 
     // Update settings with new channel info (in-memory only)
     const newChannelConfig = {
@@ -484,7 +584,7 @@ export async function POST(request: NextRequest) {
     })
 
     // Check if autoSync is enabled and start auto-sync
-    const bodyAutoSync = body.autoSync !== undefined ? body.autoSync : false
+    const bodyAutoSync = body.autoSync !== undefined ? body.autoSync : true
     const bodySyncInterval = body.syncInterval || 6
     
     if (bodyAutoSync && apiKey) {
