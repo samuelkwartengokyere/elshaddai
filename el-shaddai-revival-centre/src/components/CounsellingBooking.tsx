@@ -13,7 +13,6 @@ import {
   formatDateForDisplay,
   formatTimeForDisplay,
 } from '@/types/counselling';
-import { COUNSELLORS } from '@/models/Counsellor';
 
 interface CounsellingBookingProps {
   initialCountry?: string;
@@ -51,6 +50,11 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
   // Counsellor selection
   const [selectedCounsellor, setSelectedCounsellor] = useState<Counsellor | null>(null);
 
+  // Fetched counselors from API
+  const [counsellors, setCounsellors] = useState<Counsellor[]>([]);
+  const [loadingCounsellors, setLoadingCounsellors] = useState(true);
+  const [counsellorsError, setCounsellorsError] = useState<string | null>(null);
+
   // Form data
   const [formData, setFormData] = useState<BookingFormData>({
     firstName: '',
@@ -79,6 +83,31 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
 
   // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  // Fetch counselors from API on mount
+  useEffect(() => {
+    const fetchCounsellors = async () => {
+      setLoadingCounsellors(true);
+      setCounsellorsError(null);
+      try {
+        const response = await fetch('/api/counsellors');
+        const data = await response.json();
+        
+        if (data.success) {
+          setCounsellors(data.data.counsellors);
+        } else {
+          setCounsellorsError('Failed to load counselors');
+        }
+      } catch (error) {
+        console.error('Error fetching counselors:', error);
+        setCounsellorsError('Failed to load counselors');
+      } finally {
+        setLoadingCounsellors(false);
+      }
+    };
+
+    fetchCounsellors();
+  }, []);
 
   // Fetch time slots when counsellor is selected
   useEffect(() => {
@@ -369,25 +398,41 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
           </div>
 
           {/* Counsellor Cards */}
-          <div className="space-y-4">
-            {COUNSELLORS.filter(c =>
-              formData.bookingType === 'online' ? c.isOnline : c.isInPerson
-            ).map((counsellor) => (
-              <div
-                key={counsellor.id}
-                onClick={() => handleCounsellorSelect(counsellor)}
-                className={`cursor-pointer ${
-                  formData.counsellorId === counsellor.id ? 'ring-2 ring-[#C8102E] rounded-xl' : ''
-                }`}
+          {loadingCounsellors ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="animate-spin text-[#C8102E]" size={40} />
+            </div>
+          ) : counsellorsError ? (
+            <div className="text-center py-12 text-red-500">
+              <p>{counsellorsError}</p>
+              <button 
+                onClick={() => window.location.reload()}
+                className="mt-4 text-[#C8102E] underline"
               >
-                <CounsellorCard
-                  counsellor={counsellor}
-                  onSelect={handleCounsellorSelect}
-                  isSelected={formData.counsellorId === counsellor.id}
-                />
-              </div>
-            ))}
-          </div>
+                Try again
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-4">
+              {counsellors.filter((c: Counsellor) =>
+                formData.bookingType === 'online' ? c.isOnline : c.isInPerson
+              ).map((counsellor: Counsellor) => (
+                <div
+                  key={counsellor.id}
+                  onClick={() => handleCounsellorSelect(counsellor)}
+                  className={`cursor-pointer ${
+                    formData.counsellorId === counsellor.id ? 'ring-2 ring-[#C8102E] rounded-xl' : ''
+                  }`}
+                >
+                  <CounsellorCard
+                    counsellor={counsellor}
+                    onSelect={handleCounsellorSelect}
+                    isSelected={formData.counsellorId === counsellor.id}
+                  />
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Validation Error */}
           {errors.counsellor && (

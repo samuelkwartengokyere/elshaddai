@@ -15,7 +15,8 @@ import {
   LogOut,
   Settings,
   Loader2,
-  User
+  User,
+  Heart
 } from 'lucide-react'
 
 interface Settings {
@@ -48,6 +49,7 @@ const navItems = [
   { name: 'Teams', href: '/admin/teams', icon: Users },
   { name: 'Media Library', href: '/admin/media', icon: ImageIcon },
   { name: 'Sermons', href: '/admin/sermons', icon: FileAudio },
+  { name: 'Counselling', href: '/admin/counselling', icon: Heart },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ]
 

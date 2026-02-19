@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { COUNSELLORS, getCounsellorById } from '@/models/Counsellor';
 import { createTeamsMeeting } from '@/lib/teams';
 import { sendBookingConfirmation, sendCounsellorNotification, sendCancellationEmail } from '@/lib/email';
 import { BookingFormData, generateBookingNumber, CounsellingBooking } from '@/types/counselling';
@@ -42,17 +41,21 @@ export async function GET(request: NextRequest) {
     const counsellorId = searchParams.get('counsellorId');
     const bookingType = searchParams.get('bookingType') as 'online' | 'in-person' | null;
     
-    let availableCounsellors = COUNSELLORS;
+    // Fetch counselors from the new API
+    const counselorsResponse = await fetch(new URL('/api/counsellors', request.url).href);
+    const counselorsData = await counselorsResponse.json();
+    
+    let availableCounsellors = counselorsData.success ? counselorsData.data.counsellors : [];
     
     if (counsellorId) {
-      const counsellor = getCounsellorById(counsellorId);
+      const counsellor = availableCounsellors.find((c: { id: string }) => c.id === counsellorId);
       if (counsellor) {
         availableCounsellors = [counsellor];
       }
     }
     
     if (bookingType) {
-      availableCounsellors = availableCounsellors.filter(c => {
+      availableCounsellors = availableCounsellors.filter((c: { isOnline: boolean; isInPerson: boolean }) => {
         if (bookingType === 'online') return c.isOnline;
         if (bookingType === 'in-person') return c.isInPerson;
         return true;
@@ -94,8 +97,12 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    // Get counsellor details
-    const counsellor = getCounsellorById(formData.counsellorId);
+// Get counsellor details - fetch from the new API
+    const counselorsResponse = await fetch(new URL('/api/counsellors', request.url).href);
+    const counselorsData = await counselorsResponse.json();
+    const allCounsellors = counselorsData.success ? counselorsData.data.counsellors : [];
+    const counsellor = allCounsellors.find((c: { id: string }) => c.id === formData.counsellorId);
+    
     if (!counsellor) {
       return NextResponse.json(
         { success: false, error: 'Counsellor not found' },
@@ -381,7 +388,7 @@ interface AvailableSlot {
   isAvailable: boolean;
 }
 
-function generateAvailableSlots(counsellors: typeof COUNSELLORS): AvailableSlot[] {
+function generateAvailableSlots(counsellors: Array<{id: string; availability: Array<{dayOfWeek: number; startTime: string; endTime: string}>}>): AvailableSlot[] {
   const slots: AvailableSlot[] = [];
   const today = new Date();
   
@@ -398,7 +405,7 @@ function generateAvailableSlots(counsellors: typeof COUNSELLORS): AvailableSlot[
     }
     
     for (const counsellor of counsellors) {
-      const availability = counsellor.availability.find(a => a.dayOfWeek === dayOfWeek);
+      const availability = counsellor.availability.find((a: { dayOfWeek: number }) => a.dayOfWeek === dayOfWeek);
       if (!availability) {
         continue;
       }

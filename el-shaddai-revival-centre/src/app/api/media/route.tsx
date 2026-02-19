@@ -35,9 +35,10 @@ export async function GET(request: NextRequest) {
     // Get media from in-memory storage
     let media = getInMemoryMedia()
     
-    // Filter by type
+    // Filter by type (supports multiple types: "image,video")
     if (type) {
-      media = media.filter(m => m.type === type)
+      const types = type.split(',').map(t => t.trim())
+      media = media.filter(m => types.includes(m.type))
     }
     
     // Filter by category

@@ -1,21 +1,25 @@
 'use client'
-import { useState, useEffect } from 'react'
-import { Search, Loader2, Image as ImageIcon } from 'lucide-react'
 
-interface GalleryImage {
+import { useState, useEffect } from 'react'
+import { Search, Loader2, Image as ImageIcon, Play, X } from 'lucide-react'
+
+interface GalleryItem {
   _id: string
   url: string
+  title?: string
   caption?: string
+  type?: 'image' | 'video' | 'document'
   category?: string
   createdAt: string
+  uploadedAt: string
 }
 
 export default function GalleryPage() {
-  const [images, setImages] = useState<GalleryImage[]>([])
+  const [items, setItems] = useState<GalleryItem[]>([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
-  const [lightboxImage, setLightboxImage] = useState<GalleryImage | null>(null)
+  const [lightboxItem, setLightboxItem] = useState<GalleryItem | null>(null)
 
   const categories = [
     'All',
@@ -28,13 +32,15 @@ export default function GalleryPage() {
   ]
 
   useEffect(() => {
-    fetchImages()
+    fetchItems()
   }, [])
 
-  const fetchImages = async () => {
+  const fetchItems = async () => {
     setLoading(true)
     try {
       const params = new URLSearchParams()
+      // Filter for images and videos only
+      params.append('type', 'image,video')
       if (search) params.append('search', search)
       if (selectedCategory && selectedCategory !== 'All') params.append('category', selectedCategory)
 
@@ -42,12 +48,11 @@ export default function GalleryPage() {
       const data = await response.json()
 
       if (data.success) {
-        setImages(data.media || [])
+        setItems(data.media || [])
       }
     } catch (error) {
-      console.error('Error fetching gallery images:', error)
-      // Set empty state on error
-      setImages([])
+      console.error('Error fetching gallery items:', error)
+      setItems([])
     } finally {
       setLoading(false)
     }
@@ -55,8 +60,10 @@ export default function GalleryPage() {
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
-    fetchImages()
+    fetchItems()
   }
+
+  const isVideo = (item: GalleryItem) => item.type === 'video'
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -108,38 +115,61 @@ export default function GalleryPage() {
           </div>
         )}
 
-        {/* Image Grid */}
+        {/* Item Grid */}
         {!loading && (
           <>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-              {images.map((image) => (
+              {items.map((item) => (
                 <div
-                  key={image._id}
+                  key={item._id}
                   className="group relative overflow-hidden rounded-lg shadow-md cursor-pointer"
-                  onClick={() => setLightboxImage(image)}
+                  onClick={() => setLightboxItem(item)}
                 >
                   <div className="aspect-video relative">
-                    <img
-                      src={image.url}
-                      alt={image.caption || 'Gallery image'}
-                      className="w-full h-full object-cover transition duration-300 group-hover:scale-110"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement
-                        target.src = '/file.svg'
-                      }}
-                    />
+                    {isVideo(item) ? (
+                      <>
+                        <video
+                          src={item.url}
+                          className="w-full h-full object-cover transition duration-300 group-hover:scale-110"
+                          poster="/file.svg"
+                          onError={(e) => {
+                            const target = e.target as HTMLVideoElement
+                            target.poster = '/file.svg'
+                          }}
+                        />
+                        <div className="absolute inset-0 flex items-center justify-center">
+                          <div className="bg-black/50 rounded-full p-3">
+                            <Play className="h-8 w-8 text-white" fill="white" />
+                          </div>
+                        </div>
+                      </>
+                    ) : (
+                      <img
+                        src={item.url}
+                        alt={item.caption || item.title || 'Gallery image'}
+                        className="w-full h-full object-cover transition duration-300 group-hover:scale-110"
+                        onError={(e) => {
+                          const target = e.target as HTMLImageElement
+                          target.src = '/file.svg'
+                        }}
+                      />
+                    )}
                     <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition duration-300" />
                     <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent transform translate-y-full group-hover:translate-y-0 transition duration-300">
-                      {image.caption && (
-                        <p className="text-white font-medium">{image.caption}</p>
+                      {(item.caption || item.title) && (
+                        <p className="text-white font-medium">{item.caption || item.title}</p>
                       )}
-                      {image.category && (
-                        <p className="text-gray-300 text-sm">{image.category}</p>
+                      {item.category && (
+                        <p className="text-gray-300 text-sm">{item.category}</p>
                       )}
                     </div>
                     <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition duration-300">
                       <div className="bg-white/90 p-2 rounded-full">
-                        <ImageIcon className="h-5 w-5 text-gray-700" />
+                        {isVideo(item) ? (
+                          <Play className="h-5 w-5 text-gray-700" />
+                        ) : (
+                          <ImageIcon className="h-5 w-5 text-gray-700" />
+                        )}
                       </div>
                     </div>
                   </div>
@@ -148,10 +178,10 @@ export default function GalleryPage() {
             </div>
 
             {/* Empty State */}
-            {images.length === 0 && (
+            {items.length === 0 && (
               <div className="text-center py-20">
                 <ImageIcon className="h-16 w-16 mx-auto text-gray-300 mb-4" />
-                <h3 className="text-2xl font-bold mb-4">No images found</h3>
+                <h3 className="text-2xl font-bold mb-4">No media found</h3>
                 <p className="text-gray-600">Check back soon for new gallery updates!</p>
               </div>
             )}
@@ -159,35 +189,48 @@ export default function GalleryPage() {
         )}
 
         {/* Lightbox */}
-        {lightboxImage && (
+        {lightboxItem && (
           <div
             className="fixed inset-0 bg-black bg-opacity-90 z-50 flex items-center justify-center p-4"
-            onClick={() => setLightboxImage(null)}
+            onClick={() => setLightboxItem(null)}
           >
             <div className="max-w-5xl w-full max-h-screen">
-              <img
-                src={lightboxImage.url}
-                alt={lightboxImage.caption || 'Gallery image'}
-                className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
-                onError={(e) => {
-                  const target = e.target as HTMLImageElement
-                  target.src = '/file.svg'
-                }}
-              />
-              {lightboxImage.caption && (
-                <p className="text-white text-center mt-4 text-lg">{lightboxImage.caption}</p>
+              {isVideo(lightboxItem) ? (
+                <video
+                  src={lightboxItem.url}
+                  controls
+                  autoPlay
+                  className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
+                  onError={(e) => {
+                    const target = e.target as HTMLVideoElement
+                    console.error('Video load error')
+                  }}
+                >
+                  Your browser does not support video playback.
+                </video>
+              ) : (
+                <img
+                  src={lightboxItem.url}
+                  alt={lightboxItem.caption || lightboxItem.title || 'Gallery image'}
+                  className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
+                  onError={(e) => {
+                    const target = e.target as HTMLImageElement
+                    target.src = '/file.svg'
+                  }}
+                />
               )}
-              {lightboxImage.category && (
-                <p className="text-gray-400 text-center mt-2">{lightboxImage.category}</p>
+              {(lightboxItem.caption || lightboxItem.title) && (
+                <p className="text-white text-center mt-4 text-lg">{lightboxItem.caption || lightboxItem.title}</p>
+              )}
+              {lightboxItem.category && (
+                <p className="text-gray-400 text-center mt-2">{lightboxItem.category}</p>
               )}
             </div>
             <button
               className="absolute top-4 right-4 text-white hover:text-gray-300"
-              onClick={() => setLightboxImage(null)}
+              onClick={() => setLightboxItem(null)}
             >
-              <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="h-8 w-8" />
             </button>
           </div>
         )}
