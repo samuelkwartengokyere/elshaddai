@@ -9,8 +9,10 @@ import {
   Clock,
   MapPin,
   Loader2,
-  X
+  X,
+  Image as ImageIcon
 } from 'lucide-react'
+import ImageUpload from '@/components/ImageUpload'
 
 interface Event {
   _id: string
@@ -22,6 +24,7 @@ interface Event {
   category: string
   recurring: boolean
   isPublished: boolean
+  imageUrl?: string
 }
 
 type EventCategory = 'revival' | 'special' | 'holiday' | 'worship' | 'youth' | 'children' | 'outreach' | 'fellowship' | 'other'
@@ -34,6 +37,7 @@ interface EventFormData {
   location: string
   category: EventCategory
   recurring: boolean
+  imageUrl?: string
 }
 
 export default function EventsPage() {
@@ -56,7 +60,8 @@ export default function EventsPage() {
     time: '',
     location: '',
     category: 'other',
-    recurring: false
+    recurring: false,
+    imageUrl: ''
   })
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
@@ -110,7 +115,8 @@ export default function EventsPage() {
       time: '',
       location: '',
       category: 'other',
-      recurring: false
+      recurring: false,
+      imageUrl: ''
     })
     setEditingEvent(null)
     setError('')
@@ -128,7 +134,8 @@ export default function EventsPage() {
       time: event.time,
       location: event.location,
       category: event.category as EventCategory,
-      recurring: event.recurring
+      recurring: event.recurring,
+      imageUrl: event.imageUrl || ''
     })
     setError('')
     setSuccess('')
@@ -145,7 +152,10 @@ export default function EventsPage() {
       const response = await fetch('/api/events', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          imageUrl: formData.imageUrl
+        })
       })
 
       const data = await response.json()
@@ -160,7 +170,8 @@ export default function EventsPage() {
           time: '',
           location: '',
           category: 'other',
-          recurring: false
+          recurring: false,
+          imageUrl: ''
         })
         fetchEvents()
       } else {
@@ -185,7 +196,10 @@ export default function EventsPage() {
       const response = await fetch(`/api/events?id=${editingEvent._id}`, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(formData)
+        body: JSON.stringify({
+          ...formData,
+          imageUrl: formData.imageUrl
+        })
       })
 
       const data = await response.json()
@@ -331,6 +345,16 @@ export default function EventsPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {events.map((event) => (
               <div key={event._id} className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition duration-300">
+                {/* Event Image */}
+                {event.imageUrl && (
+                  <div className="h-40 overflow-hidden">
+                    <img
+                      src={event.imageUrl}
+                      alt={event.title}
+                      className="w-full h-full object-cover"
+                    />
+                  </div>
+                )}
                 {/* Event Info */}
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-3">
@@ -555,7 +579,7 @@ export default function EventsPage() {
               </div>
 
               {/* Recurring */}
-              <div className="mb-6">
+              <div className="mb-4">
                 <label className="flex items-center">
                   <input
                     type="checkbox"
@@ -565,6 +589,40 @@ export default function EventsPage() {
                   />
                   <span className="text-sm text-gray-700">This is a recurring event</span>
                 </label>
+              </div>
+
+              {/* Event Image */}
+              <div className="mb-6">
+                <label className="block text-sm font-medium text-gray-700 mb-2">
+                  Event Image
+                </label>
+                <div className="flex items-start space-x-4">
+                  <ImageUpload
+                    value={formData.imageUrl || ''}
+                    onChange={(url) => setFormData(prev => ({ ...prev, imageUrl: url }))}
+                    label="Upload Image"
+                    className=""
+                  />
+                  {formData.imageUrl && (
+                    <div className="flex-1">
+                      <p className="text-sm text-gray-500 mb-2">Image preview:</p>
+                      <div className="w-32 h-32 rounded-lg overflow-hidden border border-gray-200">
+                        <img
+                          src={formData.imageUrl}
+                          alt="Event preview"
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setFormData(prev => ({ ...prev, imageUrl: '' }))}
+                        className="mt-2 text-sm text-red-500 hover:text-red-700"
+                      >
+                        Remove image
+                      </button>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Submit */}
