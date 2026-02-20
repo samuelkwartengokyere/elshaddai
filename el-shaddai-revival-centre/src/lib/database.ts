@@ -1,67 +1,62 @@
 /**
  * Database Connection Module
  * 
- * NOTE: This module has been modified to NOT connect to MongoDB.
- * The database connection has been removed from the system.
+ * This module provides database connectivity information.
+ * The actual database operations are handled by src/lib/db.ts
  * 
- * All API routes now use in-memory storage instead of MongoDB.
- * For production, consider using file-based storage or other
- * persistent storage solutions.
+ * To enable Supabase:
+ * 1. Create a Supabase project at https://supabase.com
+ * 2. Add these environment variables to .env.local:
+ *    - NEXT_PUBLIC_SUPABASE_URL=your-project-url
+ *    - NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
+ *    - SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
+ * 3. Run the SQL schema from SUPABASE_SCHEMA.md in Supabase SQL Editor
  */
 
-// Database is disabled - always return null
-// This makes the system work without MongoDB
+import { isSupabaseConfigured, getSupabaseConfig } from './supabase'
 
 /**
- * Connect to database - always returns null (no connection)
- * This effectively disables the database connection
+ * Connect to database - returns connection status
  */
-async function connectDB(): Promise<null> {
-  console.log('Database connection disabled - using in-memory storage instead')
-  return null
+async function connectDB(): Promise<boolean> {
+  const config = getSupabaseConfig()
+  
+  if (config.isConfigured) {
+    console.log('✅ Supabase is configured and ready')
+    return true
+  } else {
+    console.log('⚠️ Using in-memory storage (Supabase not configured)')
+    console.log('To enable Supabase, add the following to .env.local:')
+    console.log('  NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co')
+    console.log('  NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key')
+    console.log('  SUPABASE_SERVICE_ROLE_KEY=your-service-role-key')
+    return false
+  }
 }
 
 /**
  * Check if database connection is available and ready
- * Always returns false since database is disabled
  */
 export async function isDatabaseConnected(): Promise<boolean> {
-  return false
+  return isSupabaseConfigured()
 }
 
 /**
- * Check if mongoose connection is fully ready
- * Always returns false since database is disabled
+ * Get database configuration status
  */
-export function isConnectionReady(): boolean {
-  return false
-}
-
-/**
- * Check if we're currently connecting to the database
- * Always returns false since database is disabled
- */
-export function isConnecting(): boolean {
-  return false
-}
-
-/**
- * Get database connection status
- * Always indicates disconnected state
- */
-export function getDatabaseStatus(): { 
-  connected: boolean 
-  ready: boolean
-  connecting: boolean
-  retries: number 
-  state: string
-} {
+export function getDatabaseStatus() {
+  const config = getSupabaseConfig()
   return {
-    connected: false,
-    ready: false,
+    connected: config.isConfigured,
+    ready: config.isConfigured,
     connecting: false,
     retries: 0,
-    state: 'disconnected'
+    state: config.isConfigured ? 'supabase' : 'in-memory',
+    config: {
+      url: config.url,
+      hasAnonKey: config.hasAnonKey,
+      hasServiceKey: config.hasServiceKey
+    }
   }
 }
 
