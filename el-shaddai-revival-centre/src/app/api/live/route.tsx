@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import connectDB, { isConnectionReady } from '@/lib/database'
+import connectDB, { isDatabaseConnected } from '@/lib/database'
 import Settings from '@/models/Settings'
 import { getInMemoryYouTubeSettings } from '@/lib/youtubeStorage'
 import { checkChannelLiveStatus, extractChannelId, getChannelIdFromUsername } from '@/lib/youtube'
@@ -69,7 +69,7 @@ export async function GET(request: NextRequest) {
     const dbConnection = await connectDB()
     
     // Check both dbConnection and connection readiness
-    const isReady = isConnectionReady()
+    const isReady = await isDatabaseConnected()
     
     if (dbConnection && isReady) {
       try {
