@@ -18,6 +18,8 @@ export interface ISettings extends Document {
   logoUrl: string
   favicon?: string
   youtube: IYouTubeSettings
+  maintenanceMode: boolean
+  maintenanceMessage?: string
   updatedAt: Date
 }
 
@@ -90,6 +92,14 @@ const SettingsSchema = new Schema<ISettings>({
       syncStatus: 'idle',
       syncError: ''
     })
+  },
+  maintenanceMode: {
+    type: Boolean,
+    default: false
+  },
+  maintenanceMessage: {
+    type: String,
+    default: ''
   }
 }, {
   timestamps: true

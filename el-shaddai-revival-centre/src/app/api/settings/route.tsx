@@ -7,6 +7,7 @@ import {
   setLastCacheUpdate
 } from '@/lib/youtubeStorage'
 import { fetchChannelDetails, fetchAllChannelVideos, youTubeVideoToSermon, extractChannelId, getChannelIdFromUsername } from '@/lib/youtube'
+import { getMaintenanceMode, setMaintenanceMode } from '@/lib/maintenance'
 
 // Auto-sync YouTube videos function
 async function syncYouTubeVideos(channelId: string, channelUrl: string, apiKey: string): Promise<{ success: boolean; videosCount: number; error?: string }> {
@@ -92,7 +93,9 @@ const globalForSettings = globalThis as unknown as {
 const defaultSettings = {
   churchName: 'El-Shaddai Revival Centre',
   churchTagline: 'The Church Of Pentecost',
-  logoUrl: 'https://pentecost.ca/wp-content/uploads/2025/03/The-Church-Pentecost-Logo-1.png'
+  logoUrl: 'https://pentecost.ca/wp-content/uploads/2025/03/The-Church-Pentecost-Logo-1.png',
+  maintenanceMode: false,
+  maintenanceMessage: ''
 }
 
 // Initialize global settings if not exists
@@ -109,7 +112,7 @@ function getInMemorySettings() {
   }
 }
 
-function setInMemorySettings(settings: Partial<{ churchName: string; churchTagline: string; logoUrl: string }>) {
+function setInMemorySettings(settings: Partial<{ churchName: string; churchTagline: string; logoUrl: string; maintenanceMode: boolean; maintenanceMessage: string }>) {
   if (settings.churchName !== undefined) {
     inMemorySettings = { ...inMemorySettings, churchName: settings.churchName }
   }
@@ -119,16 +122,33 @@ function setInMemorySettings(settings: Partial<{ churchName: string; churchTagli
   if (settings.logoUrl !== undefined) {
     inMemorySettings = { ...inMemorySettings, logoUrl: settings.logoUrl }
   }
+  if (settings.maintenanceMode !== undefined) {
+    inMemorySettings = { ...inMemorySettings, maintenanceMode: settings.maintenanceMode }
+    // Also update the shared maintenance state for middleware
+    setMaintenanceMode(settings.maintenanceMode, (inMemorySettings.maintenanceMessage as string) || '')
+  }
+  if (settings.maintenanceMessage !== undefined) {
+    inMemorySettings = { ...inMemorySettings, maintenanceMessage: settings.maintenanceMessage }
+    // Also update the shared maintenance message for middleware
+    setMaintenanceMode((inMemorySettings.maintenanceMode as boolean) || false, settings.maintenanceMessage)
+  }
   // Persist to global to survive across invocations
   globalForSettings.inMemorySettings = inMemorySettings
 }
 
 export async function GET() {
   try {
+    // Get maintenance mode from shared module
+    const maintenanceState = getMaintenanceMode()
+    
     // Return in-memory settings
     return NextResponse.json({
       success: true,
-      settings: getInMemorySettings(),
+      settings: {
+        ...getInMemorySettings(),
+        maintenanceMode: maintenanceState.enabled,
+        maintenanceMessage: maintenanceState.message
+      },
       isInMemoryMode: true
     })
 
@@ -144,8 +164,8 @@ export async function GET() {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
-    const { churchName, churchTagline, logoUrl, youtube } = body
-    
+    const { churchName, churchTagline, logoUrl, youtube, maintenanceMode, maintenanceMessage } = body
+
     // Update settings from body
     if (churchName !== undefined) {
       setInMemorySettings({ churchName: churchName || defaultSettings.churchName })
@@ -155,6 +175,14 @@ export async function POST(request: NextRequest) {
     }
     if (logoUrl !== undefined) {
       setInMemorySettings({ logoUrl: logoUrl || defaultSettings.logoUrl })
+    }
+    
+    // Update maintenance mode settings
+    if (maintenanceMode !== undefined) {
+      setInMemorySettings({ maintenanceMode: maintenanceMode })
+    }
+    if (maintenanceMessage !== undefined) {
+      setInMemorySettings({ maintenanceMessage: maintenanceMessage })
     }
     
     // Update YouTube settings if explicitly provided

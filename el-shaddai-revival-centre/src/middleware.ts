@@ -1,10 +1,11 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
 import { jwtVerify, createRemoteJWKSet } from 'jose'
+import { getMaintenanceMode } from '@/lib/maintenance'
 
 // Define protected and public routes
 const protectedRoutes = ['/admin']
-const publicRoutes = ['/admin/login', '/admin/api/auth/login', '/admin/api/auth/logout', '/admin/api/auth/refresh']
+const publicRoutes = ['/admin/login', '/admin/api/auth/login', '/admin/api/auth/logout', '/admin/api/auth/refresh', '/maintenance']
 
 // Cookie name for auth token
 const AUTH_COOKIE = 'admin_auth_token'
@@ -84,9 +85,50 @@ export async function middleware(request: NextRequest) {
   const isAdminApiRoute = pathname.startsWith('/admin/api')
   const isPublicApiRoute = publicRoutes.some(route => pathname.startsWith(route))
   const isProtectedAdminRoute = pathname.startsWith('/admin') && !isLoginPage
+  const isMaintenancePage = pathname === '/maintenance'
+  const isAdminRoute = pathname.startsWith('/admin')
+  
+  // Check if user is admin (super_admin or admin)
+  const isAdminUser = isValidToken && (decoded?.role === 'super_admin' || decoded?.role === 'admin')
+  
+  // Check maintenance mode
+  const maintenance = getMaintenanceMode()
   
   // Debug logging
-  console.log(`[Auth Middleware] ${pathname} | Auth: ${isValidToken} | Token: ${token ? 'present' : 'missing'}`)
+  console.log(`[Auth Middleware] ${pathname} | Auth: ${isValidToken} | Token: ${token ? 'present' : 'missing'} | Maintenance: ${maintenance.enabled}`)
+  
+  // === MAINTENANCE MODE CHECK ===
+  // If maintenance mode is enabled:
+  // - Allow access to maintenance page
+  // - Allow access to admin routes ONLY for admin users
+  // - Block ALL other routes (redirect to maintenance page)
+  if (maintenance.enabled) {
+    // Always allow access to the maintenance page itself
+    if (isMaintenancePage) {
+      return NextResponse.next()
+    }
+    
+    // Allow admin routes only for admin users
+    if (isAdminRoute) {
+      if (isAdminUser) {
+        return NextResponse.next()
+      } else if (!isPublicApiRoute) {
+        // Non-admin users trying to access admin routes -> redirect to login
+        const loginUrl = new URL('/admin/login', request.url)
+        loginUrl.searchParams.set('callbackUrl', pathname)
+        return NextResponse.redirect(loginUrl)
+      }
+    }
+    
+    // Block all other routes - redirect to maintenance page
+    if (!isAdminRoute && !isPublicApiRoute) {
+      const maintenanceUrl = new URL('/maintenance', request.url)
+      if (maintenance.message) {
+        maintenanceUrl.searchParams.set('message', maintenance.message)
+      }
+      return NextResponse.redirect(maintenanceUrl)
+    }
+  }
   
   // === AUTHENTICATED USER ON LOGIN PAGE ===
   // Redirect logged-in users away from login page
@@ -115,9 +157,10 @@ export async function middleware(request: NextRequest) {
 }
 
 // Configure which paths the middleware runs on
+// Include all routes to handle maintenance mode for entire site
 export const config = {
   matcher: [
-    '/admin/:path*',
+    '/((?!_next/static|_next/image|favicon.ico|public/).*)',
   ],
 }
 

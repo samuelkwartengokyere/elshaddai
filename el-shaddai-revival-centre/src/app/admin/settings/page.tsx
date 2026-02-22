@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
+import { useRouter } from 'next/navigation'
 import { 
   Settings as SettingsIcon, 
   Save, 
@@ -20,13 +21,19 @@ import {
   Upload,
   Youtube,
   RefreshCw,
-  ExternalLink
+  ExternalLink,
+  Wrench,
+  AlertTriangle,
+  Power,
+  PowerOff
 } from 'lucide-react'
 
 interface Settings {
   churchName: string
   churchTagline: string
   logoUrl: string
+  maintenanceMode?: boolean
+  maintenanceMessage?: string
   youtube?: {
     channelId: string
     channelName: string
@@ -83,9 +90,10 @@ const AVATAR_NAMES = [
   '👩', '👧', '👸', '👵'
 ]
 
-type Tab = 'branding' | 'profile' | 'admins' | 'youtube'
+type Tab = 'branding' | 'profile' | 'admins' | 'youtube' | 'maintenance'
 
 export default function AdminSettings() {
+  const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('branding')
   const [settings, setSettings] = useState<Settings>(defaultSettings)
   const [admins, setAdmins] = useState<AdminUser[]>([])
@@ -139,6 +147,11 @@ export default function AdminSettings() {
   const [modalError, setModalError] = useState('')
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
+  // Maintenance mode state
+  const [maintenanceMode, setMaintenanceMode] = useState(false)
+  const [maintenanceMessage, setMaintenanceMessage] = useState('')
+  const [maintenanceSaving, setMaintenanceSaving] = useState(false)
+
   useEffect(() => {
     fetchSettings()
     fetchCurrentUser()
@@ -154,9 +167,15 @@ export default function AdminSettings() {
         setSettings({
           churchName: data.settings.churchName || defaultSettings.churchName,
           churchTagline: data.settings.churchTagline || defaultSettings.churchTagline,
-          logoUrl: data.settings.logoUrl || defaultSettings.logoUrl
+          logoUrl: data.settings.logoUrl || defaultSettings.logoUrl,
+          maintenanceMode: data.settings.maintenanceMode || false,
+          maintenanceMessage: data.settings.maintenanceMessage || ''
         })
         setLogoPreview(data.settings.logoUrl || defaultSettings.logoUrl)
+        
+        // Set maintenance mode settings
+        setMaintenanceMode(data.settings.maintenanceMode || false)
+        setMaintenanceMessage(data.settings.maintenanceMessage || '')
         
         // Set YouTube settings - ensure all fields have proper defaults
         if (data.settings.youtube) {
@@ -542,6 +561,46 @@ export default function AdminSettings() {
     }
   }
 
+  // Handle maintenance mode toggle
+  const handleSaveMaintenance = async () => {
+    setMaintenanceSaving(true)
+    setMessage(null)
+
+    try {
+      const response = await fetch('/api/settings', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({
+          maintenanceMode: maintenanceMode,
+          maintenanceMessage: maintenanceMessage
+        })
+      })
+
+      const data = await response.json()
+
+      if (data.success) {
+        setMessage({ 
+          type: 'success', 
+          text: maintenanceMode 
+            ? 'Maintenance mode enabled! The website is now showing a maintenance page to visitors.' 
+            : 'Maintenance mode disabled! The website is now accessible to all visitors.' 
+        })
+        
+        // Refresh settings to ensure consistency
+        fetchSettings()
+      } else {
+        setMessage({ type: 'error', text: data.error || 'Failed to update maintenance settings' })
+      }
+    } catch (error) {
+      console.error('Error saving maintenance settings:', error)
+      setMessage({ type: 'error', text: 'Failed to update maintenance settings' })
+    } finally {
+      setMaintenanceSaving(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="flex items-center justify-center h-96">
@@ -610,6 +669,17 @@ export default function AdminSettings() {
           >
             <Users className="inline h-4 w-4 mr-2" />
             Admin Users
+          </button>
+          <button
+            onClick={() => handleTabChange('maintenance')}
+            className={`py-4 px-1 border-b-2 font-medium text-sm ${
+              activeTab === 'maintenance'
+                ? 'border-accent text-accent'
+                : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+            }`}
+          >
+            <Wrench className="inline h-4 w-4 mr-2" />
+            Maintenance
           </button>
         </nav>
       </div>
@@ -1364,6 +1434,150 @@ export default function AdminSettings() {
               </table>
             </div>
           ) : null}
+        </div>
+      )}
+
+      {activeTab === 'maintenance' && (
+        <div className="bg-white rounded-xl shadow-md p-6">
+          <div className="flex items-center mb-6">
+            <Wrench className="h-6 w-6 text-accent mr-3" />
+            <h2 className="text-xl font-bold text-gray-800">
+              Maintenance Mode
+            </h2>
+          </div>
+
+          <p className="text-gray-600 mb-6">
+            Enable maintenance mode to show a "System Under Maintenance" page to visitors while you work on the website.
+            Admins can still access the admin panel during maintenance mode.
+          </p>
+
+          {/* Current Status */}
+          <div className={`mb-6 p-4 rounded-lg ${
+            maintenanceMode 
+              ? 'bg-red-50 border border-red-200' 
+              : 'bg-green-50 border border-green-200'
+          }`}>
+            <div className="flex items-center">
+              {maintenanceMode ? (
+                <>
+                  <AlertTriangle className="h-5 w-5 text-red-500 mr-3" />
+                  <div>
+                    <p className="font-medium text-red-700">Maintenance Mode is ON</p>
+                    <p className="text-sm text-red-600">Visitors are seeing the maintenance page</p>
+                  </div>
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="h-5 w-5 text-green-500 mr-3" />
+                  <div>
+                    <p className="font-medium text-green-700">Maintenance Mode is OFF</p>
+                    <p className="text-sm text-green-600">Website is accessible to all visitors</p>
+                  </div>
+                </>
+              )}
+            </div>
+          </div>
+
+          {/* Maintenance Toggle */}
+          <div className="mb-6">
+            <div className="flex items-center justify-between p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <div className="flex items-center">
+                <div className={`p-3 rounded-full ${maintenanceMode ? 'bg-red-100' : 'bg-gray-200'}`}>
+                  {maintenanceMode ? (
+                    <AlertTriangle className="h-6 w-6 text-red-600" />
+                  ) : (
+                    <Wrench className="h-6 w-6 text-gray-600" />
+                  )}
+                </div>
+                <div className="ml-4">
+                  <p className="font-medium text-gray-800">Enable Maintenance Mode</p>
+                  <p className="text-sm text-gray-500">
+                    {maintenanceMode 
+                      ? 'Click to disable and restore website access' 
+                      : 'Click to enable and show maintenance page to visitors'
+                    }
+                  </p>
+                </div>
+              </div>
+              <button
+                onClick={() => setMaintenanceMode(!maintenanceMode)}
+                className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                  maintenanceMode ? 'bg-red-600' : 'bg-gray-300'
+                }`}
+              >
+                <span
+                  className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                    maintenanceMode ? 'translate-x-6' : 'translate-x-1'
+                  }`}
+                />
+              </button>
+            </div>
+          </div>
+
+          {/* Custom Message */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              Custom Maintenance Message (Optional)
+            </label>
+            <textarea
+              value={maintenanceMessage}
+              onChange={(e) => setMaintenanceMessage(e.target.value)}
+              placeholder="We are currently performing scheduled maintenance. Please check back soon."
+              rows={3}
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
+            />
+            <p className="text-sm text-gray-500 mt-1">
+              This message will be displayed on the maintenance page. Leave blank to use the default message.
+            </p>
+          </div>
+
+          {/* Preview */}
+          {maintenanceMode && (
+            <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+              <h3 className="text-sm font-medium text-gray-700 mb-2">Maintenance Page Preview:</h3>
+              <div className="bg-white rounded-lg p-6 text-center border border-gray-200">
+                <div className="inline-flex items-center justify-center w-16 h-16 bg-red-100 rounded-full mb-4">
+                  <AlertTriangle className="h-8 w-8 text-red-600" />
+                </div>
+                <h4 className="text-xl font-bold text-gray-800 mb-2">
+                  System Under Maintenance
+                </h4>
+                <p className="text-gray-600">
+                  {maintenanceMessage || 'We are currently performing scheduled maintenance. Please check back soon.'}
+                </p>
+              </div>
+            </div>
+          )}
+
+          {/* Save Button */}
+          <div className="mt-8 pt-6 border-t border-gray-200">
+            <button
+              onClick={handleSaveMaintenance}
+              disabled={maintenanceSaving}
+              className={`flex items-center px-6 py-3 rounded-lg transition duration-300 disabled:opacity-50 disabled:cursor-not-allowed ${
+                maintenanceMode 
+                  ? 'bg-green-600 text-white hover:bg-green-700' 
+                  : 'bg-red-600 text-white hover:bg-red-700'
+              }`}
+            >
+              {maintenanceSaving ? (
+                <>
+                  <Loader2 className="h-5 w-5 mr-2 animate-spin" />
+                  Saving...
+                </>
+              ) : maintenanceMode ? (
+                <>
+                  <PowerOff className="h-5 w-5 mr-2" />
+                  Disable Maintenance Mode
+                </>
+              ) : (
+                <>
+                  <Power className="h-5 w-5 mr-2" />
+                  Enable Maintenance Mode
+                </>
+              )}
+            </button>
+          </div>
         </div>
       )}
 

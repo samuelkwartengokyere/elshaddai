@@ -24,6 +24,12 @@ const nextConfig: NextConfig = {
         hostname: 'avataaars.io',
       },
     ],
+    // Local patterns for uploaded profile images
+    localPatterns: [
+      {
+        pathname: '/uploads/**',
+      },
+    ],
   },
   serverExternalPackages: ['mongoose'],
   turbopack: {},

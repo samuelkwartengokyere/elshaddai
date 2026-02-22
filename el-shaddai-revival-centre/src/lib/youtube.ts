@@ -478,6 +478,17 @@ export async function fetchLiveStreams(
 ): Promise<YouTubeVideo[]> {
   const { maxResults = 5 } = options
 
+  // Validate inputs
+  if (!channelId) {
+    console.error('fetchLiveStreams: No channelId provided')
+    return []
+  }
+
+  if (!apiKey) {
+    console.error('fetchLiveStreams: No API key provided')
+    return []
+  }
+
   try {
     // Use the search endpoint to find live broadcasts from the channel
     const response = await axios.get(`${YOUTUBE_API_BASE_URL}/search`, {
@@ -516,7 +527,26 @@ export async function fetchLiveStreams(
 
     return videosResponse.data.items.map(transformYouTubeVideo)
   } catch (error) {
-    console.error('Error fetching live streams:', error)
+    // Log detailed error information for debugging
+    if (axios.isAxiosError(error)) {
+      console.error('YouTube API Error Details:')
+      console.error('- Status:', error.response?.status)
+      console.error('- Status Text:', error.response?.statusText)
+      console.error('- Response Data:', error.response?.data)
+      console.error('- Request URL:', error.config?.url)
+      console.error('- Request Params:', error.config?.params)
+      
+      // Check for specific error reasons
+      const errorData = error.response?.data
+      if (errorData?.error) {
+        console.error('- Error Code:', errorData.error.code)
+        console.error('- Error Message:', errorData.error.message)
+        console.error('- Error Domain:', errorData.error.errors?.[0]?.domain)
+        console.error('- Error Reason:', errorData.error.errors?.[0]?.reason)
+      }
+    } else {
+      console.error('Error fetching live streams:', error)
+    }
     return []
   }
 }
@@ -545,8 +575,35 @@ export async function checkChannelLiveStatus(
 
     return { isLive: false }
   } catch (error) {
-    const errorMessage = error instanceof Error ? error.message : 'Unknown error'
-    console.error('Error checking channel live status:', errorMessage)
+    // Provide more detailed error information
+    let errorMessage = 'Unknown error'
+    
+    if (axios.isAxiosError(error)) {
+      const status = error.response?.status
+      const data = error.response?.data
+      
+      if (status === 400) {
+        errorMessage = 'Bad request - API key may be invalid or missing required permissions'
+      } else if (status === 401) {
+        errorMessage = 'Unauthorized - API key is invalid'
+      } else if (status === 403) {
+        errorMessage = 'Forbidden - API key may be expired or quota exceeded'
+      } else if (status === 404) {
+        errorMessage = 'Not found - Channel does not exist'
+      } else {
+        errorMessage = data?.error?.message || error.message
+      }
+      
+      console.error('YouTube API error in checkChannelLiveStatus:', {
+        status,
+        message: errorMessage,
+        data
+      })
+    } else if (error instanceof Error) {
+      errorMessage = error.message
+      console.error('Error checking channel live status:', errorMessage)
+    }
+    
     return {
       isLive: false,
       error: errorMessage
