@@ -1,0 +1,542 @@
+import { NextRequest, NextResponse } from 'next/server';
+import { v4 as uuidv4 } from 'uuid';
+import { createTeamsMeeting } from '@/lib/teams';
+import { sendBookingConfirmation, sendCounsellorNotification, sendCancellationEmail } from '@/lib/email';
+import { BookingFormData, generateBookingNumber } from '@/types/counselling';
+import { counsellingBookingsDb, isDbConfigured } from '@/lib/db';
+import { getCurrentAdmin } from '@/lib/auth';
+
+function generateBookingId(): string {
+  return `booking-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
+}
+
+// GET - Fetch available counsellors and time slots
+export async function GET(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const counsellorId = searchParams.get('counsellorId');
+    const bookingType = searchParams.get('bookingType') as 'online' | 'in-person' | null;
+    
+    // Fetch counselors from the new API
+    const counselorsResponse = await fetch(new URL('/api/counsellors', request.url).href);
+    const counselorsData = await counselorsResponse.json();
+    
+    let availableCounsellors = counselorsData.success ? counselorsData.data.counsellors : [];
+    
+    if (counsellorId) {
+      const counsellor = availableCounsellors.find((c: { id: string }) => c.id === counsellorId);
+      if (counsellor) {
+        availableCounsellors = [counsellor];
+      }
+    }
+    
+    if (bookingType) {
+      availableCounsellors = availableCounsellors.filter((c: { isOnline: boolean; isInPerson: boolean }) => {
+        if (bookingType === 'online') return c.isOnline;
+        if (bookingType === 'in-person') return c.isInPerson;
+        return true;
+      });
+    }
+    
+    // Return available time slots for the next 14 days
+    const availableSlots = generateAvailableSlots(availableCounsellors);
+    
+    // Try Supabase first for bookings
+    const supabaseConfigured = isDbConfigured()
+    let bookings: any[] = []
+    
+    if (supabaseConfigured) {
+      try {
+        bookings = await counsellingBookingsDb.getAll()
+      } catch (dbError) {
+        console.error('[Counselling API] Database error:', dbError)
+      }
+    }
+    
+    return NextResponse.json({
+      success: true,
+      data: {
+        counsellors: availableCounsellors,
+        availableSlots,
+        bookings: bookings.map(b => ({
+          id: b.id,
+          confirmationNumber: b.id.substring(0, 8).toUpperCase(),
+          status: b.status,
+          preferredDate: b.booking_date,
+          preferredTime: b.time_slot,
+          firstName: b.name.split(' ')[0],
+          lastName: b.name.split(' ').slice(1).join(' '),
+        }))
+      },
+      isInMemoryMode: !supabaseConfigured,
+      isSupabaseMode: supabaseConfigured,
+      message: supabaseConfigured ? 'Using Supabase' : 'Using in-memory storage'
+    });
+  } catch (error) {
+    console.error('Error fetching counselling data:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to fetch counselling data' },
+      { status: 500 }
+    );
+  }
+}
+
+// POST - Create a new booking
+export async function POST(request: NextRequest) {
+  try {
+    const formData: BookingFormData = await request.json();
+    
+    // Validate required fields
+    const validationErrors = validateFormData(formData);
+    if (validationErrors.length > 0) {
+      return NextResponse.json(
+        { success: false, errors: validationErrors },
+        { status: 400 }
+      );
+    }
+    
+    // Get counsellor details - fetch from the new API
+    const counselorsResponse = await fetch(new URL('/api/counsellors', request.url).href);
+    const counselorsData = await counselorsResponse.json();
+    const allCounsellors = counselorsData.success ? counselorsData.data.counsellors : [];
+    const counsellor = allCounsellors.find((c: { id: string }) => c.id === formData.counsellorId);
+    
+    if (!counsellor) {
+      return NextResponse.json(
+        { success: false, error: 'Counsellor not found' },
+        { status: 404 }
+      );
+    }
+    
+    // Generate confirmation number and ID
+    const confirmationNumber = generateBookingNumber();
+    const bookingId = generateBookingId();
+    const now = new Date();
+    
+    const bookingData = {
+      name: `${formData.firstName} ${formData.lastName}`,
+      email: formData.email,
+      phone: formData.phone,
+      age: formData.age || null,
+      gender: formData.gender || null,
+      preferred_counsellor: formData.counsellorId,
+      booking_date: new Date(formData.preferredDate).toISOString(),
+      time_slot: formData.preferredTime,
+      issue_type: formData.topic || null,
+      notes: formData.notes || null,
+      status: 'pending'
+    };
+    
+    let teamsMeetingUrl: string | undefined;
+    let teamsJoinUrl: string | undefined;
+    
+    // If online booking, create Teams meeting
+    if (formData.bookingType === 'online') {
+      try {
+        const teamsMeeting = await createTeamsMeeting({
+          id: bookingId,
+          createdAt: now.toISOString(),
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+          country: formData.country || '',
+          city: formData.city || '',
+          counsellorId: formData.counsellorId,
+          bookingType: formData.bookingType,
+          preferredDate: formData.preferredDate,
+          preferredTime: formData.preferredTime,
+          sessionDuration: formData.sessionDuration,
+          topic: formData.topic,
+          notes: formData.notes,
+          status: 'pending',
+          confirmationNumber,
+          isPaid: false,
+        }, formData.sessionDuration);
+        teamsMeetingUrl = teamsMeeting.joinWebUrl;
+        teamsJoinUrl = teamsMeeting.joinWebUrl;
+      } catch (teamsError) {
+        console.error('Error creating Teams meeting:', teamsError);
+      }
+    }
+    
+    // Try Supabase first
+    const supabaseConfigured = isDbConfigured()
+    let savedBooking: any = null
+    
+    if (supabaseConfigured) {
+      try {
+        savedBooking = await counsellingBookingsDb.create(bookingData)
+      } catch (dbError) {
+        console.error('[Counselling API] Database error:', dbError)
+      }
+    }
+    
+    // Send confirmation email to user
+    try {
+      await sendBookingConfirmation({
+        id: bookingId,
+        createdAt: now.toISOString(),
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        country: formData.country || '',
+        city: formData.city || '',
+        counsellorId: formData.counsellorId,
+        bookingType: formData.bookingType,
+        preferredDate: formData.preferredDate,
+        preferredTime: formData.preferredTime,
+        sessionDuration: formData.sessionDuration,
+        topic: formData.topic,
+        notes: formData.notes,
+        teamsMeetingUrl,
+        teamsJoinUrl,
+        status: 'pending',
+        confirmationNumber,
+        isPaid: false,
+      });
+    } catch (emailError) {
+      console.error('Error sending confirmation email:', emailError);
+    }
+    
+    // Send notification to counsellor
+    try {
+      await sendCounsellorNotification({
+        id: bookingId,
+        createdAt: now.toISOString(),
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        email: formData.email,
+        phone: formData.phone,
+        country: formData.country || '',
+        city: formData.city || '',
+        counsellorId: formData.counsellorId,
+        bookingType: formData.bookingType,
+        preferredDate: formData.preferredDate,
+        preferredTime: formData.preferredTime,
+        sessionDuration: formData.sessionDuration,
+        topic: formData.topic,
+        notes: formData.notes,
+        teamsMeetingUrl,
+        teamsJoinUrl,
+        status: 'pending',
+        confirmationNumber,
+        isPaid: false,
+      }, counsellor.email, counsellor.name);
+    } catch (emailError) {
+      console.error('Error sending counsellor notification:', emailError);
+    }
+    
+    return NextResponse.json({
+      success: true,
+      data: {
+        confirmationNumber,
+        booking: {
+          id: savedBooking?.id || bookingId,
+          confirmationNumber,
+          status: 'pending',
+          preferredDate: formData.preferredDate,
+          preferredTime: formData.preferredTime,
+          bookingType: formData.bookingType,
+          topic: formData.topic,
+          teamsMeetingUrl,
+          counsellor: {
+            name: counsellor.name,
+            title: counsellor.title,
+          },
+        },
+      },
+      isSupabaseMode: supabaseConfigured,
+      isInMemoryMode: !supabaseConfigured
+    });
+  } catch (error) {
+    console.error('Error creating booking:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to create booking. Please try again.' },
+      { status: 500 }
+    );
+  }
+}
+
+// PUT - Update a booking (admin only)
+export async function PUT(request: NextRequest) {
+  try {
+    // Check if user is authenticated (admin only)
+    const currentAdmin = getCurrentAdmin(request)
+    if (!currentAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    
+    const body = await request.json()
+    const bookingId = request.nextUrl.searchParams.get('id')
+    
+    if (!bookingId) {
+      return NextResponse.json(
+        { error: 'Booking ID is required' },
+        { status: 400 }
+      )
+    }
+    
+    // Try Supabase first
+    const supabaseConfigured = isDbConfigured()
+    
+    if (supabaseConfigured) {
+      try {
+        const existingBooking = await counsellingBookingsDb.getById(bookingId)
+        
+        if (!existingBooking) {
+          return NextResponse.json(
+            { error: 'Booking not found' },
+            { status: 404 }
+          )
+        }
+        
+        const updateData: {
+          status?: string
+          notes?: string | null
+        } = {}
+        
+        if (body.status !== undefined) updateData.status = body.status
+        if (body.notes !== undefined) updateData.notes = body.notes
+        
+        const updatedBooking = await counsellingBookingsDb.update(bookingId, updateData)
+
+        return NextResponse.json({
+          success: true,
+          booking: {
+            id: updatedBooking.id,
+            name: updatedBooking.name,
+            email: updatedBooking.email,
+            phone: updatedBooking.phone,
+            preferredDate: updatedBooking.booking_date,
+            preferredTime: updatedBooking.time_slot,
+            status: updatedBooking.status,
+            notes: updatedBooking.notes,
+          },
+          message: 'Booking updated successfully',
+          isSupabaseMode: true
+        })
+      } catch (dbError) {
+        console.error('[Counselling API] Database error:', dbError)
+        return NextResponse.json(
+          { error: 'Failed to update booking in database' },
+          { status: 500 }
+        )
+      }
+    }
+    
+    return NextResponse.json(
+      { success: false, error: 'Database not available' },
+      { status: 503 }
+    )
+
+  } catch (error) {
+    console.error('Error updating booking:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to update booking' },
+      { status: 500 }
+    );
+  }
+}
+
+// DELETE - Cancel a booking
+export async function DELETE(request: NextRequest) {
+  try {
+    const { searchParams } = new URL(request.url);
+    const confirmationNumber = searchParams.get('confirmationNumber');
+    const email = searchParams.get('email');
+    
+    if (!confirmationNumber || !email) {
+      return NextResponse.json(
+        { success: false, error: 'Confirmation number and email are required' },
+        { status: 400 }
+      );
+    }
+    
+    // Try Supabase first
+    const supabaseConfigured = isDbConfigured()
+    
+    if (supabaseConfigured) {
+      try {
+        const bookings = await counsellingBookingsDb.getAll()
+        const booking = bookings.find(b => b.id.substring(0, 8).toUpperCase() === confirmationNumber)
+        
+        if (!booking) {
+          return NextResponse.json(
+            { success: false, error: 'Booking not found' },
+            { status: 404 }
+          )
+        }
+        
+        if (booking.email !== email) {
+          return NextResponse.json(
+            { success: false, error: 'Email does not match booking' },
+            { status: 403 }
+          )
+        }
+        
+        // Update booking status to cancelled
+        await counsellingBookingsDb.update(booking.id, { status: 'cancelled' })
+        
+        // Send cancellation email
+        try {
+          await sendCancellationEmail({
+            id: booking.id,
+            createdAt: new Date().toISOString(),
+            firstName: booking.name.split(' ')[0],
+            lastName: booking.name.split(' ').slice(1).join(' '),
+            email: booking.email,
+            phone: booking.phone,
+            country: '',
+            city: '',
+            counsellorId: booking.preferred_counsellor,
+            bookingType: 'online',
+            preferredDate: booking.booking_date,
+            preferredTime: booking.time_slot,
+            sessionDuration: 30,
+            topic: booking.issue_type || '',
+            notes: booking.notes,
+            teamsMeetingUrl: undefined,
+            teamsJoinUrl: undefined,
+            status: 'cancelled',
+            confirmationNumber,
+            isPaid: false,
+          });
+        } catch (emailError) {
+          console.error('Error sending cancellation email:', emailError);
+        }
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Booking cancelled successfully',
+          isSupabaseMode: true
+        });
+      } catch (dbError) {
+        console.error('[Counselling API] Database error:', dbError)
+      }
+    }
+    
+    return NextResponse.json(
+      { success: false, error: 'Database not available' },
+      { status: 503 }
+    );
+
+  } catch (error) {
+    console.error('Error cancelling booking:', error);
+    return NextResponse.json(
+      { success: false, error: 'Failed to cancel booking' },
+      { status: 500 }
+    );
+  }
+}
+
+function validateFormData(data: BookingFormData): string[] {
+  const errors: string[] = [];
+  
+  if (!data.firstName?.trim()) {
+    errors.push('First name is required');
+  }
+  
+  if (!data.lastName?.trim()) {
+    errors.push('Last name is required');
+  }
+  
+  if (!data.email?.trim()) {
+    errors.push('Email is required');
+  } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(data.email)) {
+    errors.push('Please enter a valid email address');
+  }
+  
+  if (!data.phone?.trim()) {
+    errors.push('Phone number is required');
+  }
+  
+  if (!data.country) {
+    errors.push('Country is required');
+  }
+  
+  if (!data.counsellorId) {
+    errors.push('Please select a counsellor');
+  }
+  
+  if (!data.preferredDate) {
+    errors.push('Please select a preferred date');
+  }
+  
+  if (!data.preferredTime) {
+    errors.push('Please select a preferred time');
+  }
+  
+  if (!data.topic?.trim()) {
+    errors.push('Please specify a topic for your session');
+  }
+  
+  return errors;
+}
+
+interface AvailableSlot {
+  id: string;
+  counsellorId: string;
+  date: string;
+  startTime: string;
+  endTime: string;
+  isAvailable: boolean;
+}
+
+function generateAvailableSlots(counsellors: Array<{id: string; availability: Array<{dayOfWeek: number; startTime: string; endTime: string}>}>): AvailableSlot[] {
+  const slots: AvailableSlot[] = [];
+  const today = new Date();
+  
+  // Generate slots for the next 14 days
+  for (let dayOffset = 1; dayOffset <= 14; dayOffset++) {
+    const date = new Date(today);
+    date.setDate(today.getDate() + dayOffset);
+    const dateStr = date.toISOString().split('T')[0];
+    
+    // Only show weekdays (Monday to Friday)
+    const dayOfWeek = date.getDay();
+    if (dayOfWeek === 0 || dayOfWeek === 6) {
+      continue;
+    }
+    
+    for (const counsellor of counsellors) {
+      const availability = counsellor.availability?.find((a: { dayOfWeek: number }) => a.dayOfWeek === dayOfWeek);
+      if (!availability) {
+        continue;
+      }
+      
+      const [startHour, startMin] = availability.startTime.split(':').map(Number);
+      const [endHour, endMin] = availability.endTime.split(':').map(Number);
+      
+      const startMinutes = startHour * 60 + startMin;
+      const endMinutes = endHour * 60 + endMin;
+      
+      for (let time = startMinutes; time < endMinutes; time += 30) {
+        const hour = Math.floor(time / 60);
+        const minute = time % 60;
+        
+        const startTime = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
+        const endHour = Math.floor((time + 30) / 60);
+        const endMinute = (time + 30) % 60;
+        const endTime = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+        
+        const isAvailable = Math.random() > 0.3;
+        
+        slots.push({
+          id: `${counsellor.id}-${dateStr}-${startTime}`,
+          counsellorId: counsellor.id,
+          date: dateStr,
+          startTime,
+          endTime,
+          isAvailable,
+        });
+      }
+    }
+  }
+  
+  return slots;
+}

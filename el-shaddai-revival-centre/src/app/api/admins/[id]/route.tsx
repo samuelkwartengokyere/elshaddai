@@ -1,13 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import connectDB from '@/lib/database'
-import Admin from '@/models/Admin'
+import { adminsDb, isDbConfigured } from '@/lib/db'
 import { getCurrentAdmin, generateToken, setAuthCookie } from '@/lib/auth'
-import { ObjectId } from 'mongodb'
-
-// Validate MongoDB ObjectId
-function isValidObjectId(id: string): boolean {
-  return ObjectId.isValid(id) && new ObjectId(id).toString() === id
-}
 
 export async function GET(
   request: NextRequest,
@@ -15,22 +8,6 @@ export async function GET(
 ) {
   try {
     const { id } = await params
-    
-    if (!isValidObjectId(id)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid admin ID' },
-        { status: 400 }
-      )
-    }
-    
-    const dbConnection = await connectDB()
-    
-    if (!dbConnection) {
-      return NextResponse.json(
-        { success: false, error: 'Database not available' },
-        { status: 503 }
-      )
-    }
     
     const currentAdmin = getCurrentAdmin(request)
     if (!currentAdmin) {
@@ -40,27 +17,43 @@ export async function GET(
       )
     }
     
-    const admin = await Admin.findById(id).select('-password').lean()
+    // Try Supabase first
+    const supabaseConfigured = isDbConfigured()
     
-    if (!admin) {
-      return NextResponse.json(
-        { success: false, error: 'Admin not found' },
-        { status: 404 }
-      )
+    if (supabaseConfigured) {
+      try {
+        const admin = await adminsDb.getById(id)
+        
+        if (!admin) {
+          return NextResponse.json(
+            { success: false, error: 'Admin not found' },
+            { status: 404 }
+          )
+        }
+        
+        return NextResponse.json({
+          success: true,
+          admin: {
+            _id: admin.id,
+            email: admin.email,
+            name: admin.name,
+            role: admin.role,
+            profile_image: admin.profile_image,
+            createdAt: admin.created_at,
+            updatedAt: admin.updated_at
+          },
+          isSupabaseMode: true
+        })
+      } catch (dbError) {
+        console.error('[Admin API] Database error:', dbError)
+      }
     }
     
-    return NextResponse.json({
-      success: true,
-      admin: {
-        _id: admin._id.toString(),
-        email: admin.email,
-        name: admin.name,
-        role: admin.role,
-        isActive: admin.isActive,
-        lastLogin: admin.lastLogin,
-        createdAt: admin.createdAt
-      }
-    })
+    // Fall back to error when Supabase not configured
+    return NextResponse.json(
+      { success: false, error: 'Database not available' },
+      { status: 503 }
+    )
     
   } catch (error) {
     console.error('Error fetching admin:', error)
@@ -77,13 +70,6 @@ export async function PUT(
 ) {
   try {
     const { id } = await params
-    
-    if (!isValidObjectId(id)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid admin ID' },
-        { status: 400 }
-      )
-    }
     
     const currentAdmin = getCurrentAdmin(request)
     if (!currentAdmin) {
@@ -106,123 +92,132 @@ export async function PUT(
     }
     
     const body = await request.json()
-    const { name, role, isActive, currentPassword, newPassword, profileImage } = body
+    const { name, role, profile_image } = body
     
-    const dbConnection = await connectDB()
+    // Try Supabase first
+    const supabaseConfigured = isDbConfigured()
     
-    // Dev mode - allow profile updates without database
-    if (!dbConnection) {
-      // In dev mode, generate a new token with updated profile image
-      const newName = name || currentAdmin.name || currentAdmin.email.split('@')[0]
-      const newProfileImage = profileImage || currentAdmin.profileImage || ''
-      
-      const token = generateToken({
-        adminId: currentAdmin.adminId,
-        email: currentAdmin.email,
-        role: currentAdmin.role,
-        name: newName,
-        profileImage: newProfileImage
-      })
-      
-      // Set the new token in the response cookie
-      const response = NextResponse.json({
-        success: true,
-        message: 'Profile updated successfully (dev mode)',
-        admin: {
-          _id: currentAdmin.adminId,
-          email: currentAdmin.email,
-          name: newName,
-          role: currentAdmin.role,
-          isActive: true,
-          profileImage: newProfileImage
+    if (supabaseConfigured) {
+      try {
+        const existingAdmin = await adminsDb.getById(id)
+        
+        if (!existingAdmin) {
+          return NextResponse.json(
+            { success: false, error: 'Admin not found' },
+            { status: 404 }
+          )
         }
-      })
-      
-      // Set auth cookie with new token
-      const cookieResponse = setAuthCookie(token, 'Profile updated successfully (dev mode)')
-      
-      // Merge cookies from setAuthCookie into our response
-      const cookies = cookieResponse.headers.get('set-cookie')
-      if (cookies) {
-        response.headers.set('set-cookie', cookies)
-      }
-      
-      return response
-    }
-    
-    const admin = await Admin.findById(id)
-    
-    if (!admin) {
-      return NextResponse.json(
-        { success: false, error: 'Admin not found' },
-        { status: 404 }
-      )
-    }
-    
-    // Prevent modifying super_admin role
-    if (admin.role === 'super_admin' && role && role !== 'super_admin') {
-      return NextResponse.json(
-        { success: false, error: 'Cannot change super_admin role' },
-        { status: 403 }
-      )
-    }
-    
-    // Check if updating own profile or being updated by super_admin
-    // (isOwnProfile and isSuperAdmin are defined above)
-    
-    // Allow any admin to update their own profile image, or super_admin to update any user's profile
-    if (profileImage !== undefined) {
-      if (isOwnProfile || isSuperAdmin) {
-        admin.profileImage = profileImage
-      } else {
+        
+        // Prevent modifying super_admin role
+        if (existingAdmin.role === 'super_admin' && role && role !== 'super_admin') {
+          return NextResponse.json(
+            { success: false, error: 'Cannot change super_admin role' },
+            { status: 403 }
+          )
+        }
+        
+        // Update fields
+        const updateData: Partial<{
+          name: string
+          role: string
+          profile_image: string
+        }> = {}
+        
+        if (name) updateData.name = name
+        if (role && existingAdmin.role !== 'super_admin') updateData.role = role
+        if (profile_image !== undefined) updateData.profile_image = profile_image
+        
+        const updatedAdmin = await adminsDb.update(id, updateData)
+        
+        // Generate new token if updating own profile
+        if (isOwnProfile) {
+          const newName = updatedAdmin.name
+          const newProfileImage = updatedAdmin.profile_image || ''
+          
+          const token = generateToken({
+            adminId: updatedAdmin.id,
+            email: updatedAdmin.email,
+            role: updatedAdmin.role,
+            name: newName,
+            profileImage: newProfileImage
+          })
+          
+          const response = NextResponse.json({
+            success: true,
+            message: 'Profile updated successfully',
+            admin: {
+              _id: updatedAdmin.id,
+              email: updatedAdmin.email,
+              name: updatedAdmin.name,
+              role: updatedAdmin.role,
+              profile_image: updatedAdmin.profile_image,
+              createdAt: updatedAdmin.created_at
+            }
+          })
+          
+          const cookieResponse = setAuthCookie(token, 'Profile updated successfully')
+          const cookies = cookieResponse.headers.get('set-cookie')
+          if (cookies) {
+            response.headers.set('set-cookie', cookies)
+          }
+          
+          return response
+        }
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Admin updated successfully',
+          admin: {
+            _id: updatedAdmin.id,
+            email: updatedAdmin.email,
+            name: updatedAdmin.name,
+            role: updatedAdmin.role,
+            profile_image: updatedAdmin.profile_image,
+            createdAt: updatedAdmin.created_at
+          }
+        })
+        
+      } catch (dbError) {
+        console.error('[Admin API] Database error:', dbError)
         return NextResponse.json(
-          { success: false, error: 'You can only update your own profile image' },
-          { status: 403 }
+          { success: false, error: 'Failed to update admin in database' },
+          { status: 500 }
         )
       }
     }
     
-    // Update fields
-    if (name) admin.name = name
-    if (role && admin.role !== 'super_admin') admin.role = role
-    if (typeof isActive === 'boolean' && isSuperAdmin) admin.isActive = isActive
+    // Dev mode fallback - allow profile updates without database
+    const newName = name || currentAdmin.name || currentAdmin.email.split('@')[0]
+    const newProfileImage = profile_image || currentAdmin.profileImage || ''
     
-    // Password change requires current password verification
-    if (newPassword) {
-      if (!currentPassword) {
-        return NextResponse.json(
-          { success: false, error: 'Current password required to change password' },
-          { status: 400 }
-        )
-      }
-      
-      const isMatch = await admin.comparePassword(currentPassword)
-      if (!isMatch) {
-        return NextResponse.json(
-          { success: false, error: 'Current password is incorrect' },
-          { status: 401 }
-        )
-      }
-      
-      admin.password = newPassword
-    }
-    
-    await admin.save()
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Admin updated successfully',
-      admin: {
-        _id: admin._id.toString(),
-        email: admin.email,
-        name: admin.name,
-        role: admin.role,
-        isActive: admin.isActive,
-        profileImage: admin.profileImage,
-        lastLogin: admin.lastLogin,
-        createdAt: admin.createdAt
-      }
+    const token = generateToken({
+      adminId: currentAdmin.adminId,
+      email: currentAdmin.email,
+      role: currentAdmin.role,
+      name: newName,
+      profileImage: newProfileImage
     })
+    
+    const response = NextResponse.json({
+      success: true,
+      message: 'Profile updated successfully (dev mode)',
+      admin: {
+        _id: currentAdmin.adminId,
+        email: currentAdmin.email,
+        name: newName,
+        role: currentAdmin.role,
+        profile_image: newProfileImage
+      },
+      isInMemoryMode: true
+    })
+    
+    const cookieResponse = setAuthCookie(token, 'Profile updated successfully (dev mode)')
+    const cookies = cookieResponse.headers.get('set-cookie')
+    if (cookies) {
+      response.headers.set('set-cookie', cookies)
+    }
+    
+    return response
     
   } catch (error) {
     console.error('Error updating admin:', error)
@@ -239,22 +234,6 @@ export async function DELETE(
 ) {
   try {
     const { id } = await params
-    
-    if (!isValidObjectId(id)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid admin ID' },
-        { status: 400 }
-      )
-    }
-    
-    const dbConnection = await connectDB()
-    
-    if (!dbConnection) {
-      return NextResponse.json(
-        { success: false, error: 'Database not available' },
-        { status: 503 }
-      )
-    }
     
     const currentAdmin = getCurrentAdmin(request)
     if (!currentAdmin) {
@@ -280,29 +259,48 @@ export async function DELETE(
       )
     }
     
-    const admin = await Admin.findById(id)
+    // Try Supabase first
+    const supabaseConfigured = isDbConfigured()
     
-    if (!admin) {
-      return NextResponse.json(
-        { success: false, error: 'Admin not found' },
-        { status: 404 }
-      )
+    if (supabaseConfigured) {
+      try {
+        const existingAdmin = await adminsDb.getById(id)
+        
+        if (!existingAdmin) {
+          return NextResponse.json(
+            { success: false, error: 'Admin not found' },
+            { status: 404 }
+          )
+        }
+        
+        // Cannot delete super_admin
+        if (existingAdmin.role === 'super_admin') {
+          return NextResponse.json(
+            { success: false, error: 'Cannot delete super admin account' },
+            { status: 403 }
+          )
+        }
+        
+        await adminsDb.delete(id)
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Admin deleted successfully'
+        })
+        
+      } catch (dbError) {
+        console.error('[Admin API] Database error:', dbError)
+        return NextResponse.json(
+          { success: false, error: 'Failed to delete admin in database' },
+          { status: 500 }
+        )
+      }
     }
     
-    // Cannot delete super_admin
-    if (admin.role === 'super_admin') {
-      return NextResponse.json(
-        { success: false, error: 'Cannot delete super admin account' },
-        { status: 403 }
-      )
-    }
-    
-    await Admin.findByIdAndDelete(id)
-    
-    return NextResponse.json({
-      success: true,
-      message: 'Admin deleted successfully'
-    })
+    return NextResponse.json(
+      { success: false, error: 'Database not available' },
+      { status: 503 }
+    )
     
   } catch (error) {
     console.error('Error deleting admin:', error)

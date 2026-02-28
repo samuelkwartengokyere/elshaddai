@@ -1,42 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
-import { donationsDb, isDbConfigured } from '@/lib/db'
 import { initializeTransaction, generateReference } from '@/lib/paystack'
 import { convertCurrency } from '@/lib/currency'
+import { donationsDb, isDbConfigured } from '@/lib/db'
 import { getCurrentAdmin } from '@/lib/auth'
 
 // Make this route dynamic - don't attempt static generation
 export const dynamic = 'force-dynamic'
-
-// In-memory storage for donations (replaces MongoDB)
-interface DonationType {
-  _id: string
-  amount: number
-  amountUSD: number
-  currency: string
-  exchangeRate: number
-  frequency: string
-  donorName: string
-  donorEmail: string
-  donorPhone?: string
-  donorCountry?: string
-  paymentMethod: string
-  paymentChannel: string
-  status: string
-  paystackReference?: string
-  transactionReference?: string
-  donationType?: string
-  isAnonymous: boolean
-  notes?: string
-  createdAt: Date
-  receiptSent: boolean
-}
-
-let inMemoryDonations: DonationType[] = []
-
-function getInMemoryDonations() {
-  return inMemoryDonations.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-}
 
 /**
  * POST /api/donations - Initialize a donation payment
@@ -181,8 +151,10 @@ async function initializePaystackPayment(params: {
     reference
   })
 
-  // Try to store in Supabase first
-  if (isDbConfigured()) {
+  // Try Supabase first
+  const supabaseConfigured = isDbConfigured()
+  
+  if (supabaseConfigured) {
     try {
       const newDonation = await donationsDb.create({
         amount: parseFloat(amount),
@@ -192,15 +164,15 @@ async function initializePaystackPayment(params: {
         frequency,
         donor_name: donorName,
         donor_email: email,
-        donor_phone: phone || undefined,
-        donor_country: country || undefined,
+        donor_phone: phone || null,
+        donor_country: country || null,
         payment_method: 'online',
-        payment_channel: paymentChannel as 'paystack' | 'mobile_money',
+        payment_channel: paymentChannel,
         status: 'pending',
         paystack_reference: reference,
-        donation_type: donationType || undefined,
+        donation_type: donationType || null,
         is_anonymous: isAnonymous,
-        notes: notes || undefined,
+        notes: notes || null,
         receipt_sent: false
       })
 
@@ -218,42 +190,15 @@ async function initializePaystackPayment(params: {
     }
   }
 
-  // Fallback to in-memory storage
-  const newDonation: DonationType = {
-    _id: uuidv4(),
-    amount: parseFloat(amount),
-    amountUSD: convertCurrency(parseFloat(amount), currency as 'USD', 'USD'),
-    currency,
-    exchangeRate: 1,
-    frequency,
-    donorName,
-    donorEmail: email,
-    donorPhone: phone,
-    donorCountry: country,
-    paymentMethod: 'online',
-    paymentChannel: paymentChannel as 'paystack' | 'mobile_money',
-    status: 'pending',
-    paystackReference: reference,
-    donationType,
-    isAnonymous,
-    notes,
-    createdAt: new Date(),
-    receiptSent: false
-  }
-
-  inMemoryDonations = [...inMemoryDonations, newDonation]
-
-  // Return the authorization URL for the frontend to redirect to
+  // Fall back to in-memory storage if Supabase not configured
   return NextResponse.json({
     success: true,
     paymentChannel: 'paystack',
     authorizationUrl: paystackResponse.data.authorization_url,
     reference: paystackResponse.data.reference,
-    donationId: newDonation._id,
+    donationId: uuidv4(),
     message: 'Payment initialized successfully',
-    isSupabaseMode: false,
-    isInMemoryMode: true,
-    fallback: true
+    isInMemoryMode: true
   }, { status: 201 })
 }
 
@@ -292,8 +237,10 @@ async function createManualDonation(params: {
   // Generate reference for tracking
   const reference = generateReference('manual')
 
-  // Try to store in Supabase first
-  if (isDbConfigured()) {
+  // Try Supabase first
+  const supabaseConfigured = isDbConfigured()
+  
+  if (supabaseConfigured) {
     try {
       const newDonation = await donationsDb.create({
         amount: parseFloat(amount),
@@ -303,15 +250,15 @@ async function createManualDonation(params: {
         frequency,
         donor_name: donorName,
         donor_email: email,
-        donor_phone: phone || undefined,
-        donor_country: country || undefined,
+        donor_phone: phone || null,
+        donor_country: country || null,
         payment_method: 'manual',
-        payment_channel: paymentChannel as 'bank_transfer' | 'manual',
+        payment_channel: paymentChannel,
         status: 'pending',
         transaction_reference: reference,
-        donation_type: donationType || undefined,
+        donation_type: donationType || null,
         is_anonymous: isAnonymous,
-        notes: notes || undefined,
+        notes: notes || null,
         receipt_sent: false
       })
 
@@ -332,44 +279,18 @@ async function createManualDonation(params: {
     }
   }
 
-  // Fallback to in-memory storage
-  const newDonation: DonationType = {
-    _id: uuidv4(),
-    amount: parseFloat(amount),
-    amountUSD,
-    currency,
-    exchangeRate: 1,
-    frequency,
-    donorName,
-    donorEmail: email,
-    donorPhone: phone,
-    donorCountry: country,
-    paymentMethod: 'manual',
-    paymentChannel: paymentChannel as 'bank_transfer' | 'manual',
-    status: 'pending',
-    transactionReference: reference,
-    donationType,
-    isAnonymous,
-    notes,
-    createdAt: new Date(),
-    receiptSent: false
-  }
-
-  inMemoryDonations = [...inMemoryDonations, newDonation]
-
+  // Fall back to in-memory storage
   return NextResponse.json({
     success: true,
     paymentChannel: 'manual',
-    donationId: newDonation._id,
+    donationId: uuidv4(),
     reference,
     message: 'Donation recorded. Please complete your bank transfer and email us at finance@elshaddai.org with your transfer details.',
     bankDetails: {
       currency,
       instructions: 'Please include your name and email in the transfer reference.',
     },
-    isSupabaseMode: false,
-    isInMemoryMode: true,
-    fallback: true
+    isInMemoryMode: true
   }, { status: 201 })
 }
 
@@ -378,6 +299,15 @@ async function createManualDonation(params: {
  */
 export async function GET(request: NextRequest) {
   try {
+    // Check if user is authenticated (admin only)
+    const currentAdmin = getCurrentAdmin(request)
+    if (!currentAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    
     const searchParams = request.nextUrl.searchParams
     const page = parseInt(searchParams.get('page') || '1')
     const limit = parseInt(searchParams.get('limit') || '10')
@@ -385,10 +315,12 @@ export async function GET(request: NextRequest) {
     const frequency = searchParams.get('frequency')
     const paymentChannel = searchParams.get('paymentChannel')
     const currency = searchParams.get('currency')
-    const sort = searchParams.get('sort') || '-createdAt'
+    const sort = searchParams.get('sort') || 'date'
 
     // Try Supabase first
-    if (isDbConfigured()) {
+    const supabaseConfigured = isDbConfigured()
+    
+    if (supabaseConfigured) {
       try {
         let donations = await donationsDb.getAll()
         
@@ -413,10 +345,10 @@ export async function GET(request: NextRequest) {
         }
         
         // Sort
-        if (sort === 'createdAt') {
-          donations = donations.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
-        } else {
+        if (sort === 'date') {
           donations = donations.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+        } else {
+          donations = donations.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
         }
         
         // Pagination
@@ -453,16 +385,16 @@ export async function GET(request: NextRequest) {
             frequency: d.frequency,
             donorName: d.donor_name,
             donorEmail: d.donor_email,
-            donorPhone: d.donor_phone || undefined,
-            donorCountry: d.donor_country || undefined,
+            donorPhone: d.donor_phone,
+            donorCountry: d.donor_country,
             paymentMethod: d.payment_method,
             paymentChannel: d.payment_channel,
             status: d.status,
-            paystackReference: d.paystack_reference || undefined,
-            transactionReference: d.transaction_reference || undefined,
-            donationType: d.donation_type || undefined,
+            paystackReference: d.paystack_reference,
+            transactionReference: d.transaction_reference,
+            donationType: d.donation_type,
             isAnonymous: d.is_anonymous,
-            notes: d.notes || undefined,
+            notes: d.notes,
             createdAt: d.created_at,
             receiptSent: d.receipt_sent
           })),
@@ -475,82 +407,30 @@ export async function GET(request: NextRequest) {
             hasNext: page < totalPages,
             hasPrev: page > 1
           },
-          isSupabaseMode: true,
-          isInMemoryMode: false
+          isInMemoryMode: false,
+          isSupabaseMode: true
         })
       } catch (dbError) {
         console.error('[Donations API] Database error:', dbError)
       }
     }
     
-    // Fallback to in-memory storage
-    let donations = getInMemoryDonations()
-    
-    // Filter by status
-    if (status) {
-      donations = donations.filter(d => d.status === status)
-    }
-    
-    // Filter by frequency
-    if (frequency) {
-      donations = donations.filter(d => d.frequency === frequency)
-    }
-    
-    // Filter by payment channel
-    if (paymentChannel) {
-      donations = donations.filter(d => d.paymentChannel === paymentChannel)
-    }
-    
-    // Filter by currency
-    if (currency) {
-      donations = donations.filter(d => d.currency === currency)
-    }
-    
-    // Sort
-    if (sort === 'createdAt') {
-      donations = donations.sort((a, b) => a.createdAt.getTime() - b.createdAt.getTime())
-    } else {
-      donations = donations.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
-    }
-    
-    // Pagination
-    const total = donations.length
-    const skip = (page - 1) * limit
-    const paginatedDonations = donations.slice(skip, skip + limit)
-    const totalPages = Math.ceil(total / limit)
-
-    // Calculate totals by currency
-    const completedDonations = donations.filter(d => d.status === 'completed')
-    const totals = Object.entries(
-      completedDonations.reduce((acc, d) => {
-        if (!acc[d.currency]) {
-          acc[d.currency] = { total: 0, count: 0 }
-        }
-        acc[d.currency].total += d.amountUSD
-        acc[d.currency].count += 1
-        return acc
-      }, {} as Record<string, { total: number; count: number }>)
-    ).map(([currency, data]) => ({
-      _id: currency,
-      total: data.total,
-      count: data.count
-    }))
-
+    // Fall back to empty list if Supabase not configured
     return NextResponse.json({
       success: true,
-      donations: paginatedDonations,
-      totals,
+      donations: [],
+      totals: [],
       pagination: {
         page,
         limit,
-        total,
-        totalPages,
-        hasNext: page < totalPages,
-        hasPrev: page > 1
+        total: 0,
+        totalPages: 0,
+        hasNext: false,
+        hasPrev: false
       },
-      isSupabaseMode: false,
       isInMemoryMode: true,
-      message: 'Using in-memory storage'
+      isSupabaseMode: false,
+      message: 'Using in-memory storage (no database configured)'
     })
 
   } catch (error) {
@@ -563,7 +443,7 @@ export async function GET(request: NextRequest) {
 }
 
 /**
- * PUT /api/donations - Update donation status (admin only)
+ * PUT /api/donations - Update donation status (e.g., after payment verification)
  */
 export async function PUT(request: NextRequest) {
   try {
@@ -587,49 +467,70 @@ export async function PUT(request: NextRequest) {
     }
     
     // Try Supabase first
-    if (isDbConfigured()) {
+    const supabaseConfigured = isDbConfigured()
+    
+    if (supabaseConfigured) {
       try {
-        const updatedDonation = await donationsDb.update(donationId, {
-          status: body.status,
-          receipt_sent: body.receiptSent
-        })
+        const existingDonation = await donationsDb.getById(donationId)
         
+        if (!existingDonation) {
+          return NextResponse.json(
+            { error: 'Donation not found' },
+            { status: 404 }
+          )
+        }
+        
+        const updateData: {
+          status?: string
+          receipt_sent?: boolean
+        } = {}
+        
+        if (body.status !== undefined) updateData.status = body.status
+        if (body.receiptSent !== undefined) updateData.receipt_sent = body.receiptSent
+        
+        const updatedDonation = await donationsDb.update(donationId, updateData)
+
         return NextResponse.json({
           success: true,
-          donation: updatedDonation,
+          donation: {
+            _id: updatedDonation.id,
+            amount: updatedDonation.amount,
+            amountUSD: updatedDonation.amount_usd,
+            currency: updatedDonation.currency,
+            exchangeRate: updatedDonation.exchange_rate,
+            frequency: updatedDonation.frequency,
+            donorName: updatedDonation.donor_name,
+            donorEmail: updatedDonation.donor_email,
+            donorPhone: updatedDonation.donor_phone,
+            donorCountry: updatedDonation.donor_country,
+            paymentMethod: updatedDonation.payment_method,
+            paymentChannel: updatedDonation.payment_channel,
+            status: updatedDonation.status,
+            paystackReference: updatedDonation.paystack_reference,
+            transactionReference: updatedDonation.transaction_reference,
+            donationType: updatedDonation.donation_type,
+            isAnonymous: updatedDonation.is_anonymous,
+            notes: updatedDonation.notes,
+            createdAt: updatedDonation.created_at,
+            receiptSent: updatedDonation.receipt_sent
+          },
           message: 'Donation updated successfully',
           isSupabaseMode: true
         })
       } catch (dbError) {
         console.error('[Donations API] Database error:', dbError)
+        return NextResponse.json(
+          { error: 'Failed to update donation in database' },
+          { status: 500 }
+        )
       }
     }
     
-    // Fallback to in-memory
-    const donationIndex = inMemoryDonations.findIndex(d => d._id === donationId)
-    
-    if (donationIndex === -1) {
-      return NextResponse.json(
-        { error: 'Donation not found' },
-        { status: 404 }
-      )
-    }
-    
-    inMemoryDonations[donationIndex] = {
-      ...inMemoryDonations[donationIndex],
-      status: body.status || inMemoryDonations[donationIndex].status,
-      receiptSent: body.receiptSent ?? inMemoryDonations[donationIndex].receiptSent
-    }
-    
-    return NextResponse.json({
-      success: true,
-      donation: inMemoryDonations[donationIndex],
-      message: 'Donation updated successfully',
-      isSupabaseMode: false,
-      isInMemoryMode: true,
-      fallback: true
-    })
-    
+    return NextResponse.json(
+      { success: false, error: 'Database not available' },
+      { status: 503 }
+    )
+
   } catch (error) {
     console.error('Error updating donation:', error)
     return NextResponse.json(

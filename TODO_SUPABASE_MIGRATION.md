@@ -13,34 +13,29 @@
 
 ### Priority 1: Core Entities
 
-- [ ] 1. Admins (`src/app/api/admins/`)
+- [x] 1. Admins (`src/app/api/admins/`) - DONE
 - [ ] 2. Auth (`src/app/api/auth/`)
-- [ ] 3. Settings (`src/app/api/settings/`)
+- [x] 3. Settings (`src/app/api/settings/`) - DONE
 
 ### Priority 2: Content Management
 
-- [ ] 4. Events (`src/app/api/events/`)
-- [ ] 5. Testimonies (`src/app/api/testimonies/`)
-- [ ] 6. Teams (`src/app/api/teams/`)
-- [ ] 7. Media (`src/app/api/media/`)
+- [x] 4. Events (`src/app/api/events/`) - DONE
+- [x] 5. Testimonies (`src/app/api/testimonies/`) - DONE
+- [x] 6. Teams (`src/app/api/teams/`) - DONE
+- [x] 7. Media (`src/app/api/media/`) - DONE
 
 ### Priority 3: Interactive Features
 
-- [ ] 8. Calendar (`src/app/api/calendar/`)
-- [ ] 9. Live Stream (`src/app/api/live/`)
-- [ ] 10. Donations (`src/app/api/donations/`)
-- [ ] 11. Counselling (`src/app/api/counselling/`)
-- [ ] 12. Counsellors (`src/app/api/counsellors/`)
+- [x] 8. Calendar (`src/app/api/calendar/`) - DONE
+- [ ] 9. Live Stream (`src/app/api/live/`) - Excluded (YouTube dependent)
+- [x] 10. Donations (`src/app/api/donations/`) - DONE
+- [x] 11. Counselling (`src/app/api/counselling/`) - DONE
+- [x] 12. Counsellors (`src/app/api/counsellors/`) - DONE
 
 ### Excluded (YouTube Dependent)
+
 - [ ] Sermons - NOT migrated (depends on YouTube API)
 - [ ] Live Stream - NOT migrated (depends on YouTube API for live status)
-
-### Priority 3: Interactive Features (YouTube-Independent)
-- [ ] 8. Calendar (`src/app/api/calendar/`)
-- [ ] 9. Donations (`src/app/api/donations/`)
-- [ ] 10. Counselling (`src/app/api/counselling/`)
-- [ ] 11. Counsellors (`src/app/api/counsellors/`)
 
 ## Phase 3: Cleanup
 

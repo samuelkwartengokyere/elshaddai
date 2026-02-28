@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
+import { calendarEventsDb, isDbConfigured } from '@/lib/db'
+import { getCurrentAdmin } from '@/lib/auth'
 
-const TIMEOUT_MS = 10000
-
-// In-memory storage for calendar events (replaces MongoDB)
+// In-memory storage fallback
 interface CalendarEventType {
   _id: string
   title: string
@@ -32,27 +32,68 @@ export async function GET(request: NextRequest) {
     const year = searchParams.get('year')
     const category = searchParams.get('category')
     
-    // Get events from in-memory storage
+    // Try Supabase first
+    if (isDbConfigured()) {
+      try {
+        let events = await calendarEventsDb.getAll()
+        
+        // Filter by year
+        if (year) {
+          events = events.filter(e => {
+            const eventYear = new Date(e.start).getFullYear()
+            return eventYear === parseInt(year)
+          })
+        }
+        
+        // Filter by category
+        if (category && category !== 'all') {
+          events = events.filter(e => e.event_type === category)
+        }
+        
+        return NextResponse.json({
+          success: true,
+          events: events.map(e => ({
+            _id: e.id,
+            title: e.title,
+            description: e.description || '',
+            date: e.start,
+            time: e.start ? new Date(e.start).toTimeString().slice(0, 5) : '',
+            endTime: e.end ? new Date(e.end).toTimeString().slice(0, 5) : undefined,
+            location: e.location || '',
+            category: e.event_type || 'general',
+            isPublished: true,
+            year: new Date(e.start).getFullYear(),
+            createdAt: e.created_at,
+            updatedAt: e.updated_at
+          })),
+          count: events.length,
+          isSupabaseMode: true,
+          isInMemoryMode: false
+        })
+      } catch (dbError) {
+        console.error('[Calendar API] Database error:', dbError)
+      }
+    }
+    
+    // Fallback to in-memory storage
     let events = getInMemoryCalendarEvents()
     
-    // Filter by year
     if (year) {
       events = events.filter(e => e.year === parseInt(year))
     }
     
-    // Filter by category
     if (category && category !== 'all') {
       events = events.filter(e => e.category === category)
     }
     
-    // Only return published events
     events = events.filter(e => e.isPublished)
 
     return NextResponse.json({
       success: true,
       events,
       count: events.length,
-      fallback: true,
+      isSupabaseMode: false,
+      isInMemoryMode: true,
       message: 'Using in-memory storage'
     })
 
@@ -68,11 +109,46 @@ export async function GET(request: NextRequest) {
 // POST - Create new calendar event or bulk import
 export async function POST(request: NextRequest) {
   try {
+    const currentAdmin = getCurrentAdmin(request)
+    if (!currentAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    
     const body = await request.json()
     
-    // Check if bulk import
+    // Bulk import
     if (Array.isArray(body)) {
-      // Bulk insert
+      if (isDbConfigured()) {
+        try {
+          const newEvents = await Promise.all(
+            body.map(event => 
+              calendarEventsDb.create({
+                title: event.title,
+                description: event.description || null,
+                start: event.date,
+                end: event.endDate || null,
+                location: event.location || null,
+                event_type: event.category || 'general',
+                all_day: event.allDay || false,
+                color: event.color || null
+              })
+            )
+          )
+          
+          return NextResponse.json({
+            success: true,
+            count: newEvents.length,
+            message: `${newEvents.length} calendar events imported successfully`,
+            isSupabaseMode: true
+          }, { status: 201 })
+        } catch (dbError) {
+          console.error('[Calendar API] Database error:', dbError)
+        }
+      }
+      
       const newEvents = body.map(event => {
         const year = event.date ? new Date(event.date).getFullYear() : new Date().getFullYear()
         return {
@@ -91,11 +167,52 @@ export async function POST(request: NextRequest) {
         success: true,
         count: newEvents.length,
         message: `${newEvents.length} calendar events imported successfully`,
+        isSupabaseMode: false,
+        isInMemoryMode: true,
         fallback: true
       }, { status: 201 })
     }
     
     // Single event creation
+    if (isDbConfigured()) {
+      try {
+        const year = body.date ? new Date(body.date).getFullYear() : new Date().getFullYear()
+        
+        const newEvent = await calendarEventsDb.create({
+          title: body.title,
+          description: body.description || null,
+          start: body.date,
+          end: body.endDate || null,
+          location: body.location || null,
+          event_type: body.category || 'general',
+          all_day: body.allDay || false,
+          color: body.color || null
+        })
+
+        return NextResponse.json({
+          success: true,
+          event: {
+            _id: newEvent.id,
+            title: newEvent.title,
+            description: newEvent.description || '',
+            date: newEvent.start,
+            time: newEvent.start ? new Date(newEvent.start).toTimeString().slice(0, 5) : '',
+            endTime: newEvent.end ? new Date(newEvent.end).toTimeString().slice(0, 5) : undefined,
+            location: newEvent.location || '',
+            category: newEvent.event_type || 'general',
+            isPublished: true,
+            year,
+            createdAt: newEvent.created_at,
+            updatedAt: newEvent.updated_at
+          },
+          message: 'Calendar event created successfully',
+          isSupabaseMode: true
+        }, { status: 201 })
+      } catch (dbError) {
+        console.error('[Calendar API] Database error:', dbError)
+      }
+    }
+    
     const year = body.date ? new Date(body.date).getFullYear() : new Date().getFullYear()
     const newEvent: CalendarEventType = {
       _id: uuidv4(),
@@ -112,6 +229,8 @@ export async function POST(request: NextRequest) {
       success: true,
       event: newEvent,
       message: 'Calendar event created successfully',
+      isSupabaseMode: false,
+      isInMemoryMode: true,
       fallback: true
     }, { status: 201 })
 
@@ -127,12 +246,32 @@ export async function POST(request: NextRequest) {
 // DELETE - Delete calendar event(s)
 export async function DELETE(request: NextRequest) {
   try {
+    const currentAdmin = getCurrentAdmin(request)
+    if (!currentAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    
     const searchParams = request.nextUrl.searchParams
     const id = searchParams.get('id')
     const year = searchParams.get('year')
     
     if (id) {
-      // Delete single event
+      if (isDbConfigured()) {
+        try {
+          await calendarEventsDb.delete(id)
+          return NextResponse.json({
+            success: true,
+            message: 'Calendar event deleted successfully',
+            isSupabaseMode: true
+          })
+        } catch (dbError) {
+          console.error('[Calendar API] Database error:', dbError)
+        }
+      }
+      
       const initialLength = inMemoryCalendarEvents.length
       inMemoryCalendarEvents = inMemoryCalendarEvents.filter(e => e._id !== id)
       
@@ -146,12 +285,13 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({
         success: true,
         message: 'Calendar event deleted successfully',
+        isSupabaseMode: false,
+        isInMemoryMode: true,
         fallback: true
       })
     }
     
     if (year) {
-      // Delete all events for a year
       const initialLength = inMemoryCalendarEvents.length
       inMemoryCalendarEvents = inMemoryCalendarEvents.filter(e => e.year !== parseInt(year))
       
@@ -159,6 +299,8 @@ export async function DELETE(request: NextRequest) {
         success: true,
         count: initialLength - inMemoryCalendarEvents.length,
         message: `${initialLength - inMemoryCalendarEvents.length} events deleted for year ${year}`,
+        isSupabaseMode: false,
+        isInMemoryMode: true,
         fallback: true
       })
     }
@@ -180,6 +322,14 @@ export async function DELETE(request: NextRequest) {
 // PUT - Update calendar event
 export async function PUT(request: NextRequest) {
   try {
+    const currentAdmin = getCurrentAdmin(request)
+    if (!currentAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    
     const body = await request.json()
     const eventId = request.nextUrl.searchParams.get('id')
     
@@ -188,6 +338,45 @@ export async function PUT(request: NextRequest) {
         { error: 'Event ID is required' },
         { status: 400 }
       )
+    }
+    
+    if (isDbConfigured()) {
+      try {
+        const year = body.date ? new Date(body.date).getFullYear() : new Date().getFullYear()
+        
+        const updatedEvent = await calendarEventsDb.update(eventId, {
+          title: body.title,
+          description: body.description || null,
+          start: body.date,
+          end: body.endDate || null,
+          location: body.location || null,
+          event_type: body.category || 'general',
+          all_day: body.allDay || false,
+          color: body.color || null
+        })
+
+        return NextResponse.json({
+          success: true,
+          event: {
+            _id: updatedEvent.id,
+            title: updatedEvent.title,
+            description: updatedEvent.description || '',
+            date: updatedEvent.start,
+            time: updatedEvent.start ? new Date(updatedEvent.start).toTimeString().slice(0, 5) : '',
+            endTime: updatedEvent.end ? new Date(updatedEvent.end).toTimeString().slice(0, 5) : undefined,
+            location: updatedEvent.location || '',
+            category: updatedEvent.event_type || 'general',
+            isPublished: true,
+            year,
+            createdAt: updatedEvent.created_at,
+            updatedAt: updatedEvent.updated_at
+          },
+          message: 'Calendar event updated successfully',
+          isSupabaseMode: true
+        })
+      } catch (dbError) {
+        console.error('[Calendar API] Database error:', dbError)
+      }
     }
     
     const eventIndex = inMemoryCalendarEvents.findIndex(e => e._id === eventId)
@@ -201,7 +390,6 @@ export async function PUT(request: NextRequest) {
     
     const year = body.date ? new Date(body.date).getFullYear() : inMemoryCalendarEvents[eventIndex].year
     
-    // Update the event
     inMemoryCalendarEvents[eventIndex] = {
       ...inMemoryCalendarEvents[eventIndex],
       ...body,
@@ -213,6 +401,8 @@ export async function PUT(request: NextRequest) {
       success: true,
       event: inMemoryCalendarEvents[eventIndex],
       message: 'Calendar event updated successfully',
+      isSupabaseMode: false,
+      isInMemoryMode: true,
       fallback: true
     })
 

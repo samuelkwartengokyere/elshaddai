@@ -1,0 +1,381 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { v4 as uuidv4 } from 'uuid'
+import { calendarEventsDb, isDbConfigured } from '@/lib/db'
+import { getCurrentAdmin } from '@/lib/auth'
+
+// GET - Fetch all calendar events
+export async function GET(request: NextRequest) {
+  try {
+    const searchParams = request.nextUrl.searchParams
+    const year = searchParams.get('year')
+    const category = searchParams.get('category')
+    
+    // Try Supabase first
+    const supabaseConfigured = isDbConfigured()
+    
+    if (supabaseConfigured) {
+      try {
+        let events = await calendarEventsDb.getAll()
+        
+        // Filter by year - extract year from start date
+        if (year) {
+          events = events.filter(e => {
+            const eventYear = new Date(e.start).getFullYear()
+            return eventYear === parseInt(year)
+          })
+        }
+        
+        // Filter by category
+        if (category && category !== 'all') {
+          events = events.filter(e => e.event_type === category)
+        }
+
+        return NextResponse.json({
+          success: true,
+          events: events.map(e => ({
+            _id: e.id,
+            title: e.title,
+            description: e.description,
+            date: e.start,
+            time: e.start ? new Date(e.start).toISOString().split('T')[1]?.substring(0, 5) : '',
+            endTime: e.end ? new Date(e.end).toISOString().split('T')[1]?.substring(0, 5) : undefined,
+            location: e.location,
+            category: e.event_type,
+            isPublished: true,
+            year: new Date(e.start).getFullYear(),
+            createdAt: e.created_at,
+            updatedAt: e.updated_at
+          })),
+          count: events.length,
+          isInMemoryMode: false,
+          isSupabaseMode: true
+        })
+      } catch (dbError) {
+        console.error('[Calendar API] Database error:', dbError)
+      }
+    }
+    
+    // Fall back to empty list if Supabase not configured
+    return NextResponse.json({
+      success: true,
+      events: [],
+      count: 0,
+      isInMemoryMode: true,
+      isSupabaseMode: false,
+      message: 'Using in-memory storage (no database configured)'
+    })
+
+  } catch (error) {
+    console.error('Error fetching calendar events:', error)
+    return NextResponse.json(
+      { error: 'Failed to fetch calendar events' },
+      { status: 500 }
+    )
+  }
+}
+
+// POST - Create new calendar event or bulk import
+export async function POST(request: NextRequest) {
+  try {
+    // Check if user is authenticated
+    const currentAdmin = getCurrentAdmin(request)
+    if (!currentAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    
+    const body = await request.json()
+    
+    // Try Supabase first
+    const supabaseConfigured = isDbConfigured()
+    
+    if (supabaseConfigured) {
+      try {
+        // Check if bulk import
+        if (Array.isArray(body)) {
+          // Bulk insert
+          const newEvents = await Promise.all(
+            body.map(async (event: any) => {
+              const year = event.date ? new Date(event.date).getFullYear() : new Date().getFullYear()
+              const startDate = event.date ? new Date(event.date) : new Date()
+              const endDate = event.endTime ? new Date(event.date + 'T' + event.endTime) : null
+              
+              return calendarEventsDb.create({
+                title: event.title,
+                description: event.description || null,
+                start: startDate.toISOString(),
+                end: endDate ? endDate.toISOString() : null,
+                all_day: !event.time,
+                location: event.location || null,
+                event_type: event.category || null,
+                color: event.color || null
+              })
+            })
+          )
+          
+          return NextResponse.json({
+            success: true,
+            count: newEvents.length,
+            message: `${newEvents.length} calendar events imported successfully`,
+            isSupabaseMode: true
+          }, { status: 201 })
+        }
+        
+        // Single event creation
+        const year = body.date ? new Date(body.date).getFullYear() : new Date().getFullYear()
+        const startDate = body.date ? new Date(body.date) : new Date()
+        const endDate = body.endTime ? new Date(body.date + 'T' + body.endTime) : null
+        
+        const newEvent = await calendarEventsDb.create({
+          title: body.title,
+          description: body.description || null,
+          start: startDate.toISOString(),
+          end: endDate ? endDate.toISOString() : null,
+          all_day: !body.time,
+          location: body.location || null,
+          event_type: body.category || null,
+          color: body.color || null
+        })
+
+        return NextResponse.json({
+          success: true,
+          event: {
+            _id: newEvent.id,
+            title: newEvent.title,
+            description: newEvent.description,
+            date: newEvent.start,
+            time: newEvent.start ? new Date(newEvent.start).toISOString().split('T')[1]?.substring(0, 5) : '',
+            endTime: newEvent.end ? new Date(newEvent.end).toISOString().split('T')[1]?.substring(0, 5) : undefined,
+            location: newEvent.location,
+            category: newEvent.event_type,
+            isPublished: true,
+            year: new Date(newEvent.start).getFullYear(),
+            createdAt: newEvent.created_at,
+            updatedAt: newEvent.updated_at
+          },
+          message: 'Calendar event created successfully',
+          isSupabaseMode: true
+        }, { status: 201 })
+      } catch (dbError) {
+        console.error('[Calendar API] Database error:', dbError)
+        return NextResponse.json(
+          { error: 'Failed to create calendar event in database' },
+          { status: 500 }
+        )
+      }
+    }
+    
+    // Fall back to error when Supabase not configured
+    return NextResponse.json(
+      { success: false, error: 'Database not available. Please configure Supabase.' },
+      { status: 503 }
+    )
+
+  } catch (error) {
+    console.error('Error creating calendar event:', error)
+    return NextResponse.json(
+      { error: 'Failed to create calendar event' },
+      { status: 500 }
+    )
+  }
+}
+
+// DELETE - Delete calendar event(s)
+export async function DELETE(request: NextRequest) {
+  try {
+    // Check if user is authenticated
+    const currentAdmin = getCurrentAdmin(request)
+    if (!currentAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    
+    const searchParams = request.nextUrl.searchParams
+    const id = searchParams.get('id')
+    const year = searchParams.get('year')
+    
+    // Try Supabase first
+    const supabaseConfigured = isDbConfigured()
+    
+    if (supabaseConfigured) {
+      try {
+        if (id) {
+          // Delete single event
+          const existingEvent = await calendarEventsDb.getById(id)
+          
+          if (!existingEvent) {
+            return NextResponse.json(
+              { error: 'Event not found' },
+              { status: 404 }
+            )
+          }
+          
+          await calendarEventsDb.delete(id)
+          
+          return NextResponse.json({
+            success: true,
+            message: 'Calendar event deleted successfully',
+            isSupabaseMode: true
+          })
+        }
+        
+        if (year) {
+          // Delete all events for a year - need to fetch all and filter
+          const events = await calendarEventsDb.getAll()
+          const eventsToDelete = events.filter(e => {
+            const eventYear = new Date(e.start).getFullYear()
+            return eventYear === parseInt(year)
+          })
+          
+          // Delete each event
+          for (const event of eventsToDelete) {
+            await calendarEventsDb.delete(event.id)
+          }
+          
+          return NextResponse.json({
+            success: true,
+            count: eventsToDelete.length,
+            message: `${eventsToDelete.length} events deleted for year ${year}`,
+            isSupabaseMode: true
+          })
+        }
+        
+        return NextResponse.json(
+          { error: 'Event ID or year is required' },
+          { status: 400 }
+        )
+      } catch (dbError) {
+        console.error('[Calendar API] Database error:', dbError)
+        return NextResponse.json(
+          { error: 'Failed to delete calendar event in database' },
+          { status: 500 }
+        )
+      }
+    }
+    
+    return NextResponse.json(
+      { success: false, error: 'Database not available' },
+      { status: 503 }
+    )
+
+  } catch (error) {
+    console.error('Error deleting calendar event:', error)
+    return NextResponse.json(
+      { error: 'Failed to delete calendar event' },
+      { status: 500 }
+    )
+  }
+}
+
+// PUT - Update calendar event
+export async function PUT(request: NextRequest) {
+  try {
+    // Check if user is authenticated
+    const currentAdmin = getCurrentAdmin(request)
+    if (!currentAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Unauthorized' },
+        { status: 401 }
+      )
+    }
+    
+    const body = await request.json()
+    const eventId = request.nextUrl.searchParams.get('id')
+    
+    if (!eventId) {
+      return NextResponse.json(
+        { error: 'Event ID is required' },
+        { status: 400 }
+      )
+    }
+    
+    // Try Supabase first
+    const supabaseConfigured = isDbConfigured()
+    
+    if (supabaseConfigured) {
+      try {
+        const existingEvent = await calendarEventsDb.getById(eventId)
+        
+        if (!existingEvent) {
+          return NextResponse.json(
+            { error: 'Event not found' },
+            { status: 404 }
+          )
+        }
+        
+        const updateData: {
+          title?: string
+          description?: string | null
+          start?: string
+          end?: string | null
+          all_day?: boolean
+          location?: string | null
+          event_type?: string | null
+          color?: string | null
+        } = {}
+        
+        if (body.title !== undefined) updateData.title = body.title
+        if (body.description !== undefined) updateData.description = body.description
+        if (body.date !== undefined) {
+          const startDate = new Date(body.date)
+          if (body.time) {
+            startDate.setHours(parseInt(body.time.split(':')[0]), parseInt(body.time.split(':')[1]))
+          }
+          updateData.start = startDate.toISOString()
+        }
+        if (body.endTime !== undefined && body.date) {
+          const endDate = new Date(body.date)
+          endDate.setHours(parseInt(body.endTime.split(':')[0]), parseInt(body.endTime.split(':')[1]))
+          updateData.end = endDate.toISOString()
+        }
+        if (body.location !== undefined) updateData.location = body.location
+        if (body.category !== undefined) updateData.event_type = body.category
+        if (body.color !== undefined) updateData.color = body.color
+        
+        const updatedEvent = await calendarEventsDb.update(eventId, updateData)
+
+        return NextResponse.json({
+          success: true,
+          event: {
+            _id: updatedEvent.id,
+            title: updatedEvent.title,
+            description: updatedEvent.description,
+            date: updatedEvent.start,
+            time: updatedEvent.start ? new Date(updatedEvent.start).toISOString().split('T')[1]?.substring(0, 5) : '',
+            endTime: updatedEvent.end ? new Date(updatedEvent.end).toISOString().split('T')[1]?.substring(0, 5) : undefined,
+            location: updatedEvent.location,
+            category: updatedEvent.event_type,
+            isPublished: true,
+            year: new Date(updatedEvent.start).getFullYear(),
+            createdAt: updatedEvent.created_at,
+            updatedAt: updatedEvent.updated_at
+          },
+          message: 'Calendar event updated successfully',
+          isSupabaseMode: true
+        })
+      } catch (dbError) {
+        console.error('[Calendar API] Database error:', dbError)
+        return NextResponse.json(
+          { error: 'Failed to update calendar event in database' },
+          { status: 500 }
+        )
+      }
+    }
+    
+    return NextResponse.json(
+      { success: false, error: 'Database not available' },
+      { status: 503 }
+    )
+
+  } catch (error) {
+    console.error('Error updating calendar event:', error)
+    return NextResponse.json(
+      { error: 'Failed to update calendar event' },
+      { status: 500 }
+    )
+  }
+}

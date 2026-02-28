@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { v4 as uuidv4 } from 'uuid';
+import { v4 as uuidv4 } from 'uuid'
+import { counsellingBookingsDb, isDbConfigured } from '@/lib/db'
 import { createTeamsMeeting } from '@/lib/teams';
 import { sendBookingConfirmation, sendCounsellorNotification, sendCancellationEmail } from '@/lib/email';
 import { BookingFormData, generateBookingNumber, CounsellingBooking } from '@/types/counselling';
@@ -71,8 +72,8 @@ export async function GET(request: NextRequest) {
         counsellors: availableCounsellors,
         availableSlots,
       },
-      fallback: true,
-      message: 'Using in-memory storage'
+      isSupabaseMode: isDbConfigured(),
+      isInMemoryMode: !isDbConfigured()
     });
   } catch (error) {
     console.error('Error fetching counselling data:', error);
@@ -97,7 +98,7 @@ export async function POST(request: NextRequest) {
       );
     }
     
-// Get counsellor details - fetch from the new API
+    // Get counsellor details - fetch from the new API
     const counselorsResponse = await fetch(new URL('/api/counsellors', request.url).href);
     const counselorsData = await counselorsResponse.json();
     const allCounsellors = counselorsData.success ? counselorsData.data.counsellors : [];
@@ -115,7 +116,138 @@ export async function POST(request: NextRequest) {
     const bookingId = generateBookingId();
     const now = new Date();
     
-    // Create booking object
+    // Try to store in Supabase first
+    if (isDbConfigured()) {
+      try {
+        const dbBooking = await counsellingBookingsDb.create({
+          name: `${formData.firstName} ${formData.lastName}`,
+          email: formData.email,
+          phone: formData.phone,
+          preferred_counsellor: formData.counsellorId,
+          booking_date: formData.preferredDate,
+          time_slot: formData.preferredTime,
+          issue_type: formData.topic,
+          notes: formData.notes || undefined,
+          status: 'pending'
+        })
+        
+        // If online booking, create Teams meeting
+        let teamsMeetingUrl: string | undefined;
+        let teamsJoinUrl: string | undefined;
+        
+        if (formData.bookingType === 'online') {
+          try {
+            const teamsMeeting = await createTeamsMeeting({
+              id: dbBooking.id,
+              createdAt: now.toISOString(),
+              firstName: formData.firstName,
+              lastName: formData.lastName,
+              email: formData.email,
+              phone: formData.phone,
+              country: formData.country,
+              city: formData.city,
+              counsellorId: formData.counsellorId,
+              bookingType: formData.bookingType,
+              preferredDate: formData.preferredDate,
+              preferredTime: formData.preferredTime,
+              sessionDuration: formData.sessionDuration,
+              topic: formData.topic,
+              notes: formData.notes,
+              status: 'pending',
+              confirmationNumber,
+              isPaid: false,
+            }, formData.sessionDuration);
+            teamsMeetingUrl = teamsMeeting.joinWebUrl;
+            teamsJoinUrl = teamsMeeting.joinWebUrl;
+          } catch (teamsError) {
+            console.error('Error creating Teams meeting:', teamsError);
+          }
+        }
+        
+        // Send confirmation email to user
+        try {
+          await sendBookingConfirmation({
+            id: dbBooking.id,
+            createdAt: now.toISOString(),
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            email: formData.email,
+            phone: formData.phone,
+            country: formData.country,
+            city: formData.city,
+            counsellorId: formData.counsellorId,
+            bookingType: formData.bookingType,
+            preferredDate: formData.preferredDate,
+            preferredTime: formData.preferredTime,
+            sessionDuration: formData.sessionDuration,
+            topic: formData.topic,
+            notes: formData.notes,
+            teamsMeetingUrl,
+            teamsJoinUrl,
+            status: 'pending',
+            confirmationNumber,
+            isPaid: false,
+          });
+        } catch (emailError) {
+          console.error('Error sending confirmation email:', emailError);
+        }
+        
+        // Send notification to counsellor
+        try {
+          await sendCounsellorNotification({
+            id: dbBooking.id,
+            createdAt: now.toISOString(),
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            email: formData.email,
+            phone: formData.phone,
+            country: formData.country,
+            city: formData.city,
+            counsellorId: formData.counsellorId,
+            bookingType: formData.bookingType,
+            preferredDate: formData.preferredDate,
+            preferredTime: formData.preferredTime,
+            sessionDuration: formData.sessionDuration,
+            topic: formData.topic,
+            notes: formData.notes,
+            teamsMeetingUrl,
+            teamsJoinUrl,
+            status: 'pending',
+            confirmationNumber,
+            isPaid: false,
+          }, counsellor.email, counsellor.name);
+        } catch (emailError) {
+          console.error('Error sending counsellor notification:', emailError);
+        }
+        
+        return NextResponse.json({
+          success: true,
+          data: {
+            confirmationNumber,
+            booking: {
+              id: dbBooking.id,
+              confirmationNumber,
+              status: 'pending',
+              preferredDate: formData.preferredDate,
+              preferredTime: formData.preferredTime,
+              bookingType: formData.bookingType,
+              topic: formData.topic,
+              teamsMeetingUrl,
+              counsellor: {
+                name: counsellor.name,
+                title: counsellor.title,
+              },
+            },
+          },
+          isSupabaseMode: true,
+          isInMemoryMode: false
+        });
+      } catch (dbError) {
+        console.error('[Counselling API] Database error:', dbError)
+      }
+    }
+    
+    // Fallback to in-memory storage
     const newBooking: BookingData = {
       id: bookingId,
       createdAt: now,
@@ -164,7 +296,6 @@ export async function POST(request: NextRequest) {
         newBooking.teamsJoinUrl = teamsMeeting.joinWebUrl;
       } catch (teamsError) {
         console.error('Error creating Teams meeting:', teamsError);
-        // Continue without Teams meeting if it fails
       }
     }
     
@@ -246,6 +377,8 @@ export async function POST(request: NextRequest) {
           },
         },
       },
+      isSupabaseMode: false,
+      isInMemoryMode: true,
       fallback: true
     });
   } catch (error) {
@@ -271,7 +404,59 @@ export async function DELETE(request: NextRequest) {
       );
     }
     
-    // Find booking in memory
+    // Try Supabase first
+    if (isDbConfigured()) {
+      try {
+        const bookings = await counsellingBookingsDb.getAll()
+        const booking = bookings.find(b => 
+          b.preferred_counsellor === confirmationNumber || 
+          b.email === email
+        )
+        
+        if (booking) {
+          await counsellingBookingsDb.update(booking.id, {
+            status: 'cancelled'
+          })
+          
+          // Send cancellation email
+          try {
+            await sendCancellationEmail({
+              id: booking.id,
+              createdAt: booking.created_at,
+              firstName: '',
+              lastName: '',
+              email: booking.email,
+              phone: booking.phone || '',
+              country: '',
+              city: '',
+              counsellorId: booking.preferred_counsellor,
+              bookingType: 'online',
+              preferredDate: booking.booking_date,
+              preferredTime: booking.time_slot,
+              sessionDuration: 60,
+              topic: booking.issue_type || '',
+              notes: booking.notes || '',
+              status: 'cancelled',
+              confirmationNumber,
+              isPaid: false,
+            });
+          } catch (emailError) {
+            console.error('Error sending cancellation email:', emailError);
+          }
+          
+          return NextResponse.json({
+            success: true,
+            message: 'Booking cancelled successfully',
+            isSupabaseMode: true,
+            isInMemoryMode: false
+          });
+        }
+      } catch (dbError) {
+        console.error('[Counselling API] Database error:', dbError)
+      }
+    }
+    
+    // Fallback to in-memory
     const bookingIndex = inMemoryBookings.findIndex(b => b.confirmationNumber === confirmationNumber);
     
     if (bookingIndex === -1) {
@@ -301,16 +486,16 @@ export async function DELETE(request: NextRequest) {
         firstName: booking.firstName,
         lastName: booking.lastName,
         email: booking.email,
-        phone: booking.phone,
-        country: booking.country,
-        city: booking.city,
+        phone: booking.phone || '',
+        country: booking.country || '',
+        city: booking.city || '',
         counsellorId: booking.counsellorId,
         bookingType: booking.bookingType,
         preferredDate: booking.preferredDate,
         preferredTime: booking.preferredTime,
         sessionDuration: booking.sessionDuration,
         topic: booking.topic,
-        notes: booking.notes,
+        notes: booking.notes || '',
         teamsMeetingUrl: booking.teamsMeetingUrl,
         teamsJoinUrl: booking.teamsJoinUrl,
         status: inMemoryBookings[bookingIndex].status,
@@ -324,6 +509,8 @@ export async function DELETE(request: NextRequest) {
     return NextResponse.json({
       success: true,
       message: 'Booking cancelled successfully',
+      isSupabaseMode: false,
+      isInMemoryMode: true,
       fallback: true
     });
   } catch (error) {

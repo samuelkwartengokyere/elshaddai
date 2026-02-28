@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { settingsDb, isDbConfigured } from '@/lib/db'
 import { 
   getInMemoryYouTubeSettings, 
   setInMemoryYouTubeSettings,
@@ -141,7 +142,31 @@ export async function GET() {
     // Get maintenance mode from shared module
     const maintenanceState = getMaintenanceMode()
     
-    // Return in-memory settings
+    // Try Supabase first, fall back to in-memory
+    const supabaseConfigured = isDbConfigured()
+    
+    if (supabaseConfigured) {
+      try {
+        const dbSettings = await settingsDb.get('site_settings')
+        if (dbSettings && dbSettings.value) {
+          return NextResponse.json({
+            success: true,
+            settings: {
+              ...dbSettings.value,
+              youtube: getInMemoryYouTubeSettings(),
+              maintenanceMode: maintenanceState.enabled,
+              maintenanceMessage: maintenanceState.message
+            },
+            isInMemoryMode: false,
+            isSupabaseMode: true
+          })
+        }
+      } catch (dbError) {
+        console.error('[Settings API] Database error, falling back to in-memory:', dbError)
+      }
+    }
+    
+    // Fall back to in-memory settings
     return NextResponse.json({
       success: true,
       settings: {
@@ -149,7 +174,8 @@ export async function GET() {
         maintenanceMode: maintenanceState.enabled,
         maintenanceMessage: maintenanceState.message
       },
-      isInMemoryMode: true
+      isInMemoryMode: true,
+      isSupabaseMode: false
     })
 
   } catch (error) {
@@ -166,7 +192,44 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { churchName, churchTagline, logoUrl, youtube, maintenanceMode, maintenanceMessage } = body
 
-    // Update settings from body
+    // Try Supabase first, fall back to in-memory
+    const supabaseConfigured = isDbConfigured()
+    
+    // Build settings object for Supabase
+    const siteSettings: Record<string, unknown> = {}
+    let useSupabase = false
+    
+    if (supabaseConfigured) {
+      try {
+        // Get existing settings from Supabase
+        const existingSettings = await settingsDb.get('site_settings')
+        const existingValue = existingSettings?.value || {}
+        
+        // Merge with new settings
+        if (churchName !== undefined) {
+          siteSettings.churchName = churchName || defaultSettings.churchName
+        }
+        if (churchTagline !== undefined) {
+          siteSettings.churchTagline = churchTagline || defaultSettings.churchTagline
+        }
+        if (logoUrl !== undefined) {
+          siteSettings.logoUrl = logoUrl || defaultSettings.logoUrl
+        }
+        
+        // Save to Supabase
+        await settingsDb.set('site_settings', {
+          ...existingValue,
+          ...siteSettings
+        })
+        
+        useSupabase = true
+        console.log('[Settings API] Settings saved to Supabase')
+      } catch (dbError) {
+        console.error('[Settings API] Database error, falling back to in-memory:', dbError)
+      }
+    }
+    
+    // Always update in-memory for immediate availability
     if (churchName !== undefined) {
       setInMemorySettings({ churchName: churchName || defaultSettings.churchName })
     }
@@ -177,7 +240,7 @@ export async function POST(request: NextRequest) {
       setInMemorySettings({ logoUrl: logoUrl || defaultSettings.logoUrl })
     }
     
-    // Update maintenance mode settings
+    // Update maintenance mode settings (keep in sync)
     if (maintenanceMode !== undefined) {
       setInMemorySettings({ maintenanceMode: maintenanceMode })
     }
@@ -185,7 +248,7 @@ export async function POST(request: NextRequest) {
       setInMemorySettings({ maintenanceMessage: maintenanceMessage })
     }
     
-    // Update YouTube settings if explicitly provided
+    // Update YouTube settings if explicitly provided (always in-memory for now)
     if (youtube !== undefined) {
       // First save the settings
       setInMemoryYouTubeSettings({
@@ -230,9 +293,10 @@ export async function POST(request: NextRequest) {
     
     return NextResponse.json({
       success: true,
-      message: 'Settings updated successfully',
+      message: useSupabase ? 'Settings updated successfully (Supabase)' : 'Settings updated successfully (In-Memory)',
       settings: getInMemorySettings(),
-      isInMemoryMode: true
+      isInMemoryMode: !useSupabase,
+      isSupabaseMode: useSupabase
     }, { status: 200 })
 
   } catch (error) {

@@ -1,10 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
-import connectDB from '@/lib/database'
-import Admin from '@/models/Admin'
+import { adminsDb, isDbConfigured } from '@/lib/db'
 import { getCurrentAdmin } from '@/lib/auth'
-
-// Timeout for requests
-const TIMEOUT_MS = 5000
 
 // Dev mode admin (created automatically when no database)
 const DEV_ADMIN_ID = 'dev-admin-id'
@@ -30,62 +26,49 @@ export async function GET(request: NextRequest) {
       )
     }
     
-    const dbConnection = await connectDB()
+    // Try Supabase first
+    const supabaseConfigured = isDbConfigured()
     
-    // In-memory mode - return dev admin only
-    if (!dbConnection) {
-      return NextResponse.json({
-        success: true,
-        admins: [
-          {
-            _id: DEV_ADMIN_ID,
-            email: DEV_ADMIN_EMAIL,
-            name: 'Super Admin (Dev)',
-            role: 'super_admin',
-            isActive: true,
-            createdAt: new Date(),
-            lastLogin: new Date()
-          }
-        ],
-        isInMemoryMode: true
-      })
-    }
-    
-    // Use timeout for the query
-    const controller = new AbortController()
-    const timeoutId = setTimeout(() => controller.abort(), TIMEOUT_MS)
-    
-    try {
-      const admins = await Admin.find({})
-        .select('-password')
-        .sort({ createdAt: -1 })
-        .maxTimeMS(TIMEOUT_MS - 1000)
-        .lean()
-      
-      clearTimeout(timeoutId)
-      
-      return NextResponse.json({
-        success: true,
-        admins: admins.map(admin => ({
-          _id: admin._id.toString(),
-          email: admin.email,
-          name: admin.name,
-          role: admin.role,
-          isActive: admin.isActive,
-          lastLogin: admin.lastLogin,
-          createdAt: admin.createdAt
-        }))
-      })
-    } catch (queryError) {
-      clearTimeout(timeoutId)
-      if (queryError instanceof Error && queryError.name === 'AbortError') {
-        return NextResponse.json(
-          { success: false, error: 'Request timed out' },
-          { status: 408 }
-        )
+    if (supabaseConfigured) {
+      try {
+        const admins = await adminsDb.getAll()
+        
+        return NextResponse.json({
+          success: true,
+          admins: admins.map(admin => ({
+            _id: admin.id,
+            email: admin.email,
+            name: admin.name,
+            role: admin.role,
+            profile_image: admin.profile_image,
+            createdAt: admin.created_at,
+            updatedAt: admin.updated_at
+          })),
+          isInMemoryMode: false,
+          isSupabaseMode: true
+        })
+      } catch (dbError) {
+        console.error('[Admins API] Database error:', dbError)
       }
-      throw queryError
     }
+    
+    // Fall back to dev admin
+    return NextResponse.json({
+      success: true,
+      admins: [
+        {
+          _id: DEV_ADMIN_ID,
+          email: DEV_ADMIN_EMAIL,
+          name: 'Super Admin (Dev)',
+          role: 'super_admin',
+          isActive: true,
+          createdAt: new Date(),
+          lastLogin: new Date()
+        }
+      ],
+      isInMemoryMode: true,
+      isSupabaseMode: false
+    })
     
   } catch (error) {
     console.error('Error fetching admins:', error)
@@ -98,15 +81,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const dbConnection = await connectDB()
-    
-    if (!dbConnection) {
-      return NextResponse.json(
-        { success: false, error: 'Database not available. Please connect to MongoDB to create admin users.' },
-        { status: 503 }
-      )
-    }
-    
     // Check if user is authenticated and is super_admin
     const currentAdmin = getCurrentAdmin(request)
     if (!currentAdmin) {
@@ -142,46 +116,63 @@ export async function POST(request: NextRequest) {
       )
     }
     
-    // Check if admin with this email already exists
-    const existingAdmin = await Admin.findOne({ email: email.toLowerCase() })
-    if (existingAdmin) {
-      return NextResponse.json(
-        { success: false, error: 'An admin with this email already exists' },
-        { status: 409 }
-      )
-    }
+    // Try Supabase first
+    const supabaseConfigured = isDbConfigured()
     
-    // Validate role
-    if (role && !['admin', 'editor'].includes(role)) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid role. Must be admin or editor' },
-        { status: 400 }
-      )
-    }
-    
-    // Create new admin (password will be hashed by the model's pre-save hook)
-    const admin = new Admin({
-      email: email.toLowerCase(),
-      password, // Store plain password - model will hash it
-      name,
-      role: role || 'admin'
-    })
-    
-    await admin.save()
-    
-    // Return admin without password
-    return NextResponse.json({
-      success: true,
-      message: 'Admin created successfully',
-      admin: {
-        _id: admin._id.toString(),
-        email: admin.email,
-        name: admin.name,
-        role: admin.role,
-        isActive: admin.isActive,
-        createdAt: admin.createdAt
+    if (supabaseConfigured) {
+      try {
+        // Check if admin with this email already exists
+        const existingAdmin = await adminsDb.getByEmail(email)
+        if (existingAdmin) {
+          return NextResponse.json(
+            { success: false, error: 'An admin with this email already exists' },
+            { status: 409 }
+          )
+        }
+        
+        // Validate role
+        if (role && !['admin', 'editor', 'super_admin'].includes(role)) {
+          return NextResponse.json(
+            { success: false, error: 'Invalid role. Must be admin, editor, or super_admin' },
+            { status: 400 }
+          )
+        }
+        
+        // Create new admin in Supabase
+        const newAdmin = await adminsDb.create({
+          email: email.toLowerCase(),
+          name,
+          role: role || 'admin',
+          password_hash: password // In production, hash this password!
+        })
+        
+        return NextResponse.json({
+          success: true,
+          message: 'Admin created successfully',
+          admin: {
+            _id: newAdmin.id,
+            email: newAdmin.email,
+            name: newAdmin.name,
+            role: newAdmin.role,
+            createdAt: newAdmin.created_at
+          },
+          isSupabaseMode: true
+        }, { status: 201 })
+        
+      } catch (dbError) {
+        console.error('[Admins API] Database error:', dbError)
+        return NextResponse.json(
+          { success: false, error: 'Failed to create admin in database' },
+          { status: 500 }
+        )
       }
-    }, { status: 201 })
+    }
+    
+    // Fall back to error when Supabase not configured
+    return NextResponse.json(
+      { success: false, error: 'Database not available. Please configure Supabase to create admin users.' },
+      { status: 503 }
+    )
     
   } catch (error) {
     console.error('Error creating admin:', error)

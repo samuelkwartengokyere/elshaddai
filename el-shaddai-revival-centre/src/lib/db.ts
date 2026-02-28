@@ -18,6 +18,7 @@ export interface DbAdmin {
   email: string
   name: string
   role: string
+  password_hash?: string
   profile_image?: string
   created_at: string
   updated_at: string
@@ -36,12 +37,12 @@ export interface DbEvent {
   title: string
   description?: string
   date: string
-  end_date?: string
+  end_date?: string | null
   time?: string
-  end_time?: string
+  end_time?: string | null
   location?: string
   category?: string
-  image_url?: string
+  image_url?: string | null
   is_published: boolean
   created_at: string
   updated_at: string
@@ -77,7 +78,7 @@ export interface DbTeam {
 export interface DbMedia {
   id: string
   title?: string
-  description?: string
+  description?: string | null
   url: string
   type: string
   category?: string
@@ -461,6 +462,10 @@ export const mediaDb = {
       ...data,
       created_at: new Date().toISOString()
     })
+  },
+  
+  async update(id: string, data: Partial<DbMedia>): Promise<DbMedia> {
+    return update<DbMedia>('media', id, data)
   },
   
   async delete(id: string): Promise<void> {
