@@ -15,9 +15,16 @@ export default function ModernWaveSplashScreen({ onComplete, duration = 5000 }: 
   const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
-    setIsMounted(true)
-    const timer = setTimeout(() => onComplete(), duration)
-    return () => clearTimeout(timer)
+    // Use setTimeout to defer state update and avoid cascading renders
+    const timer = setTimeout(() => {
+      setIsMounted(true)
+    }, 0)
+    
+    const durationTimer = setTimeout(() => onComplete(), duration)
+    return () => {
+      clearTimeout(timer)
+      clearTimeout(durationTimer)
+    }
   }, [duration, onComplete])
 
   if (!isMounted) return null
@@ -208,8 +215,8 @@ export default function ModernWaveSplashScreen({ onComplete, duration = 5000 }: 
 }
 
 // Helper component for cross decorations
-function CrossDecoration({ position, delay }: { position: string, delay: number }) {
-  const positions: any = {
+function CrossDecoration({ position, delay }: { position: 'topLeft' | 'topRight' | 'bottomLeft' | 'bottomRight', delay: number }) {
+  const positions: Record<string, string> = {
     topLeft: 'top-6 left-6',
     topRight: 'top-6 right-6',
     bottomLeft: 'bottom-6 left-6',

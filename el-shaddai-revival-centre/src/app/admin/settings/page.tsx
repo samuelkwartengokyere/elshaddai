@@ -1,11 +1,10 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
-import { useRouter } from 'next/navigation'
-import { 
-  Settings as SettingsIcon, 
-  Save, 
+import {
+  Settings as SettingsIcon,
+  Save,
   Loader2,
   CheckCircle,
   AlertCircle,
@@ -14,18 +13,11 @@ import {
   UserPlus,
   Edit,
   Trash2,
-  Shield,
   X,
   User,
-  Camera,
   Upload,
   Youtube,
-  RefreshCw,
-  ExternalLink,
-  Wrench,
-  AlertTriangle,
-  Power,
-  PowerOff
+  Wrench
 } from 'lucide-react'
 
 interface Settings {
@@ -93,7 +85,6 @@ const AVATAR_COLORS = [
 type Tab = 'branding' | 'profile' | 'admins' | 'youtube' | 'maintenance'
 
 export default function AdminSettings() {
-  const router = useRouter()
   const [activeTab, setActiveTab] = useState<Tab>('branding')
   const [settings, setSettings] = useState<Settings>(defaultSettings)
   const [admins, setAdmins] = useState<AdminUser[]>([])
@@ -116,10 +107,8 @@ export default function AdminSettings() {
   const [selectedAvatarIndex, setSelectedAvatarIndex] = useState<number | null>(null)
   const [profileSaving, setProfileSaving] = useState(false)
   const [profileName, setProfileName] = useState<string>('')
-  const [showCustomUrlInput, setShowCustomUrlInput] = useState(false)
   const [customUrl, setCustomUrl] = useState('')
   const [uploadingImage, setUploadingImage] = useState(false)
-  const [fileInputRef, setFileInputRef] = useState<HTMLInputElement | null>(null)
   
   const [showAdminModal, setShowAdminModal] = useState(false)
   const [editingAdmin, setEditingAdmin] = useState<AdminUser | null>(null)
@@ -128,11 +117,12 @@ export default function AdminSettings() {
   })
   const [modalLoading, setModalLoading] = useState(false)
   const [modalError, setModalError] = useState('')
-  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const [maintenanceMode, setMaintenanceMode] = useState(false)
   const [maintenanceMessage, setMaintenanceMessage] = useState('')
   const [maintenanceSaving, setMaintenanceSaving] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { fetchSettings(); fetchCurrentUser() }, [])
 
@@ -274,10 +264,14 @@ export default function AdminSettings() {
   }
 
   const handleSelectAvatar = (avatarUrl: string, index: number) => {
-    setProfileImage(avatarUrl); setSelectedAvatarIndex(index); setShowCustomUrlInput(false); setCustomUrl('')
+    setProfileImage(avatarUrl); setSelectedAvatarIndex(index); setCustomUrl('')
   }
 
-  const handleCustomUrlSubmit = () => { if (customUrl.trim()) { setProfileImage(customUrl.trim()); setShowCustomUrlInput(false) } }
+  const handleCustomUrlSubmit = () => { 
+    if (customUrl.trim()) { 
+      setProfileImage(customUrl.trim()) 
+    } 
+  }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -496,7 +490,7 @@ export default function AdminSettings() {
                   <div className="mb-6">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Or Upload from Device</label>
                     <div className="flex items-center space-x-3">
-                      <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" id="profile-upload" ref={setFileInputRef} />
+                      <input type="file" accept="image/*" onChange={handleFileUpload} className="hidden" id="profile-upload" ref={fileInputRef} />
                       <label htmlFor="profile-upload" className={`flex items-center px-4 py-2 bg-gray-100 rounded-lg cursor-pointer ${uploadingImage ? 'opacity-50' : ''}`}>
                         {uploadingImage ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading...</> : <><Upload className="h-4 w-4 mr-2" />Browse</>}
                       </label>
@@ -581,7 +575,7 @@ export default function AdminSettings() {
               <div><label className="block text-sm mb-1">Name</label><input type="text" value={adminForm.name} onChange={(e) => setAdminForm({ ...adminForm, name: e.target.value })} className="w-full px-4 py-2 border rounded-lg" /></div>
               <div><label className="block text-sm mb-1">Email</label><input type="email" value={adminForm.email} onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })} disabled={!!editingAdmin} className="w-full px-4 py-2 border rounded-lg" /></div>
               {!editingAdmin && <div><label className="block text-sm mb-1">Password</label><input type="password" value={adminForm.password} onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })} className="w-full px-4 py-2 border rounded-lg" /></div>}
-              <div><label className="block text-sm mb-1">Role</label><select value={adminForm.role} onChange={(e) => setAdminForm({ ...adminForm, role: e.target.value as any })} className="w-full px-4 py-2 border rounded-lg"><option value="admin">Admin</option><option value="editor">Editor</option></select></div>
+              <div><label className="block text-sm mb-1">Role</label><select value={adminForm.role} onChange={(e) => setAdminForm({ ...adminForm, role: e.target.value as 'super_admin' | 'admin' | 'editor' })} className="w-full px-4 py-2 border rounded-lg"><option value="admin">Admin</option><option value="editor">Editor</option></select></div>
             </div>
             <div className="mt-6 flex justify-end space-x-3">
               <button onClick={() => setShowAdminModal(false)} className="px-4 py-2">Cancel</button>

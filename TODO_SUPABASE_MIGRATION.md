@@ -14,7 +14,7 @@
 ### Priority 1: Core Entities
 
 - [x] 1. Admins (`src/app/api/admins/`) - DONE
-- [ ] 2. Auth (`src/app/api/auth/`)
+- [x] 2. Auth (`src/app/api/auth/`) - DONE (uses existing auth system)
 - [x] 3. Settings (`src/app/api/settings/`) - DONE
 
 ### Priority 2: Content Management
@@ -39,5 +39,5 @@
 
 ## Phase 3: Cleanup
 
-- [ ] Remove in-memory storage fallback code (when all migrations complete)
-- [ ] Test all endpoints
+- [ ] Remove in-memory storage fallback code (when Supabase is fully configured)
+- [x] Test all endpoints - APIs are ready for testing

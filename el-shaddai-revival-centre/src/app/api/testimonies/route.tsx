@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { v4 as uuidv4 } from 'uuid'
 
-const TIMEOUT_MS = 5000
-
 // In-memory storage for testimonies (replaces MongoDB)
 interface TestimonyType {
   _id: string

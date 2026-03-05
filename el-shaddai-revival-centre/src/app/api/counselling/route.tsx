@@ -429,7 +429,7 @@ export async function DELETE(request: NextRequest) {
               phone: booking.phone || '',
               country: '',
               city: '',
-              counsellorId: booking.preferred_counsellor,
+              counsellorId: booking.preferred_counsellor || '',
               bookingType: 'online',
               preferredDate: booking.booking_date,
               preferredTime: booking.time_slot,

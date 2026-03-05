@@ -91,6 +91,7 @@ export default function MediaPage() {
 
   useEffect(() => {
     fetchMedia()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.page, typeFilter, categoryFilter])
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {

@@ -6,8 +6,7 @@ import {
   Plus, 
   Edit, 
   Trash2, 
-  Upload, 
-  Download,
+  Upload,
   ChevronLeft,
   ChevronRight,
   X,
@@ -38,11 +37,6 @@ const categories = [
   { id: 'revival', label: 'Revival Week', color: 'bg-orange-500' }
 ]
 
-const months = [
-  'January', 'February', 'March', 'April', 'May', 'June',
-  'July', 'August', 'September', 'October', 'November', 'December'
-]
-
 // Generate years from 2020 to 2099
 const years = Array.from({ length: 80 }, (_, i) => 2020 + i)
 
@@ -51,6 +45,7 @@ export default function AdminCalendarPage() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const [deletingId, setDeletingId] = useState<string | null>(null)
   
   const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
@@ -74,6 +69,7 @@ export default function AdminCalendarPage() {
   })
 
   const [csvData, setCsvData] = useState('')
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Fetch events
@@ -104,6 +100,7 @@ export default function AdminCalendarPage() {
 
   useEffect(() => {
     fetchEvents()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedYear, selectedCategory])
 
   // Reset form

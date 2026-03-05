@@ -62,7 +62,7 @@ export async function GET(request: NextRequest) {
     let youtubeTotal = 0
 
     // Get sermons from in-memory storage
-    let sermons = getInMemorySermons()
+    const sermons = getInMemorySermons()
 
     // Fetch YouTube videos if enabled
     if (includeYouTube) {

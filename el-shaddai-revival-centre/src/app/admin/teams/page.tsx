@@ -84,6 +84,7 @@ export default function TeamsPage() {
 
   useEffect(() => {
     fetchTeamMembers()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.page, departmentFilter])
 
   const handleSearch = (e: React.FormEvent) => {

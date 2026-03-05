@@ -1,6 +1,5 @@
 'use client'
 
-import { useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { 
@@ -117,7 +116,6 @@ const ministryTeams = [
 ]
 
 export default function TeamPage() {
-  const [selectedDepartment, setSelectedDepartment] = useState<string | null>(null)
 
   return (
     <div className="min-h-screen bg-gray-50">

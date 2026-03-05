@@ -127,6 +127,7 @@ export default function CounsellingAdminPage() {
 
   useEffect(() => {
     fetchCounsellors();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.page, showAll]);
 
   const handleSearch = (e: React.FormEvent) => {

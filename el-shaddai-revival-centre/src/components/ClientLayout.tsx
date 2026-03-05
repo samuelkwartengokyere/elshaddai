@@ -8,13 +8,18 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
   const [isMounted, setIsMounted] = useState(false)
 
   useEffect(() => {
-    setIsMounted(true)
+    // Use requestAnimationFrame to defer state update and avoid cascading renders
+    const timer = setTimeout(() => {
+      setIsMounted(true)
+      
+      // Check if user has already seen the splash screen in this session
+      const hasSeenSplash = sessionStorage.getItem('hasSeenSplash')
+      if (hasSeenSplash) {
+        setShowSplash(false)
+      }
+    }, 0)
     
-    // Check if user has already seen the splash screen in this session
-    const hasSeenSplash = sessionStorage.getItem('hasSeenSplash')
-    if (hasSeenSplash) {
-      setShowSplash(false)
-    }
+    return () => clearTimeout(timer)
   }, [])
 
   const handleSplashComplete = () => {

@@ -98,6 +98,7 @@ export default function EventsPage() {
 
   useEffect(() => {
     fetchEvents()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.page, categoryFilter])
 
   const handleSearch = (e: React.FormEvent) => {

@@ -15,7 +15,7 @@ const CACHE_DURATION_MS = 5 * 60 * 1000 // 5 minutes
 
 // Auto-sync state
 let autoSyncInterval: NodeJS.Timeout | null = null
-let isInitialized = false
+let _isInitialized = false
 let initializationAttempted = false
 
 // Initialize YouTube settings from environment variables on startup
@@ -146,7 +146,7 @@ async function performAutoSync(): Promise<{ success: boolean; videosCount: numbe
     }
     
     // Get effective channel ID
-    let effectiveChannelId = await getEffectiveChannelId(youtubeConfig)
+    const effectiveChannelId = await getEffectiveChannelId(youtubeConfig)
     
     if (!effectiveChannelId) {
       return { success: false, videosCount: 0, error: 'Could not resolve channel ID' }
@@ -234,7 +234,7 @@ async function initializeAutoSync(origin: string) {
   } else {
     // No settings available
     console.log('[Auto-Sync] No YouTube configuration found')
-    isInitialized = true
+    _isInitialized = true
     return
   }
   
@@ -259,7 +259,7 @@ async function initializeAutoSync(origin: string) {
     }
   }
   
-  isInitialized = true
+  _isInitialized = true
 }
 
 // GET - Fetch cached YouTube videos or sync status
@@ -320,7 +320,7 @@ export async function GET(request: NextRequest) {
     }
 
     // Get effective channel ID (resolve from URL if needed)
-    let effectiveChannelId = await getEffectiveChannelId(youtubeConfig)
+    const effectiveChannelId = await getEffectiveChannelId(youtubeConfig)
 
     if (!effectiveChannelId) {
       return NextResponse.json({

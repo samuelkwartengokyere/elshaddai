@@ -101,6 +101,7 @@ export default function TestimoniesPage() {
 
   useEffect(() => {
     fetchTestimonies()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.page, categoryFilter])
 
   const handleSearch = (e: React.FormEvent) => {
@@ -449,7 +450,7 @@ export default function TestimoniesPage() {
                 
                 {/* Content Preview */}
                 <div className="p-4">
-                  <p className="text-gray-600 text-sm line-clamp-3 mb-4">{testimony.content}</p>
+              <p className="text-gray-600 text-sm line-clamp-3 mb-4">{testimony.content}</p>
                   
                   <div className="space-y-2 text-sm text-gray-500">
                     <div className="flex items-center">
@@ -561,7 +562,7 @@ export default function TestimoniesPage() {
               {/* Name */}
               <div className="mb-4">
                 <label className="block text-sm font-medium text-gray-700 mb-1">
-                  Person's Name *
+                  Person&lsquo;s Name *
                 </label>
                 <input
                   type="text"

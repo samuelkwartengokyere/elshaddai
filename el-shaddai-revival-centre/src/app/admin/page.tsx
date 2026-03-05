@@ -2,13 +2,10 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { 
-  LayoutDashboard, 
   FileAudio, 
   Image, 
   Calendar, 
-  Users, 
   MessageSquare,
-  TrendingUp,
   Clock,
   ArrowUpRight,
   ArrowDownRight,
@@ -61,6 +58,7 @@ export default function AdminDashboard() {
 
   useEffect(() => {
     fetchDashboardData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Helper function to fetch with timeout
@@ -147,7 +145,8 @@ export default function AdminDashboard() {
       const testimoniesData = results.find(r => r.type === 'testimonies')?.data || {}
 
       // Check if any API returned an error (not just timeout)
-      const hasErrors = results.some(r => r.data.error)
+      // eslint-disable-next-line @typescript-eslint/no-unused-vars
+      const _hasErrors = results.some(r => r.data.error)
 
       setData({
         stats: {

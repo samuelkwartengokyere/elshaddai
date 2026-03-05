@@ -82,7 +82,7 @@ const initialCounsellors: StoredCounsellor[] = [
   },
 ];
 
-let inMemoryCounsellors: StoredCounsellor[] = [...initialCounsellors];
+const inMemoryCounsellors: StoredCounsellor[] = [...initialCounsellors];
 
 // GET - Fetch all active counselors
 export async function GET(request: NextRequest) {

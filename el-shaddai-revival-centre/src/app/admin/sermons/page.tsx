@@ -99,6 +99,7 @@ export default function SermonsPage() {
 
   useEffect(() => {
     fetchSermons()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.page])
 
   const handleSearch = (e: React.FormEvent) => {
