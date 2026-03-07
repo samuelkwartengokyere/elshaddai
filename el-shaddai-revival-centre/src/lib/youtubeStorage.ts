@@ -9,6 +9,7 @@ export interface YouTubeConfigType {
   channelName: string
   channelUrl: string
   apiKey: string
+  playlistId: string  // Specific playlist ID for sermon videos
   autoSync: boolean
   syncInterval: number
   lastSync: Date | null
@@ -21,6 +22,7 @@ export const defaultYouTubeSettings: YouTubeConfigType = {
   channelName: '',
   channelUrl: '',
   apiKey: '',
+  playlistId: '',
   autoSync: false,
   syncInterval: 6,
   lastSync: null,

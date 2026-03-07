@@ -94,6 +94,80 @@ export async function getChannelIdFromUsername(username: string, apiKey: string)
 }
 
 /**
+ * Fetch all playlists from a YouTube channel
+ */
+export async function fetchChannelPlaylists(
+  channelId: string,
+  apiKey: string,
+  options: {
+    maxResults?: number
+    pageToken?: string
+  } = {}
+): Promise<{ playlists: YouTubePlaylist[], nextPageToken: string | null, totalResults: number }> {
+  const { maxResults = 50, pageToken } = options
+
+  try {
+    const params: Record<string, string | number> = {
+      part: 'snippet,contentDetails',
+      channelId: channelId,
+      maxResults,
+      key: apiKey
+    }
+
+    if (pageToken) {
+      params.pageToken = pageToken
+    }
+
+    const response = await axios.get(`${YOUTUBE_API_BASE_URL}/playlists`, {
+      params
+    })
+
+    const playlists = response.data.items.map((item: {
+      id: string
+      snippet: { title: string; description: string; thumbnails: { high?: { url?: string }; medium?: { url?: string } } }
+      contentDetails: { itemCount: number }
+    }) => ({
+      id: item.id,
+      title: item.snippet.title,
+      description: item.snippet.description,
+      thumbnailUrl: item.snippet.thumbnails?.high?.url || item.snippet.thumbnails?.medium?.url || '',
+      itemCount: item.contentDetails.itemCount
+    }))
+
+    return {
+      playlists,
+      nextPageToken: response.data.nextPageToken || null,
+      totalResults: response.data.pageInfo?.totalResults || 0
+    }
+  } catch (error) {
+    console.error('Error fetching channel playlists:', error)
+    return { playlists: [], nextPageToken: null, totalResults: 0 }
+  }
+}
+
+/**
+ * Find the sermons playlist from a list of playlists
+ * Looks for playlist titles containing "sermon" (case-insensitive)
+ */
+export function findSermonsPlaylist(playlists: YouTubePlaylist[]): YouTubePlaylist | null {
+  // Search for playlists with "sermon" in the title
+  const sermonsPlaylist = playlists.find(playlist => 
+    playlist.title.toLowerCase().includes('sermon') || 
+    playlist.title.toLowerCase().includes('sermons')
+  )
+  
+  return sermonsPlaylist || null
+}
+
+export interface YouTubePlaylist {
+  id: string
+  title: string
+  description: string
+  thumbnailUrl: string
+  itemCount: number
+}
+
+/**
  * Convert YouTube duration format (PT#H#M#S) to human readable
  */
 export function formatDuration(duration: string): string {
@@ -210,6 +284,7 @@ export async function fetchChannelDetails(channelId: string, apiKey: string): Pr
 
 /**
  * Fetch latest videos from a YouTube channel with pagination support
+ * Optionally fetches from a specific playlist instead of channel uploads
  */
 export async function fetchChannelVideos(
   channelId: string,
@@ -219,33 +294,38 @@ export async function fetchChannelVideos(
     order?: 'date' | 'viewCount' | 'rating'
     type?: 'video' | 'playlist' | 'all'
     pageToken?: string
+    playlistId?: string  // If provided, fetch from this playlist instead of channel uploads
   } = {}
 ): Promise<{ videos: YouTubeVideo[], nextPageToken: string | null, totalResults: number }> {
-  const { maxResults = 50, order = 'date', type = 'video', pageToken } = options
+  const { maxResults = 50, order = 'date', type = 'video', pageToken, playlistId } = options
 
   try {
-    // First, get the channel's uploads playlist ID
-    const channelResponse = await axios.get(`${YOUTUBE_API_BASE_URL}/channels`, {
-      params: {
-        part: 'contentDetails',
-        id: channelId,
-        key: apiKey
-      }
-    })
+    let uploadsPlaylistId = playlistId
 
-    const channel = channelResponse.data.items?.[0]
-    if (!channel) {
-      console.error('Channel not found')
-      return { videos: [], nextPageToken: null, totalResults: 0 }
-    }
-
-    const uploadsPlaylistId = channel.contentDetails.relatedPlaylists?.uploads
+    // If no playlistId provided, get the channel's uploads playlist ID
     if (!uploadsPlaylistId) {
-      console.error('No uploads playlist found')
-      return { videos: [], nextPageToken: null, totalResults: 0 }
+      const channelResponse = await axios.get(`${YOUTUBE_API_BASE_URL}/channels`, {
+        params: {
+          part: 'contentDetails',
+          id: channelId,
+          key: apiKey
+        }
+      })
+
+      const channel = channelResponse.data.items?.[0]
+      if (!channel) {
+        console.error('Channel not found')
+        return { videos: [], nextPageToken: null, totalResults: 0 }
+      }
+
+      uploadsPlaylistId = channel.contentDetails.relatedPlaylists?.uploads
+      if (!uploadsPlaylistId) {
+        console.error('No uploads playlist found')
+        return { videos: [], nextPageToken: null, totalResults: 0 }
+      }
     }
 
-    // Fetch videos from the uploads playlist with pagination
+    // Fetch videos from the playlist (either specified playlist or channel uploads)
     const playlistParams: Record<string, string | number> = {
       part: 'snippet,contentDetails',
       playlistId: uploadsPlaylistId,
@@ -297,6 +377,7 @@ export async function fetchChannelVideos(
 /**
  * Fetch ALL videos from a YouTube channel by looping through all pages
  * Uses pagination to get all available videos
+ * Optionally fetches from a specific playlist instead of channel uploads
  */
 export async function fetchAllChannelVideos(
   channelId: string,
@@ -304,9 +385,10 @@ export async function fetchAllChannelVideos(
   options: {
     maxVideos?: number  // Maximum number of videos to fetch (YouTube API limit is 500 per request for playlistItems)
     maxResultsPerPage?: number
+    playlistId?: string  // If provided, fetch from this playlist instead of channel uploads
   } = {}
 ): Promise<YouTubeVideo[]> {
-  const { maxVideos = 500, maxResultsPerPage = 50 } = options
+  const { maxVideos = 500, maxResultsPerPage = 50, playlistId } = options
 
   let allVideos: YouTubeVideo[] = []
   let nextPageToken: string | null = null
@@ -322,7 +404,8 @@ export async function fetchAllChannelVideos(
       
       const result = await fetchChannelVideos(channelId, apiKey, {
         maxResults: maxResultsPerPage,
-        pageToken: nextPageToken || undefined
+        pageToken: nextPageToken || undefined,
+        playlistId: playlistId  // Pass playlistId to fetch from specific playlist
       })
 
       if (result.videos.length === 0) {
@@ -621,6 +704,8 @@ export default {
   fetchChannelDetails,
   fetchChannelVideos,
   fetchAllChannelVideos,
+  fetchChannelPlaylists,
+  findSermonsPlaylist,
   searchVideos,
   youTubeVideoToSermon,
   getEmbedHtml,

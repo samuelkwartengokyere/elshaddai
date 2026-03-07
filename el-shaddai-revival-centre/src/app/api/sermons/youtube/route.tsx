@@ -9,7 +9,7 @@ import {
   setLastCacheUpdate,
   clearYouTubeCache
 } from '@/lib/youtubeStorage'
-import { fetchChannelDetails, fetchAllChannelVideos, youTubeVideoToSermon, extractChannelId, getChannelIdFromUsername } from '@/lib/youtube'
+import { fetchChannelDetails, fetchAllChannelVideos, youTubeVideoToSermon, extractChannelId, getChannelIdFromUsername, fetchChannelPlaylists, findSermonsPlaylist } from '@/lib/youtube'
 
 const CACHE_DURATION_MS = 5 * 60 * 1000 // 5 minutes
 
@@ -25,6 +25,7 @@ function initializeYouTubeFromEnv(): YouTubeConfigType {
   let envChannelId = process.env.YOUTUBE_CHANNEL_ID || process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID
   const envApiKey = process.env.YOUTUBE_API_KEY || process.env.NEXT_PUBLIC_YOUTUBE_API_KEY
   const envChannelUrl = process.env.YOUTUBE_CHANNEL_URL || process.env.NEXT_PUBLIC_YOUTUBE_URL
+  const envPlaylistId = process.env.YOUTUBE_PLAYLIST_ID || process.env.NEXT_PUBLIC_YOUTUBE_PLAYLIST_ID || ''
   
   // Check if the channel ID is actually a YouTube handle (starts with @)
   // Handles need to be resolved to channel IDs using the API
@@ -44,6 +45,7 @@ function initializeYouTubeFromEnv(): YouTubeConfigType {
     channelName: '',
     channelUrl: resolvedChannelUrl,
     apiKey: envApiKey || '',
+    playlistId: envPlaylistId,  // Add playlist ID support
     autoSync: true, // Enable auto-sync by default when env vars are set
     syncInterval: 6,
     lastSync: null,
@@ -51,10 +53,11 @@ function initializeYouTubeFromEnv(): YouTubeConfigType {
     syncError: ''
   }
   
-  if (envChannelId || resolvedChannelUrl || envApiKey) {
+  if (envChannelId || resolvedChannelUrl || envApiKey || envPlaylistId) {
     console.log('[YouTube Init] Found environment variables, configuring YouTube...')
     console.log('[YouTube Init] Channel ID:', envChannelId || '(needs resolution)')
     console.log('[YouTube Init] Channel URL:', resolvedChannelUrl)
+    console.log('[YouTube Init] Playlist ID:', envPlaylistId || '(not set)')
     console.log('[YouTube Init] Has API Key:', !!envApiKey)
     setInMemoryYouTubeSettings(settings)
   }
@@ -79,6 +82,7 @@ async function fetchSettingsFromAPI(origin: string): Promise<YouTubeConfigType |
           channelName: ytSettings.channelName || '',
           channelUrl: ytSettings.channelUrl || '',
           apiKey: ytSettings.apiKey || '',
+          playlistId: ytSettings.playlistId || '',  // Add playlist ID
           autoSync: ytSettings.autoSync ?? true,
           syncInterval: ytSettings.syncInterval ?? 6,
           lastSync: ytSettings.lastSync ? new Date(ytSettings.lastSync) : null,
@@ -131,34 +135,96 @@ async function getEffectiveChannelId(config: YouTubeConfigType): Promise<string>
   return ''
 }
 
+// Auto-detect sermons playlist from channel
+async function autoDetectSermonsPlaylist(channelId: string, apiKey: string): Promise<string | null> {
+  try {
+    console.log(`[YouTube] Fetching playlists from channel: ${channelId}`)
+    
+    const result = await fetchChannelPlaylists(channelId, apiKey, { maxResults: 50 })
+    
+    if (result.playlists.length === 0) {
+      console.log('[YouTube] No playlists found on channel')
+      return null
+    }
+    
+    console.log(`[YouTube] Found ${result.playlists.length} playlists on channel`)
+    
+    // Log all playlist titles for debugging
+    result.playlists.forEach(playlist => {
+      console.log(`[YouTube] Playlist: "${playlist.title}" (${playlist.id}) - ${playlist.itemCount} videos`)
+    })
+    
+    // Find the sermons playlist
+    const sermonsPlaylist = findSermonsPlaylist(result.playlists)
+    
+    if (sermonsPlaylist) {
+      console.log(`[YouTube] Found sermons playlist: "${sermonsPlaylist.title}" (${sermonsPlaylist.id})`)
+      return sermonsPlaylist.id
+    }
+    
+    // If no sermons playlist found, return null
+    console.log('[YouTube] No sermons playlist found')
+    return null
+    
+  } catch (error) {
+    console.error('[YouTube] Error auto-detecting sermons playlist:', error)
+    return null
+  }
+}
+
 // Auto-sync function to fetch videos from YouTube
 async function performAutoSync(): Promise<{ success: boolean; videosCount: number; error?: string }> {
   try {
     const youtubeConfig = getInMemoryYouTubeSettings()
     
-    // Check if we have required config
-    if (!youtubeConfig.channelId && !youtubeConfig.channelUrl) {
-      return { success: false, videosCount: 0, error: 'No channel configured' }
+    // Check if we have required config (either channel OR playlist)
+    const hasPlaylistConfig = !!youtubeConfig.playlistId
+    const hasChannelConfig = !!(youtubeConfig.channelId || youtubeConfig.channelUrl)
+    
+    if (!hasPlaylistConfig && !hasChannelConfig) {
+      return { success: false, videosCount: 0, error: 'No channel or playlist configured' }
     }
     
     if (!youtubeConfig.apiKey) {
       return { success: false, videosCount: 0, error: 'No API key configured' }
     }
     
-    // Get effective channel ID
-    const effectiveChannelId = await getEffectiveChannelId(youtubeConfig)
+    // Determine the playlist to use
+    let playlistId = youtubeConfig.playlistId
+    let effectiveChannelId = ''
     
-    if (!effectiveChannelId) {
-      return { success: false, videosCount: 0, error: 'Could not resolve channel ID' }
+    // If no specific playlist is configured but we have a channel, auto-detect sermons playlist
+    if (!hasPlaylistConfig && hasChannelConfig) {
+      // Get effective channel ID
+      effectiveChannelId = await getEffectiveChannelId(youtubeConfig)
+      
+      if (!effectiveChannelId) {
+        return { success: false, videosCount: 0, error: 'Could not resolve channel ID' }
+      }
+      
+      // Try to auto-detect sermons playlist
+      console.log('[Auto-Sync] No specific playlist configured, attempting to auto-detect sermons playlist...')
+      const detectedPlaylistId = await autoDetectSermonsPlaylist(effectiveChannelId, youtubeConfig.apiKey)
+      
+      if (detectedPlaylistId) {
+        playlistId = detectedPlaylistId
+        console.log('[Auto-Sync] Using auto-detected sermons playlist:', playlistId)
+        
+        // Save the detected playlist ID to settings for future use
+        setInMemoryYouTubeSettings({ playlistId })
+      } else {
+        console.log('[Auto-Sync] No sermons playlist found on channel, will fetch all channel uploads')
+      }
     }
     
-    console.log(`[Auto-Sync] Fetching videos from channel: ${effectiveChannelId}`)
+    // Fetch videos (from playlist or channel uploads)
+    const fetchSource = playlistId ? `playlist: ${playlistId}` : `channel: ${effectiveChannelId}`
+    console.log(`[Auto-Sync] Fetching videos from: ${fetchSource}`)
     
-    // Fetch videos
     const videos = await fetchAllChannelVideos(
       effectiveChannelId,
       youtubeConfig.apiKey,
-      { maxVideos: 500, maxResultsPerPage: 50 }
+      { maxVideos: 500, maxResultsPerPage: 50, playlistId: playlistId || undefined }
     )
     
     const sermonVideos = videos.map(youTubeVideoToSermon)
@@ -200,7 +266,7 @@ function startAutoSync(intervalHours: number = 6) {
   // Start the interval
   autoSyncInterval = setInterval(async () => {
     const config = getInMemoryYouTubeSettings()
-    if (config.autoSync && config.apiKey && (config.channelId || config.channelUrl)) {
+    if (config.autoSync && config.apiKey && (config.channelId || config.channelUrl || config.playlistId)) {
       console.log(`[Auto-Sync] Starting scheduled sync (every ${intervalHours} hours)...`)
       await performAutoSync()
     }
@@ -222,12 +288,12 @@ async function initializeAutoSync(origin: string) {
   
   let config: YouTubeConfigType
   
-  if (apiSettings && (apiSettings.channelId || apiSettings.channelUrl) && apiSettings.apiKey) {
+  if (apiSettings && (apiSettings.channelId || apiSettings.channelUrl || apiSettings.playlistId) && apiSettings.apiKey) {
     // Use API settings if available
     console.log('[Auto-Sync] Using settings from Settings API')
     config = apiSettings
     setInMemoryYouTubeSettings(config)
-  } else if (envSettings.apiKey && (envSettings.channelId || envSettings.channelUrl)) {
+  } else if (envSettings.apiKey && (envSettings.channelId || envSettings.channelUrl || envSettings.playlistId)) {
     // Use environment variable settings
     console.log('[Auto-Sync] Using settings from environment variables')
     config = envSettings
@@ -238,24 +304,34 @@ async function initializeAutoSync(origin: string) {
     return
   }
   
-  if (config.autoSync && (config.channelId || config.channelUrl) && config.apiKey) {
+  if (config.autoSync && (config.channelId || config.channelUrl || config.playlistId) && config.apiKey) {
     // Perform initial sync
     console.log('[Auto-Sync] Performing initial sync on startup...')
     
-    // Try to resolve channel ID if needed
-    const effectiveChannelId = await getEffectiveChannelId(config)
-    
-    if (effectiveChannelId) {
-      // Update config with effective channel ID
-      setInMemoryYouTubeSettings({ channelId: effectiveChannelId })
-      
+    // If using playlist, no need to resolve channel ID
+    if (config.playlistId) {
+      console.log('[Auto-Sync] Using playlist for videos:', config.playlistId)
       await performAutoSync()
       
       // Start periodic sync
       const intervalHours = config.syncInterval || 6
       startAutoSync(intervalHours)
     } else {
-      console.log('[Auto-Sync] Could not resolve channel ID, skipping initial sync')
+      // Try to resolve channel ID if needed
+      const effectiveChannelId = await getEffectiveChannelId(config)
+      
+      if (effectiveChannelId) {
+        // Update config with effective channel ID
+        setInMemoryYouTubeSettings({ channelId: effectiveChannelId })
+        
+        await performAutoSync()
+        
+        // Start periodic sync
+        const intervalHours = config.syncInterval || 6
+        startAutoSync(intervalHours)
+      } else {
+        console.log('[Auto-Sync] Could not resolve channel ID, skipping initial sync')
+      }
     }
   }
   
@@ -291,6 +367,7 @@ export async function GET(request: NextRequest) {
           channelId: ytSettings.channelId || youtubeConfig.channelId,
           channelUrl: ytSettings.channelUrl || youtubeConfig.channelUrl,
           apiKey: ytSettings.apiKey || youtubeConfig.apiKey,
+          playlistId: ytSettings.playlistId || youtubeConfig.playlistId,  // Add playlistId
           channelName: ytSettings.channelName || youtubeConfig.channelName,
           autoSync: ytSettings.autoSync ?? youtubeConfig.autoSync,
           syncInterval: ytSettings.syncInterval ?? youtubeConfig.syncInterval,
@@ -307,39 +384,44 @@ export async function GET(request: NextRequest) {
       }
     }
 
-    // Check if we have either channelId or channelUrl
+    // Check if we have either channelId or channelUrl or playlistId
     const hasChannelConfig = !!(youtubeConfig.channelId || youtubeConfig.channelUrl)
+    const hasPlaylistConfig = !!youtubeConfig.playlistId
 
-    if (!hasChannelConfig) {
+    if (!hasChannelConfig && !hasPlaylistConfig) {
       return NextResponse.json({
         success: false,
-        error: 'YouTube channel not configured',
+        error: 'YouTube channel or playlist not configured',
         videos: [],
         configured: false
       }, { status: 400 })
     }
 
-    // Get effective channel ID (resolve from URL if needed)
-    const effectiveChannelId = await getEffectiveChannelId(youtubeConfig)
+    // Get effective channel ID (resolve from URL if needed, only if not using playlist)
+    let effectiveChannelId = ''
+    
+    if (!hasPlaylistConfig && hasChannelConfig) {
+      effectiveChannelId = await getEffectiveChannelId(youtubeConfig)
 
-    if (!effectiveChannelId) {
-      return NextResponse.json({
-        success: false,
-        error: 'Could not extract channel ID from configuration. Please check your channel URL or provide a channel ID.',
-        videos: [],
-        configured: true,
-        needsChannelId: true,
-        config: {
-          channelId: youtubeConfig.channelId,
-          channelUrl: youtubeConfig.channelUrl,
-          hasApiKey: !!youtubeConfig.apiKey
-        }
-      }, { status: 400 })
-    }
+      if (!effectiveChannelId) {
+        return NextResponse.json({
+          success: false,
+          error: 'Could not extract channel ID from configuration. Please check your channel URL or provide a channel ID.',
+          videos: [],
+          configured: true,
+          needsChannelId: true,
+          config: {
+            channelId: youtubeConfig.channelId,
+            channelUrl: youtubeConfig.channelUrl,
+            hasApiKey: !!youtubeConfig.apiKey
+          }
+        }, { status: 400 })
+      }
 
-    // Update in-memory with resolved channel ID
-    if (effectiveChannelId !== youtubeConfig.channelId) {
-      setInMemoryYouTubeSettings({ channelId: effectiveChannelId })
+      // Update in-memory with resolved channel ID
+      if (effectiveChannelId !== youtubeConfig.channelId) {
+        setInMemoryYouTubeSettings({ channelId: effectiveChannelId })
+      }
     }
 
     // Check cache
@@ -353,11 +435,11 @@ export async function GET(request: NextRequest) {
     if (cachedVideos.length === 0 && youtubeConfig.apiKey) {
       console.log('[YouTube API] No cached videos found, triggering auto-sync...')
       
-      // Fetch videos from YouTube
+      // Fetch videos from YouTube (from playlist or channel)
       const videos = await fetchAllChannelVideos(
         effectiveChannelId,
         youtubeConfig.apiKey,
-        { maxVideos: 500, maxResultsPerPage: 50 }
+        { maxVideos: 500, maxResultsPerPage: 50, playlistId: youtubeConfig.playlistId || undefined }
       )
 
       // Transform to sermon format and update cache
@@ -394,12 +476,12 @@ export async function GET(request: NextRequest) {
       })
     }
 
-    // Fetch videos from YouTube (cache expired or force refresh)
+    // Fetch videos from YouTube (cache expired or force refresh) - from playlist or channel
     if (youtubeConfig.apiKey) {
       const videos = await fetchAllChannelVideos(
         effectiveChannelId,
         youtubeConfig.apiKey,
-        { maxVideos: 500, maxResultsPerPage: 50 }
+        { maxVideos: 500, maxResultsPerPage: 50, playlistId: youtubeConfig.playlistId || undefined }
       )
 
       // Transform to sermon format and update cache
@@ -448,10 +530,10 @@ export async function POST(request: NextRequest) {
   try {
     const body = await request.json()
     
-    let { channelId, apiKey, channelUrl } = body
+    let { channelId, apiKey, channelUrl, playlistId } = body
 
     // If settings are not provided in body, try to fetch from Settings API
-    if (!channelId && !channelUrl) {
+    if (!channelId && !channelUrl && !playlistId) {
       try {
         const settingsResponse = await fetch(`${request.nextUrl.origin}/api/settings`)
         const settingsData = await settingsResponse.json()
@@ -461,8 +543,9 @@ export async function POST(request: NextRequest) {
           channelId = ytSettings.channelId || ''
           channelUrl = ytSettings.channelUrl || ''
           apiKey = ytSettings.apiKey || ''
+          playlistId = ytSettings.playlistId || ''
           
-          console.log('Fetched YouTube settings from Settings API:', { channelId, channelUrl, hasApiKey: !!apiKey })
+          console.log('Fetched YouTube settings from Settings API:', { channelId, channelUrl, playlistId, hasApiKey: !!apiKey })
         }
       } catch (settingsError) {
         console.error('Failed to fetch settings from Settings API:', settingsError)
@@ -470,77 +553,66 @@ export async function POST(request: NextRequest) {
     }
     
     // Fall back to environment variables if still not available
-    if (!channelId && !channelUrl) {
+    if (!channelId && !channelUrl && !playlistId) {
       const envSettings = initializeYouTubeFromEnv()
-      if (envSettings.apiKey && (envSettings.channelId || envSettings.channelUrl)) {
+      if (envSettings.apiKey && (envSettings.channelId || envSettings.channelUrl || envSettings.playlistId)) {
         channelId = envSettings.channelId
         channelUrl = envSettings.channelUrl
         apiKey = envSettings.apiKey
+        playlistId = envSettings.playlistId
         console.log('Using YouTube settings from environment variables')
       }
     }
 
-    // If channelUrl is provided but channelId is not, try to extract channel ID from URL
-    let finalChannelId = channelId || ''
-    
-    if (!finalChannelId && channelUrl) {
-      // Try to extract channel ID from URL (for /channel/ URLs)
-      const extractedId = extractChannelId(channelUrl)
-      if (extractedId) {
-        finalChannelId = extractedId
-      } else if (apiKey) {
-        // For @username, /c/, or /user/ URLs, need to use API to get channel ID
-        // Extract the username part from various URL formats
-        const atMatch = channelUrl.match(/youtube\.com\/@([a-zA-Z0-9_-]+)/)
-        const cMatch = channelUrl.match(/youtube\.com\/c\/([a-zA-Z0-9_-]+)/)
-        const userMatch = channelUrl.match(/youtube\.com\/user\/([a-zA-Z0-9_-]+)/)
-        
-        const usernameMatch = atMatch || cMatch || userMatch
-        
-        if (usernameMatch) {
-          console.log(`[POST] Resolving channel ID from username: ${usernameMatch[1]}`)
-          finalChannelId = await getChannelIdFromUsername(usernameMatch[1], apiKey)
-        }
-      }
-    }
+    // Check if we have valid config (either channel or playlist)
+    const hasPlaylistConfig = !!playlistId
+    const hasChannelConfig = !!(channelId || channelUrl)
 
-    if (!finalChannelId) {
-      // Check if it's a username URL that needs API key
-      const isUsernameUrl = channelUrl && (
-        channelUrl.includes('/@') || 
-        channelUrl.includes('/c/') || 
-        channelUrl.includes('/user/')
-      )
-      
-      if (isUsernameUrl && !apiKey) {
-        return NextResponse.json({
-          success: false,
-          error: 'YouTube API key is required when using @username or custom URL format. Please add your API key to enable video sync.',
-          videosSynced: 0,
-          needsApiKey: true
-        }, { status: 400 })
-      }
-      
+    if (!hasPlaylistConfig && !hasChannelConfig) {
       return NextResponse.json({
         success: false,
-        error: 'Could not extract channel ID from the provided URL. Please provide a valid YouTube Channel ID (UC...) or Channel URL.',
+        error: 'YouTube channel or playlist not configured. Please provide a channel ID/URL or playlist ID.',
         videosSynced: 0,
-        needsChannelId: true
+        needsConfig: true
       }, { status: 400 })
     }
 
-    console.log(`[POST] Using channel ID: ${finalChannelId}`)
-
-    // Update settings with new channel info (in-memory only)
-    const newChannelConfig = {
-      channelId: finalChannelId,
-      channelUrl: channelUrl || `https://www.youtube.com/channel/${finalChannelId}`,
-      apiKey: apiKey || '',
-      syncStatus: 'syncing' as const,
-      syncError: ''
-    }
+    // If using playlist, we don't need channel ID
+    let finalChannelId = ''
+    let detectedPlaylistId: string | null = null
     
-    setInMemoryYouTubeSettings(newChannelConfig)
+    if (!hasPlaylistConfig && hasChannelConfig) {
+      // Try to extract channel ID from URL
+      if (channelUrl) {
+        const extractedId = extractChannelId(channelUrl)
+        if (extractedId) {
+          finalChannelId = extractedId
+        } else if (apiKey) {
+          // For @username, /c/, or /user/ URLs, need to use API to get channel ID
+          const atMatch = channelUrl.match(/youtube\.com\/@([a-zA-Z0-9_-]+)/)
+          const cMatch = channelUrl.match(/youtube\.com\/c\/([a-zA-Z0-9_-]+)/)
+          const userMatch = channelUrl.match(/youtube\.com\/user\/([a-zA-Z0-9_-]+)/)
+          
+          const usernameMatch = atMatch || cMatch || userMatch
+          
+          if (usernameMatch) {
+            console.log(`[POST] Resolving channel ID from username: ${usernameMatch[1]}`)
+            finalChannelId = await getChannelIdFromUsername(usernameMatch[1], apiKey) || ''
+            
+            // Auto-detect sermons playlist from channel
+            if (finalChannelId && apiKey && !playlistId) {
+              console.log(`[POST] No specific playlist configured, attempting to auto-detect sermons playlist...`)
+              detectedPlaylistId = await autoDetectSermonsPlaylist(finalChannelId, apiKey)
+              
+              if (detectedPlaylistId) {
+                console.log(`[POST] Auto-detected sermons playlist: ${detectedPlaylistId}`)
+                playlistId = detectedPlaylistId
+              }
+            }
+          }
+        }
+      }
+    }
 
     // If no API key, we can't fetch videos
     if (!apiKey) {
@@ -555,17 +627,27 @@ export async function POST(request: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        message: 'Channel configured. Add API key to enable video sync.',
+        message: 'Channel/Playlist configured. Add API key to enable video sync.',
         videosSynced: 0,
         needsApiKey: true
       })
     }
 
-    // Fetch channel details first
-    const channelDetails = await fetchChannelDetails(finalChannelId, apiKey)
+    // Fetch channel details only if using channel (not playlist)
+    let channelDetails = null
+    if (!hasPlaylistConfig && finalChannelId) {
+      channelDetails = await fetchChannelDetails(finalChannelId, apiKey)
+    }
     
-    // Fetch ALL videos using pagination
-    const videos = await fetchAllChannelVideos(finalChannelId, apiKey, { maxVideos: 500, maxResultsPerPage: 50 })
+    // Fetch ALL videos using pagination (from playlist or channel)
+    const fetchSource = hasPlaylistConfig ? `playlist: ${playlistId}` : `channel: ${finalChannelId}`
+    console.log(`[POST] Fetching videos from: ${fetchSource}`)
+    
+    const videos = await fetchAllChannelVideos(
+      finalChannelId, 
+      apiKey, 
+      { maxVideos: 500, maxResultsPerPage: 50, playlistId: playlistId || undefined }
+    )
     const sermonVideos = videos.map(youTubeVideoToSermon)
 
     // Update cache
@@ -576,8 +658,9 @@ export async function POST(request: NextRequest) {
     setInMemoryYouTubeSettings({
       channelName: channelDetails?.title || '',
       channelId: finalChannelId,
-      channelUrl: channelUrl || `https://www.youtube.com/channel/${finalChannelId}`,
+      channelUrl: channelUrl || (finalChannelId ? `https://www.youtube.com/channel/${finalChannelId}` : ''),
       apiKey: apiKey,
+      playlistId: playlistId || '',
       lastSync: new Date(),
       syncStatus: 'success',
       syncError: ''
@@ -597,11 +680,12 @@ export async function POST(request: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      message: 'YouTube videos synced successfully',
+      message: `YouTube videos synced successfully from ${hasPlaylistConfig ? 'playlist' : 'channel'}`,
       channel: channelDetails,
       videosSynced: sermonVideos.length,
       videos: sermonVideos,
-      autoSyncEnabled: bodyAutoSync
+      autoSyncEnabled: bodyAutoSync,
+      source: hasPlaylistConfig ? 'playlist' : 'channel'
     })
 
   } catch (error) {

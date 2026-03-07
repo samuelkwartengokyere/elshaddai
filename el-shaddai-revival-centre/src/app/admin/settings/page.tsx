@@ -31,6 +31,7 @@ interface Settings {
     channelName: string
     channelUrl: string
     apiKey: string
+    playlistId: string  // Specific playlist ID for sermon videos
     autoSync: boolean
     syncInterval: number
     lastSync: Date | null
@@ -96,7 +97,7 @@ export default function AdminSettings() {
   const [logoPreview, setLogoPreview] = useState<string>(defaultSettings.logoUrl)
   
   const [youtubeSettings, setYoutubeSettings] = useState({
-    channelId: '', channelName: '', channelUrl: '', apiKey: '',
+    channelId: '', channelName: '', channelUrl: '', apiKey: '', playlistId: '',
     autoSync: false, syncInterval: 6, lastSync: null as Date | null,
     syncStatus: 'idle' as 'idle' | 'syncing' | 'success' | 'error', syncError: ''
   })
@@ -148,6 +149,7 @@ export default function AdminSettings() {
             channelName: data.settings.youtube.channelName || '',
             channelUrl: data.settings.youtube.channelUrl || '',
             apiKey: data.settings.youtube.apiKey || '',
+            playlistId: data.settings.youtube.playlistId || '',
             autoSync: data.settings.youtube.autoSync || false,
             syncInterval: data.settings.youtube.syncInterval || 6,
             lastSync: data.settings.youtube.lastSync ? new Date(data.settings.youtube.lastSync) : null,
@@ -193,6 +195,7 @@ export default function AdminSettings() {
         churchName: settings.churchName, churchTagline: settings.churchTagline, logoUrl: settings.logoUrl,
         youtube: { channelId: youtubeSettings.channelId || '', channelName: youtubeSettings.channelName || '',
           channelUrl: youtubeSettings.channelUrl || '', apiKey: youtubeSettings.apiKey || '',
+          playlistId: youtubeSettings.playlistId || '',  // Add playlistId
           autoSync: youtubeSettings.autoSync || false, syncInterval: youtubeSettings.syncInterval || 6,
           lastSync: youtubeSettings.lastSync, syncStatus: youtubeSettings.syncStatus || 'idle', syncError: youtubeSettings.syncError || ''
         }
@@ -211,6 +214,7 @@ export default function AdminSettings() {
           if (data.settings.youtube) {
             setYoutubeSettings({ channelId: data.settings.youtube.channelId || '', channelName: data.settings.youtube.channelName || '',
               channelUrl: data.settings.youtube.channelUrl || '', apiKey: data.settings.youtube.apiKey || '',
+              playlistId: data.settings.youtube.playlistId || '',  // Add playlistId
               autoSync: data.settings.youtube.autoSync || false, syncInterval: data.settings.youtube.syncInterval || 6,
               lastSync: data.settings.youtube.lastSync, syncStatus: data.settings.youtube.syncStatus || 'idle',
               syncError: data.settings.youtube.syncError || ''
@@ -230,7 +234,7 @@ export default function AdminSettings() {
     try {
       const response = await fetch('/api/sermons/youtube', {
         method: 'POST', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ channelId: youtubeSettings.channelId, channelUrl: youtubeSettings.channelUrl, apiKey: youtubeSettings.apiKey })
+        body: JSON.stringify({ channelId: youtubeSettings.channelId, channelUrl: youtubeSettings.channelUrl, apiKey: youtubeSettings.apiKey, playlistId: youtubeSettings.playlistId })
       })
       const data = await response.json()
       if (data.success) {
@@ -424,6 +428,11 @@ export default function AdminSettings() {
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">YouTube Channel URL *</label>
                   <input type="url" value={youtubeSettings.channelUrl} onChange={(e) => setYoutubeSettings({ ...youtubeSettings, channelUrl: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent" />
+                </div>
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Sermons Playlist ID (Optional)</label>
+                  <input type="text" value={youtubeSettings.playlistId} onChange={(e) => setYoutubeSettings({ ...youtubeSettings, playlistId: e.target.value })} placeholder="e.g., PLxxxxxxxxxxxxx" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent" />
+                  <p className="text-sm text-gray-500 mt-1">Leave empty to fetch all channel uploads. Enter a playlist ID to fetch only sermon videos from a specific playlist.</p>
                 </div>
                 <div className="mb-4">
                   <label className="block text-sm font-medium text-gray-700 mb-2">Channel Name</label>
