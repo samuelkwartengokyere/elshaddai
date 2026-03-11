@@ -2,6 +2,7 @@
 
 import Image from 'next/image'
 import Link from 'next/link'
+import { useState, useEffect } from 'react'
 import { 
   Users, 
   ArrowLeft, 
@@ -9,72 +10,23 @@ import {
   Phone, 
   ArrowRight,
   ChevronRight,
-  Sparkles
+  Sparkles,
+  Loader2
 } from 'lucide-react'
 
-// Full team data
-const leadershipTeam = [
-  {
-    id: '1',
-    name: 'Pastor John Smith',
-    role: 'Senior Pastor',
-    bio: 'Leading our congregation with wisdom and compassion for over 20 years. Pastor John has a heart for souls and a vision to see our community transformed by the power of God.',
-    image: '/images/team/pastor-john.jpg',
-    email: 'pastor.john@elshaddai.com',
-    phone: '+233 50 123 4567',
-    department: 'Senior Leadership'
-  },
-  {
-    id: '2',
-    name: 'Pastor Sarah Johnson',
-    role: 'Associate Pastor',
-    bio: 'Passionate about discipleship and community outreach. Sarah leads our connect groups and coordinates community service initiatives.',
-    image: '/images/team/pastor-sarah.jpg',
-    email: 'pastor.sarah@elshaddai.com',
-    phone: '+233 50 123 4568',
-    department: 'Discipleship & Outreach'
-  },
-  {
-    id: '3',
-    name: 'David Williams',
-    role: 'Worship Pastor',
-    bio: 'Guiding our worship team to create meaningful worship experiences. David has a gift for leading people into God\'s presence through music and praise.',
-    image: '/images/team/david.jpg',
-    email: 'david@elshaddai.com',
-    phone: '+233 50 123 4569',
-    department: 'Worship & Arts'
-  },
-  {
-    id: '4',
-    name: 'Mary Thompson',
-    role: "Children's Director",
-    bio: 'Dedicated to nurturing the faith of the next generation. Mary leads our children\'s ministry with creativity and love.',
-    image: '/images/team/mary.jpg',
-    email: 'mary@elshaddai.com',
-    phone: '+233 50 123 4570',
-    department: "Children's Ministry"
-  },
-  {
-    id: '5',
-    name: 'James Osei',
-    role: 'Youth Pastor',
-    bio: 'Empowering young people to discover their purpose in God. James leads our youth with energy and biblical wisdom.',
-    image: '/images/team/james.jpg',
-    email: 'james@elshaddai.com',
-    phone: '+233 50 123 4571',
-    department: 'Youth Ministry'
-  },
-  {
-    id: '6',
-    name: 'Grace Mensah',
-    role: 'Women\'s Ministry Leader',
-    bio: 'Encouraging women in their spiritual journey through fellowship, teaching, and support groups.',
-    image: '/images/team/grace.jpg',
-    email: 'grace@elshaddai.com',
-    phone: '+233 50 123 4572',
-    department: "Women's Ministry"
-  }
-]
+interface TeamMember {
+  _id: string
+  name: string
+  role: string
+  bio: string
+  image?: string
+  email?: string
+  phone?: string
+  department?: string
+  isLeadership: boolean
+  isPublished: boolean
+  order: number
+}
 
 const ministryTeams = [
   {
@@ -115,7 +67,129 @@ const ministryTeams = [
   }
 ]
 
+// Fallback leadership data in case API fails
+const fallbackLeadershipTeam: TeamMember[] = [
+  {
+    _id: '1',
+    name: 'Pastor John Smith',
+    role: 'Senior Pastor',
+    bio: 'Leading our congregation with wisdom and compassion for over 20 years. Pastor John has a heart for souls and a vision to see our community transformed by the power of God.',
+    image: '/images/team/pastor-john.jpg',
+    email: 'pastor.john@elshaddai.com',
+    phone: '+233 50 123 4567',
+    department: 'Senior Leadership',
+    isLeadership: true,
+    isPublished: true,
+    order: 1
+  },
+  {
+    _id: '2',
+    name: 'Pastor Sarah Johnson',
+    role: 'Associate Pastor',
+    bio: 'Passionate about discipleship and community outreach. Sarah leads our connect groups and coordinates community service initiatives.',
+    image: '/images/team/pastor-sarah.jpg',
+    email: 'pastor.sarah@elshaddai.com',
+    phone: '+233 50 123 4568',
+    department: 'Discipleship & Outreach',
+    isLeadership: true,
+    isPublished: true,
+    order: 2
+  },
+  {
+    _id: '3',
+    name: 'David Williams',
+    role: 'Worship Pastor',
+    bio: 'Guiding our worship team to create meaningful worship experiences. David has a gift for leading people into God\'s presence through music and praise.',
+    image: '/images/team/david.jpg',
+    email: 'david@elshaddai.com',
+    phone: '+233 50 123 4569',
+    department: 'Worship & Arts',
+    isLeadership: true,
+    isPublished: true,
+    order: 3
+  },
+  {
+    _id: '4',
+    name: 'Mary Thompson',
+    role: "Children's Director",
+    bio: 'Dedicated to nurturing the faith of the next generation. Mary leads our children\'s ministry with creativity and love.',
+    image: '/images/team/mary.jpg',
+    email: 'mary@elshaddai.com',
+    phone: '+233 50 123 4570',
+    department: "Children's Ministry",
+    isLeadership: true,
+    isPublished: true,
+    order: 4
+  },
+  {
+    _id: '5',
+    name: 'James Osei',
+    role: 'Youth Pastor',
+    bio: 'Empowering young people to discover their purpose in God. James leads our youth with energy and biblical wisdom.',
+    image: '/images/team/james.jpg',
+    email: 'james@elshaddai.com',
+    phone: '+233 50 123 4571',
+    department: 'Youth Ministry',
+    isLeadership: true,
+    isPublished: true,
+    order: 5
+  },
+  {
+    _id: '6',
+    name: 'Grace Mensah',
+    role: 'Women\'s Ministry Leader',
+    bio: 'Encouraging women in their spiritual journey through fellowship, teaching, and support groups.',
+    image: '/images/team/grace.jpg',
+    email: 'grace@elshaddai.com',
+    phone: '+233 50 123 4572',
+    department: "Women's Ministry",
+    isLeadership: true,
+    isPublished: true,
+    order: 6
+  }
+]
+
 export default function TeamPage() {
+  const [leadershipTeam, setLeadershipTeam] = useState<TeamMember[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    fetchLeadershipTeam()
+  }, [])
+
+  const fetchLeadershipTeam = async () => {
+    try {
+      const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
+      const res = await fetch(`${baseUrl}/api/teams?limit=20&leadership=true`, {
+        cache: 'no-store'
+      })
+      
+      if (!res.ok) {
+        throw new Error('Failed to fetch team')
+      }
+      
+      const data = await res.json()
+      
+      if (data.teamMembers && data.teamMembers.length > 0) {
+        // Sort by order
+        const sorted = [...data.teamMembers].sort((a, b) => a.order - b.order)
+        setLeadershipTeam(sorted)
+      } else {
+        // Use fallback if no data from API
+        setLeadershipTeam(fallbackLeadershipTeam)
+      }
+    } catch (err) {
+      console.error('Error fetching leadership team:', err)
+      // Use fallback data on error
+      setLeadershipTeam(fallbackLeadershipTeam)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  // Determine which team to display
+  const displayTeam = leadershipTeam.length > 0 ? leadershipTeam : fallbackLeadershipTeam
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -148,68 +222,83 @@ export default function TeamPage() {
               </p>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
-              {leadershipTeam.map((leader) => (
-                <div 
-                  key={leader.id} 
-                  className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition duration-300"
-                >
-                  {/* Profile Image */}
-                  <div className="bg-gray-200 h-64 flex items-center justify-center relative">
-                    {leader.image && leader.image !== '/images/team/default.jpg' ? (
-                      <Image
-                        src={leader.image}
-                        alt={leader.name}
-                        fill
-                        className="object-cover"
-                      />
-                    ) : (
-                      <div className="text-center p-8">
-                        <div className="w-32 h-32 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
-                          <span className="text-4xl font-bold text-accent">
-                            {leader.name.split(' ').map(n => n[0]).join('')}
-                          </span>
+            {/* Loading State */}
+            {loading && (
+              <div className="flex justify-center items-center py-20">
+                <Loader2 className="h-8 w-8 animate-spin text-accent" />
+                <span className="ml-2 text-gray-600">Loading leadership team...</span>
+              </div>
+            )}
+
+            {/* Leadership Team Grid */}
+            {!loading && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
+                {displayTeam.map((leader) => (
+                  <div 
+                    key={leader._id} 
+                    className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition duration-300"
+                  >
+                    {/* Profile Image */}
+                    <div className="bg-gray-200 h-64 flex items-center justify-center relative">
+                      {leader.image && leader.image !== '/images/team/default.jpg' ? (
+                        <Image
+                          src={leader.image}
+                          alt={leader.name}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <div className="text-center p-8">
+                          <div className="w-32 h-32 bg-accent/10 rounded-full flex items-center justify-center mx-auto mb-4">
+                            <span className="text-4xl font-bold text-accent">
+                              {leader.name.split(' ').map(n => n[0]).join('')}
+                            </span>
+                          </div>
                         </div>
+                      )}
+                    </div>
+                    
+                    <div className="p-6">
+                      {/* Department Badge */}
+                      <span className="inline-block px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full mb-3">
+                        {leader.department}
+                      </span>
+                      
+                      {/* Name & Role */}
+                      <h3 className="text-xl font-bold mb-1">{leader.name}</h3>
+                      <p className="text-accent font-medium mb-4">{leader.role}</p>
+                      
+                      {/* Bio */}
+                      <p className="text-gray-600 text-sm mb-4 line-clamp-3">
+                        {leader.bio}
+                      </p>
+                      
+                      {/* Contact */}
+                      <div className="space-y-2 pt-4 border-t">
+                        {leader.email && (
+                          <a 
+                            href={`mailto:${leader.email}`}
+                            className="flex items-center text-sm text-gray-600 hover:text-accent transition duration-300"
+                          >
+                            <Mail className="h-4 w-4 mr-2" />
+                            {leader.email}
+                          </a>
+                        )}
+                        {leader.phone && (
+                          <a 
+                            href={`tel:${leader.phone}`}
+                            className="flex items-center text-sm text-gray-600 hover:text-accent transition duration-300"
+                          >
+                            <Phone className="h-4 w-4 mr-2" />
+                            {leader.phone}
+                          </a>
+                        )}
                       </div>
-                    )}
-                  </div>
-                  
-                  <div className="p-6">
-                    {/* Department Badge */}
-                    <span className="inline-block px-3 py-1 bg-primary/10 text-primary text-xs font-medium rounded-full mb-3">
-                      {leader.department}
-                    </span>
-                    
-                    {/* Name & Role */}
-                    <h3 className="text-xl font-bold mb-1">{leader.name}</h3>
-                    <p className="text-accent font-medium mb-4">{leader.role}</p>
-                    
-                    {/* Bio */}
-                    <p className="text-gray-600 text-sm mb-4 line-clamp-3">
-                      {leader.bio}
-                    </p>
-                    
-                    {/* Contact */}
-                    <div className="space-y-2 pt-4 border-t">
-                      <a 
-                        href={`mailto:${leader.email}`}
-                        className="flex items-center text-sm text-gray-600 hover:text-accent transition duration-300"
-                      >
-                        <Mail className="h-4 w-4 mr-2" />
-                        {leader.email}
-                      </a>
-                      <a 
-                        href={`tel:${leader.phone}`}
-                        className="flex items-center text-sm text-gray-600 hover:text-accent transition duration-300"
-                      >
-                        <Phone className="h-4 w-4 mr-2" />
-                        {leader.phone}
-                      </a>
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
+                ))}
+              </div>
+            )}
           </div>
         </div>
       </section>
