@@ -5,6 +5,7 @@ export interface IYouTubeSettings {
   channelName: string
   channelUrl: string
   apiKey: string
+  playlistId: string
   autoSync: boolean
   syncInterval: number // hours
   lastSync: Date | null
@@ -37,6 +38,10 @@ const YouTubeSettingsSchema = new Schema<IYouTubeSettings>({
     default: ''
   },
   apiKey: {
+    type: String,
+    default: ''
+  },
+  playlistId: {
     type: String,
     default: ''
   },
@@ -86,6 +91,7 @@ const SettingsSchema = new Schema<ISettings>({
       channelName: '',
       channelUrl: '',
       apiKey: '',
+      playlistId: '',
       autoSync: false,
       syncInterval: 6,
       lastSync: null,

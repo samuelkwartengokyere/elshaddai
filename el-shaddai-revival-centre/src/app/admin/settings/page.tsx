@@ -17,7 +17,9 @@ import {
   User,
   Upload,
   Youtube,
-  Wrench
+  Wrench,
+  RefreshCw,
+  Clock
 } from 'lucide-react'
 
 interface Settings {
@@ -245,6 +247,34 @@ export default function AdminSettings() {
     finally { setSyncing(false) }
   }
 
+  // Extract playlist ID from various YouTube URL formats
+  const extractPlaylistId = (url: string): string => {
+    if (!url) return ''
+    
+    // Match: playlist?list=PLxxxxxxxxxxxxx
+    const playlistMatch = url.match(/[?&]list=([a-zA-Z0-9_-]+)/)
+    if (playlistMatch && playlistMatch[1]) {
+      return playlistMatch[1]
+    }
+    
+    // If it's already just a playlist ID (starts with PL, PLp, etc.)
+    if (url.match(/^[a-zA-Z0-9_-]{20,40}$/)) {
+      return url
+    }
+    
+    return ''
+  }
+
+  const handleExtractPlaylistId = () => {
+    const extractedId = extractPlaylistId(youtubeSettings.playlistId || youtubeSettings.channelUrl)
+    if (extractedId) {
+      setYoutubeSettings({ ...youtubeSettings, playlistId: extractedId })
+      setSyncMessage({ type: 'success', text: `Extracted playlist ID: ${extractedId}` })
+    } else {
+      setSyncMessage({ type: 'error', text: 'Could not extract playlist ID from the provided URL' })
+    }
+  }
+
   const handleLogoUrlChange = (url: string) => { setSettings({ ...settings, logoUrl: url }); setLogoPreview(url) }
 
   const handleTabChange = (tab: Tab) => { setActiveTab(tab); if (tab === 'admins' && admins.length === 0) { fetchAdmins() } }
@@ -423,30 +453,119 @@ export default function AdminSettings() {
         {activeTab === 'youtube' && (
           <div className="bg-white rounded-xl shadow-md p-6">
             <div className="flex items-center mb-6"><Youtube className="h-6 w-6 text-red-600 mr-3" /><h2 className="text-xl font-bold text-gray-800">YouTube Channel Settings</h2></div>
+            
+            {/* Sync Status Display */}
+            {youtubeSettings.lastSync && (
+              <div className="mb-6 p-4 bg-gray-50 rounded-lg flex items-center justify-between">
+                <div className="flex items-center text-sm text-gray-600">
+                  <Clock className="h-4 w-4 mr-2" />
+                  Last synced: {new Date(youtubeSettings.lastSync).toLocaleString()}
+                </div>
+                <div className={`px-3 py-1 rounded-full text-xs font-medium ${
+                  youtubeSettings.syncStatus === 'success' ? 'bg-green-100 text-green-800' :
+                  youtubeSettings.syncStatus === 'error' ? 'bg-red-100 text-red-800' :
+                  youtubeSettings.syncStatus === 'syncing' ? 'bg-yellow-100 text-yellow-800' :
+                  'bg-gray-100 text-gray-800'
+                }`}>
+                  {youtubeSettings.syncStatus === 'success' ? '✓ Synced' :
+                   youtubeSettings.syncStatus === 'error' ? '✗ Error' :
+                   youtubeSettings.syncStatus === 'syncing' ? '⟳ Syncing...' :
+                   'Idle'}
+                </div>
+              </div>
+            )}
+
+            {/* Sync Message */}
+            {syncMessage && (
+              <div className={`mb-6 p-4 rounded-lg flex items-center ${syncMessage.type === 'success' ? 'bg-green-50 border border-green-200 text-green-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+                {syncMessage.type === 'success' ? <CheckCircle className="h-5 w-5 mr-3" /> : <AlertCircle className="h-5 w-5 mr-3" />}
+                {syncMessage.text}
+              </div>
+            )}
+            
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">YouTube Channel URL *</label>
-                  <input type="url" value={youtubeSettings.channelUrl} onChange={(e) => setYoutubeSettings({ ...youtubeSettings, channelUrl: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent" />
+                  <label className="block text-sm font-medium text-gray-700 mb-2">YouTube Playlist URL or ID</label>
+                  <div className="flex gap-2">
+                    <input 
+                      type="text" 
+                      value={youtubeSettings.playlistId} 
+                      onChange={(e) => setYoutubeSettings({ ...youtubeSettings, playlistId: e.target.value })} 
+                      placeholder="Paste full playlist URL or just the ID" 
+                      className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent" 
+                    />
+                    <button 
+                      onClick={handleExtractPlaylistId}
+                      className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center"
+                      title="Extract Playlist ID from URL"
+                    >
+                      <RefreshCw className="h-4 w-4" />
+                    </button>
+                  </div>
+                  <p className="text-sm text-gray-500 mt-1">Paste your playlist URL: https://youtube.com/playlist?list=PLnsERQ-tij2GegNkZ2G-3VZRBodovqWWp</p>
                 </div>
+                
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Sermons Playlist ID (Optional)</label>
-                  <input type="text" value={youtubeSettings.playlistId} onChange={(e) => setYoutubeSettings({ ...youtubeSettings, playlistId: e.target.value })} placeholder="e.g., PLxxxxxxxxxxxxx" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent" />
-                  <p className="text-sm text-gray-500 mt-1">Leave empty to fetch all channel uploads. Enter a playlist ID to fetch only sermon videos from a specific playlist.</p>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">API Key (Required)</label>
+                  <input 
+                    type="text" 
+                    value={youtubeSettings.apiKey} 
+                    onChange={(e) => setYoutubeSettings({ ...youtubeSettings, apiKey: e.target.value })} 
+                    placeholder="Enter your YouTube Data API v3 key" 
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent" 
+                  />
+                  <p className="text-sm text-gray-500 mt-1">Get your API key from Google Cloud Console</p>
                 </div>
+
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Channel Name</label>
-                  <input type="text" value={youtubeSettings.channelName} onChange={(e) => setYoutubeSettings({ ...youtubeSettings, channelName: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent" />
+                  <label className="flex items-center">
+                    <input 
+                      type="checkbox" 
+                      checked={youtubeSettings.autoSync} 
+                      onChange={(e) => setYoutubeSettings({ ...youtubeSettings, autoSync: e.target.checked })} 
+                      className="h-4 w-4 mr-2 text-accent focus:ring-accent"
+                    />
+                    <span className="text-sm font-medium text-gray-700">Enable Auto-Sync</span>
+                  </label>
+                  <p className="text-sm text-gray-500 mt-1 ml-6">Automatically fetch new videos when they are added to the playlist</p>
                 </div>
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">API Key (Optional)</label>
-                  <input type="text" value={youtubeSettings.apiKey} onChange={(e) => setYoutubeSettings({ ...youtubeSettings, apiKey: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent" />
-                </div>
+
+                {youtubeSettings.autoSync && (
+                  <div className="mb-4 ml-6">
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Sync Interval</label>
+                    <select 
+                      value={youtubeSettings.syncInterval} 
+                      onChange={(e) => setYoutubeSettings({ ...youtubeSettings, syncInterval: parseInt(e.target.value) })} 
+                      className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
+                    >
+                      <option value={1}>Every 1 hour</option>
+                      <option value={3}>Every 3 hours</option>
+                      <option value={6}>Every 6 hours</option>
+                      <option value={12}>Every 12 hours</option>
+                      <option value={24}>Every 24 hours</option>
+                    </select>
+                  </div>
+                )}
               </div>
             </div>
-            <div className="mt-8 pt-6 border-t border-gray-200">
-              <button onClick={() => handleSave(false)} disabled={saving} className="flex items-center px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50">
+            
+            <div className="mt-8 pt-6 border-t border-gray-200 flex flex-wrap gap-4">
+              <button 
+                onClick={() => handleSave(false)} 
+                disabled={saving} 
+                className="flex items-center px-6 py-3 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:opacity-50"
+              >
                 {saving ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Saving...</> : <><Save className="h-5 w-5 mr-2" />Save Settings</>}
+              </button>
+              
+              <button 
+                onClick={handleSyncYouTube} 
+                disabled={syncing || !youtubeSettings.playlistId || !youtubeSettings.apiKey} 
+                className="flex items-center px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
+                title={!youtubeSettings.playlistId ? "Please enter a Playlist ID first" : !youtubeSettings.apiKey ? "Please enter an API Key first" : "Sync now"}
+              >
+                {syncing ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Syncing...</> : <><RefreshCw className="h-5 w-5 mr-2" />Sync Now</>}
               </button>
             </div>
           </div>

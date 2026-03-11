@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback } from 'react'
 import { Play, Users, MessageCircle, Clock, Calendar, RefreshCw, AlertCircle } from 'lucide-react'
+import { motion } from 'framer-motion'
 
 interface StreamInfo {
   title: string
@@ -362,20 +363,34 @@ export default function LiveStream() {
               )}
 
               {/* Service Times */}
-              <div className="border-t pt-6">
+              <motion.div 
+                className="border-t pt-6"
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true, amount: 0.3 }}
+                transition={{ duration: 0.6 }}
+              >
                 <h3 className="text-lg font-bold mb-4">Service Times</h3>
                 <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                  {serviceTimes.map((service) => (
-                    <div key={service.day} className="text-center p-4 bg-gray-50 rounded-lg">
+                  {serviceTimes.map((service, index) => (
+                    <motion.div 
+                      key={service.day} 
+                      className="text-center p-4 bg-gray-50 rounded-lg"
+                      initial={{ opacity: 0, y: 20 }}
+                      whileInView={{ opacity: 1, y: 0 }}
+                      viewport={{ once: true }}
+                      transition={{ duration: 0.5, delay: index * 0.1 }}
+                      whileHover={{ scale: 1.03, y: -3 }}
+                    >
                       <h4 className="font-bold text-primary">{service.day}</h4>
                       <p className="text-gray-600">
                         {service.times.join(' & ')}
                       </p>
                       <p className="text-sm text-accent mt-1">{service.label}</p>
-                    </div>
+                    </motion.div>
                   ))}
                 </div>
-              </div>
+              </motion.div>
             </div>
           </div>
 

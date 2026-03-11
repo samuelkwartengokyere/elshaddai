@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { Heart, Shield, CheckCircle, AlertCircle } from 'lucide-react'
+import { motion } from 'framer-motion'
 // PaystackInline will be loaded dynamically
 
 interface FormData {
@@ -278,7 +279,7 @@ export default function DonationForm() {
           )}
           <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4">
             {presetAmounts.map((amt) => (
-              <button
+              <motion.button
                 key={amt}
                 type="button"
                 onClick={() => {
@@ -291,9 +292,11 @@ export default function DonationForm() {
                     ? 'border-accent bg-red-50 text-accent'
                     : 'border-gray-300 hover:border-gray-400'
                 }`}
+                whileHover={{ scale: 1.05 }}
+                whileTap={{ scale: 0.95 }}
               >
                 ${amt}
-              </button>
+              </motion.button>
             ))}
           </div>
           

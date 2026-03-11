@@ -2,6 +2,7 @@
 import Image from 'next/image'
 import { PlayCircle, Calendar, User, Youtube, ExternalLink, X } from 'lucide-react'
 import { useState } from 'react'
+import { motion } from 'framer-motion'
 
 interface SermonCardProps {
   sermon: {
@@ -49,7 +50,11 @@ export default function SermonCard({ sermon, source }: SermonCardProps) {
 
   return (
     <>
-      <div className={`bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition duration-300 ${isYouTube ? 'ring-2 ring-red-100' : ''}`}>
+      <motion.div 
+        className={`bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition duration-300 ${isYouTube ? 'ring-2 ring-red-100' : ''}`}
+        whileHover={{ y: -5, scale: 1.02 }}
+        transition={{ duration: 0.3 }}
+      >
         {/* YouTube Badge */}
         {isYouTube && (
           <div className="bg-red-600 text-white px-3 py-1 flex items-center text-xs font-medium">
@@ -163,7 +168,7 @@ export default function SermonCard({ sermon, source }: SermonCardProps) {
             )}
           </div>
         </div>
-      </div>
+      </motion.div>
 
       {/* Video Modal / Lightbox */}
       {showVideoModal && (
