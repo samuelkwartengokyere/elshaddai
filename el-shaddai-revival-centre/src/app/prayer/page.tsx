@@ -70,25 +70,38 @@ export default function PrayerPage() {
 
     setIsSubmitting(true)
 
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1500))
+    try {
+      const response = await fetch('/api/prayer', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
 
-    setSubmitStatus('success')
-    setIsSubmitting(false)
+      const data = await response.json();
 
-    // Reset form
-    setFormData({
-      name: '',
-      email: '',
-      phone: '',
-      type: 'personal',
-      isPrivate: true,
-      request: '',
-      answeredPrayer: false
-    })
-
-    // Reset status after 5 seconds
-    setTimeout(() => setSubmitStatus('idle'), 5000)
+      if (data.success) {
+        setSubmitStatus('success');
+        setFormData({
+          name: '',
+          email: '',
+          phone: '',
+          type: 'personal',
+          isPrivate: true,
+          request: '',
+          answeredPrayer: false
+        });
+        setTimeout(() => setSubmitStatus('idle'), 5000);
+      } else {
+        setSubmitStatus('error');
+        setTimeout(() => setSubmitStatus('idle'), 5000);
+      }
+    } catch (error) {
+      console.error('Prayer submit error:', error);
+      setSubmitStatus('error');
+      setTimeout(() => setSubmitStatus('idle'), 5000);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   const handleFieldChange = (field: keyof PrayerRequest, value: string | boolean) => {
@@ -361,7 +374,7 @@ export default function PrayerPage() {
               <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl">
                 <Mail className="h-8 w-8 text-accent mx-auto mb-3" />
                 <h3 className="font-bold mb-2">Email</h3>
-                <p className="opacity-90">prayer@elshaddai.com</p>
+                <p className="opacity-90">prayerrequest.copelshaddai@gmail.com</p>
               </div>
               <div className="bg-white/10 backdrop-blur-sm p-6 rounded-xl">
                 <Clock className="h-8 w-8 text-accent mx-auto mb-3" />

@@ -25,28 +25,28 @@ const ministryContacts = [
   {
     icon: Users,
     title: 'Pastoral Care',
-    email: 'pastoralcare@elshaddai.com',
+    email: 'info.copelshaddai@gmail.com',
     phone: '+233 50 123 4568',
     description: 'Prayer requests, counseling, pastoral visits'
   },
   {
     icon: Calendar,
     title: 'Events & Ministries',
-    email: 'events@elshaddai.com',
+    email: 'info.copelshaddai@gmail.com',
     phone: '+233 50 123 4569',
     description: 'Event bookings, ministry partnerships'
   },
   {
     icon: Heart,
     title: 'Benevolence & Outreach',
-    email: 'outreach@elshaddai.com',
+    email: 'info.copelshaddai@gmail.com',
     phone: '+233 50 123 4570',
     description: 'Community outreach, assistance programs'
   },
   {
     icon: Headphones,
     title: 'Technical Support',
-    email: 'support@elshaddai.com',
+    email: 'info.copelshaddai@gmail.com',
     phone: '+233 50 123 4571',
     description: 'Live stream issues, website support'
   }
@@ -95,16 +95,32 @@ function ContactForm() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
-    
-    // Simulate form submission
-    await new Promise(resolve => setTimeout(resolve, 1500))
-    
-    setSubmitStatus('success')
-    setIsSubmitting(false)
-    setFormData({ name: '', email: '', phone: '', subject: '', message: '' })
-    
-    // Reset status after 3 seconds
-    setTimeout(() => setSubmitStatus('idle'), 3000)
+    setSubmitStatus('idle')
+
+    try {
+      const response = await fetch('/api/contact', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(formData),
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setSubmitStatus('success');
+        setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
+        setTimeout(() => setSubmitStatus('idle'), 5000);
+      } else {
+        setSubmitStatus('error');
+        setTimeout(() => setSubmitStatus('idle'), 5000);
+      }
+    } catch (error) {
+      console.error('Submit error:', error);
+      setSubmitStatus('error');
+      setTimeout(() => setSubmitStatus('idle'), 5000);
+    } finally {
+      setIsSubmitting(false);
+    }
   }
 
   return (
@@ -217,10 +233,16 @@ function ContactForm() {
         )}
       </button>
       
-      {submitStatus === 'success' && (
+{submitStatus === 'success' && (
         <div className="bg-green-100 border border-green-400 text-green-700 px-4 py-3 rounded-lg">
-          <p className="font-medium">Thank you for your message!</p>
-          <p>We&apos;ll get back to you within 24-48 hours.</p>
+          <p className="font-medium">✅ Message sent successfully!</p>
+          <p>You&apos;ll receive a confirmation email shortly. We&apos;ll reply within 24-48 hours.</p>
+        </div>
+      )}
+      {submitStatus === 'error' && (
+        <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
+          <p className="font-medium">❌ Failed to send message.</p>
+          <p>Please try again or email info.copelshaddai@gmail.com directly.</p>
         </div>
       )}
     </form>
@@ -311,7 +333,7 @@ export default function ContactPage() {
                 </div>
                 <h3 className="text-xl font-bold mb-3">Email Us</h3>
                 <p className="text-gray-600">
-                  info@elshaddai.com<br />
+                  info.copelshaddai@gmail.com<br />
                   We reply within 48hrs
                 </p>
               </div>

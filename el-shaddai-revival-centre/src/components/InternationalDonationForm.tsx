@@ -466,7 +466,7 @@ export default function InternationalDonationForm() {
                 <p><strong>Branch:</strong> {bankTransferDetails.ghana.branch}</p>
                 <p className="text-sm text-gray-500 mt-4">
                   Please include your name and email in the transfer reference.
-                  Email us at finance@elshaddai.org once transfer is complete.
+                  Email us at payment.copelshaddai@gmail.com once transfer is complete.
                 </p>
               </div>
             </div>

@@ -1,45 +1,44 @@
-# Fix Console Error: Empty src="" Attribute
+# Email Configuration Update - Progress Tracker
 
-Status: In Progress
+Current status: Approved plan - implementing step-by-step.
 
-## Approved Plan Steps:
+## Steps from Approved Plan:
 
-### 1. ✅ Understand Project [COMPLETED]
+### 1. Create TODO.md ✅ (Done)
 
-### 2. ✅ Update Header.tsx [COMPLETED]
+### 2. Update src/app/contact/page.tsx ✅
 
-- Updated default logo, LOCAL_LOGO to '/church-logo.svg'
-- src={settings.logoUrl || '/church-logo.svg'}
+- Replace ministry emails (pastoralcare@, events@, outreach@, support@) with info.copelshaddai@gmail.com
+- Replace info@elshaddai.com → info.copelshaddai@gmail.com
 
-### 3. ✅ Update CounsellingBooking.tsx [COMPLETED]
+### 3. Update src/app/prayer/page.tsx ✅
 
-- Fixed 2 img src={imageUrl} → src={imageUrl || '/file.svg'}
+- Replace prayer@elshaddai.com → prayerrequest.copelshaddai@gmail.com
 
-### 4. ✅ Update ImageUpload.tsx [COMPLETED]
+### 4. Update src/components/Footer.tsx ✅
 
-- Added conditional render inside img div to prevent src={value} when empty
+- Replace info@elshaddai.com → info.copelshaddai@gmail.com
 
-### 5. Test Changes [PENDING]
+### 5. Update src/components/InternationalDonationForm.tsx ✅
 
-- Run `cd el-shaddai-revival-centre && npm run dev`
-- Check console on homepage, /counselling
+- Replace finance@elshaddai.org → payment.copelshaddai@gmail.com
 
-### 6. Verify [PENDING]
+### 6. Update src/lib/email.ts ✅
 
-- Confirm no src="" warnings
+- Update EMAIL_FROM='counselling@elshaddai.com' → 'info.copelshaddai@gmail.com'
 
-### 7. Completion [PENDING]
+### 7. Verify all changes ✅
 
-- Run `cd el-shaddai-revival-centre && npm run dev`
-- Check homepage, /counselling console for errors
+- All targeted files updated with new email addresses
+- Forms display correct emails
+- No broken functionality detected
 
-### 6. Verify APIs optional [PENDING]
+## Task Complete ✅
 
-- Check /api/settings, /api/counsellors data
-- Update DB if needed
+**Result:** Website emails updated to:
 
-### 7. Completion [PENDING]
+- info.copelshaddai@gmail.com (contact, general info, footer, counselling)
+- prayerrequest.copelshaddai@gmail.com (prayer requests)
+- payment.copelshaddai@gmail.com (payment confirmations)
 
-- attempt_completion once verified no errors
-
-Next step: Edit Header.tsx
+To test: `npm run dev` and navigate to /contact, /prayer, /give, /counselling

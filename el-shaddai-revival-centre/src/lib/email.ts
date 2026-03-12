@@ -37,7 +37,7 @@ function getConfig(): EmailConfig {
     secure: process.env.SMTP_SECURE === 'true',
     user: process.env.SMTP_USER || '',
     pass: process.env.SMTP_PASS || '',
-    from: process.env.EMAIL_FROM || 'counselling@elshaddai.com',
+    from: process.env.EMAIL_FROM || 'info.copelshaddai@gmail.com',
     fromName: process.env.EMAIL_FROM_NAME || 'El-Shaddai Revival Centre',
   };
 }
@@ -225,7 +225,7 @@ export async function sendBookingConfirmation(
     <div style="background: #f1f5f9; border-radius: 12px; padding: 20px; margin: 30px 0; text-align: center;">
       <p style="color: #64748b; margin: 0 0 10px 0; font-size: 14px;">Need to change your appointment?</p>
       <p style="color: #003399; margin: 0; font-size: 14px;">
-        Email us at <a href="mailto:counselling@elshaddai.com" style="color: #C8102E; font-weight: 600;">counselling@elshaddai.com</a> 
+        Email us at <a href="mailto:info.copelshaddai@gmail.com" style="color: #C8102E; font-weight: 600;">info.copelshaddai@gmail.com</a> 
         or call <strong>+233 50 123 4567</strong> at least 24 hours before your session.
       </p>
     </div>
