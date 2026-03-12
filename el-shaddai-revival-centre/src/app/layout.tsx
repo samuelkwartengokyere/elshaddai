@@ -1,6 +1,6 @@
 // Using system fonts instead of Google Fonts to avoid build-time network dependency
 import './globals.css'
-import Header from '@/components/Header'
+import Header from '@/components/Header-fixed'
 import Footer from '@/components/Footer'
 import ClientLayout from '@/components/ClientLayout'
 

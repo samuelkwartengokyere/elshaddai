@@ -19,7 +19,9 @@ interface NavItem {
 
 const defaultSettings: Settings = {
   churchName: 'El-Shaddai Revival Centre',
-  churchTagline: 'The Church Of Pentecost',\n  logoUrl: '/church-logo.svg'\n}
+  churchTagline: 'The Church Of Pentecost',
+  logoUrl: '/church-logo.svg'
+}
 
 const LOCAL_LOGO = '/church-logo.svg'
 
@@ -32,7 +34,6 @@ export default function Header() {
   const [logoError, setLogoError] = useState(false)
   const mediaDropdownRef = useRef<HTMLDivElement>(null)
 
-  // Memoize navItems to prevent recreation on re-renders
   const navItems = useMemo<NavItem[]>(() => [
     { name: 'Home', href: '/' },
     { name: 'About Us', href: '/about' },
@@ -56,7 +57,6 @@ export default function Header() {
     fetchSettings()
   }, [])
 
-  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (mediaDropdownRef.current && !mediaDropdownRef.current.contains(event.target as Node)) {
@@ -72,18 +72,16 @@ export default function Header() {
       const response = await fetch('/api/settings')
       const data = await response.json()
       
-      if (data.success && data.settings) {
+      if (data.success && data.settings && data.settings.logoUrl) {
         setSettings(data.settings)
       }
     } catch (error) {
       console.error('Error fetching settings:', error)
-      // Use default settings on error
     } finally {
       setLoading(false)
     }
   }
 
-  // Desktop Navigation Item Component
   const DesktopNavItem = ({ item }: { item: NavItem }) => {
     if (item.dropdown) {
       return (
@@ -105,7 +103,6 @@ export default function Header() {
             />
           </button>
 
-          {/* Dropdown Menu */}
           <AnimatePresence>
             {isMediaOpen && (
               <motion.div
@@ -149,7 +146,6 @@ export default function Header() {
     )
   }
 
-  // Mobile Navigation Item Component
   const MobileNavItem = ({ item, level = 0 }: { item: NavItem; level?: number }) => {
     const hasDropdown = item.dropdown && item.dropdown.length > 0
 
@@ -210,13 +206,12 @@ export default function Header() {
               transition={{ duration: 0.3 }}
             >
               <Image
-src={settings.logoUrl || '/church-logo.svg'}
+                src={settings.logoUrl || '/church-logo.svg'}
                 alt={settings.churchName || 'Church Logo'}
                 width={50}
                 height={50}
                 className="object-contain"
                 priority
-                onError={() => setLogoError(true)}
               />
             </motion.div>
             <div className="flex flex-col">
@@ -235,14 +230,12 @@ src={settings.logoUrl || '/church-logo.svg'}
             </div>
           </Link>
 
-          {/* Desktop Navigation */}
           <nav className="hidden md:flex space-x-8">
             {navItems.map((item) => (
               <DesktopNavItem key={item.name} item={item} />
             ))}
           </nav>
 
-          {/* Mobile menu button */}
           <motion.button
             className="md:hidden"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -253,7 +246,6 @@ src={settings.logoUrl || '/church-logo.svg'}
           </motion.button>
         </div>
 
-        {/* Mobile Navigation */}
         <AnimatePresence>
           {isMenuOpen && (
             <motion.div

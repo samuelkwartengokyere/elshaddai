@@ -28,61 +28,8 @@ interface Availability {
   endTime: string;
 }
 
-// Initial sample data (to be replaced by admin-created data)
-const initialCounsellors: StoredCounsellor[] = [
-  {
-    id: 'counsellor-1',
-    name: 'Pastor John Smith',
-    title: 'Senior Pastoral Counsellor',
-    specialization: ['Marriage & Family', 'Pre-Marital', 'Faith & Spiritual'],
-    bio: 'Pastor John has over 15 years of experience in pastoral counselling. He specializes in marriage preparation, family therapy, and spiritual guidance.',
-    imageUrl: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=400&h=400&fit=crop&crop=face',
-    email: 'counselling@elshaddai.com',
-    phone: '+233 50 123 4567',
-    availability: [
-      { dayOfWeek: 1, startTime: '09:00', endTime: '17:00' },
-      { dayOfWeek: 2, startTime: '09:00', endTime: '17:00' },
-      { dayOfWeek: 3, startTime: '09:00', endTime: '17:00' },
-      { dayOfWeek: 4, startTime: '09:00', endTime: '17:00' },
-      { dayOfWeek: 5, startTime: '09:00', endTime: '15:00' },
-    ],
-    isOnline: true,
-    isInPerson: true,
-    yearsOfExperience: 15,
-    rating: 4.9,
-    reviewCount: 127,
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-  {
-    id: 'counsellor-2',
-    name: 'Dr. Sarah Johnson',
-    title: 'Licensed Clinical Psychologist',
-    specialization: ['Anxiety & Stress', 'Depression', 'Grief & Loss', 'Relationship Issues'],
-    bio: 'Dr. Sarah is a licensed clinical psychologist with a doctorate in Clinical Psychology.',
-    imageUrl: 'https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=400&h=400&fit=crop&crop=face',
-    email: 'dr.sarah@elshaddai.com',
-    phone: '+233 50 234 5678',
-    availability: [
-      { dayOfWeek: 1, startTime: '10:00', endTime: '18:00' },
-      { dayOfWeek: 2, startTime: '10:00', endTime: '18:00' },
-      { dayOfWeek: 3, startTime: '10:00', endTime: '18:00' },
-      { dayOfWeek: 4, startTime: '10:00', endTime: '18:00' },
-      { dayOfWeek: 5, startTime: '10:00', endTime: '16:00' },
-    ],
-    isOnline: true,
-    isInPerson: true,
-    yearsOfExperience: 12,
-    rating: 4.8,
-    reviewCount: 98,
-    isActive: true,
-    createdAt: new Date(),
-    updatedAt: new Date(),
-  },
-];
-
-const inMemoryCounsellors: StoredCounsellor[] = [...initialCounsellors];
+// NO MOCK DATA - Empty initial state for admin-created counsellors only
+const inMemoryCounsellors: StoredCounsellor[] = [];
 
 // GET - Fetch all active counselors
 export async function GET(request: NextRequest) {

@@ -145,7 +145,7 @@ export default function DepartmentTeamPage({ params }: { params: Promise<{ depar
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8">
                 {teamMembers.map((member, index) => (
                   <div 
-                    key={member._id || index.toString()} 
+                    key={member.id || index.toString()} 
                     className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition duration-300"
                   >
                     <div className="bg-gray-200 h-64 flex items-center justify-center relative">

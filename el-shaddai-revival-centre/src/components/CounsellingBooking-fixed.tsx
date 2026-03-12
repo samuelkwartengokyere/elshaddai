@@ -44,18 +44,11 @@ interface ApiResponse {
 }
 
 export default function CounsellingBooking({ initialCountry = 'GH' }: CounsellingBookingProps) {
-  // Current step
   const [currentStep, setCurrentStep] = useState<BookingStep>('counsellor');
-
-  // Counsellor selection
   const [selectedCounsellor, setSelectedCounsellor] = useState<Counsellor | null>(null);
-
-  // Fetched counselors from API
   const [counsellors, setCounsellors] = useState<Counsellor[]>([]);
   const [loadingCounsellors, setLoadingCounsellors] = useState(true);
   const [counsellorsError, setCounsellorsError] = useState<string | null>(null);
-
-  // Form data
   const [formData, setFormData] = useState<BookingFormData>({
     firstName: '',
     lastName: '',
@@ -71,20 +64,13 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
     topic: '',
     notes: '',
   });
-
-  // Time slots
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
-
-  // Booking result
   const [bookingResult, setBookingResult] = useState<ApiResponse['data'] | null>(null);
   const [bookingError, setBookingError] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-
-  // Validation errors
   const [errors, setErrors] = useState<Record<string, string>>({});
 
-  // Fetch counselors from API on mount
   useEffect(() => {
     const fetchCounsellors = async () => {
       setLoadingCounsellors(true);
@@ -109,7 +95,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
     fetchCounsellors();
   }, []);
 
-  // Fetch time slots when counsellor is selected
   useEffect(() => {
     if (selectedCounsellor) {
       fetchTimeSlots();
@@ -131,7 +116,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
       
       const text = await response.text();
       
-      // Try to parse the response as JSON
       let data;
       try {
         data = JSON.parse(text);
@@ -144,7 +128,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
       if (data.success && data.data?.availableSlots) {
         setTimeSlots(data.data.availableSlots);
       } else if (data.success && data.data?.slots) {
-        // Fallback for API that returns 'slots' instead of 'availableSlots'
         setTimeSlots(data.data.slots);
       } else {
         console.warn('Unexpected API response structure:', data);
@@ -156,10 +139,8 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
     }
   };
 
-  // Handle form field changes
   const handleFieldChange = (field: keyof BookingFormData, value: string | number) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    // Clear error when field is modified
     if (errors[field]) {
       setErrors((prev) => {
         const newErrors = { ...prev };
@@ -168,23 +149,19 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
       });
     }
 
-    // Refetch slots if booking type changes
     if (field === 'bookingType' && selectedCounsellor) {
       fetchTimeSlots();
     }
   };
 
-  // Handle counsellor selection
   const handleCounsellorSelect = (counsellor: Counsellor) => {
     setSelectedCounsellor(counsellor);
     setFormData((prev) => ({ ...prev, counsellorId: counsellor.id }));
-    // Auto-continue to next step
     setTimeout(() => {
       setCurrentStep('datetime');
     }, 300);
   };
 
-  // Validate current step
   const validateStep = (step: BookingStep): boolean => {
     const newErrors: Record<string, string> = {};
 
@@ -230,17 +207,10 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
     return Object.keys(newErrors).length === 0;
   };
 
-  // Navigation
   const goToStep = (step: BookingStep) => {
-    const currentIndex = steps.findIndex((s) => s.key === currentStep);
-    const targetIndex = steps.findIndex((s) => s.key === step);
-
-    // Allow navigation to any step (both forward and backward)
-    // Users can continue to next steps or go back to previous steps
     setCurrentStep(step);
   };
 
-  // Submit booking
   const handleSubmit = async () => {
     setIsSubmitting(true);
     setBookingError(null);
@@ -270,7 +240,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
     }
   };
 
-  // Reset booking
   const resetBooking = () => {
     setCurrentStep('counsellor');
     setSelectedCounsellor(null);
@@ -295,7 +264,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
     setErrors({});
   };
 
-  // Steps configuration
   const steps = [
     { key: 'counsellor', label: 'Select Counsellor' },
     { key: 'datetime', label: 'Date & Time' },
@@ -307,7 +275,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
 
   return (
     <div className="max-w-4xl mx-auto">
-      {/* Progress Steps */}
       {currentStep !== 'success' && (
         <div className="mb-8">
           <div className="flex items-center justify-between">
@@ -354,14 +321,12 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
         </div>
       )}
 
-      {/* Error Alert */}
       {bookingError && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg">
           <p className="text-red-600">{bookingError}</p>
         </div>
       )}
 
-      {/* Step Content */}
       {currentStep === 'counsellor' && (
         <div className="space-y-6">
           <div className="text-center mb-6">
@@ -369,7 +334,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
             <p className="text-gray-600">Choose a counsellor who specializes in your area of need</p>
           </div>
 
-          {/* Booking Type Selection */}
           <div className="flex justify-center gap-4 mb-6">
             <button
               type="button"
@@ -397,7 +361,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
             </button>
           </div>
 
-          {/* Counsellor Cards */}
           {loadingCounsellors ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="animate-spin text-[#C8102E]" size={40} />
@@ -434,12 +397,10 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
             </div>
           )}
 
-          {/* Validation Error */}
           {errors.counsellor && (
             <div className="text-red-500 text-sm text-center mt-4">{errors.counsellor}</div>
           )}
 
-          {/* Continue Button - Only shows when counsellor is selected */}
           {formData.counsellorId && (
             <div className="flex justify-end mt-6">
               <button
@@ -472,11 +433,9 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
             </div>
           </div>
 
-          {/* Selected Counsellor Summary */}
           {selectedCounsellor && (
             <div className="bg-gray-50 rounded-lg p-4 flex items-center gap-4">
-              <img\n                src={selectedCounsellor.imageUrl || '/file.svg'}\n                alt={selectedCounsellor.name}\n                className="w-16 h-16 rounded-full object-cover"
-              />
+              <img src={selectedCounsellor.imageUrl || '/file.svg'} alt={selectedCounsellor.name} className="w-16 h-16 rounded-full object-cover" />
               <div>
                 <h3 className="font-semibold text-gray-800">{selectedCounsellor.name}</h3>
                 <p className="text-sm text-gray-600">{selectedCounsellor.title}</p>
@@ -488,7 +447,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
             </div>
           )}
 
-          {/* Session Duration */}
           <div>
             <label className="block font-medium text-gray-800 mb-2">Session Duration</label>
             <div className="flex gap-2">
@@ -509,7 +467,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
             </div>
           </div>
 
-          {/* Time Slot Picker */}
           {loadingSlots ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="animate-spin text-[#C8102E]" size={40} />
@@ -524,12 +481,10 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
             />
           )}
 
-          {/* Validation Errors */}
           {(errors.preferredDate || errors.preferredTime) && (
             <div className="text-red-500 text-sm">{errors.preferredDate || errors.preferredTime}</div>
           )}
 
-          {/* Continue Button - Only shows when date and time are selected */}
           {formData.preferredDate && formData.preferredTime && (
             <div className="flex justify-end mt-6">
               <button
@@ -560,9 +515,7 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
             </div>
           </div>
 
-          {/* Form Fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* First Name */}
             <div>
               <label className="block font-medium text-gray-800 mb-1">First Name *</label>
               <input
@@ -579,7 +532,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
               {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>}
             </div>
 
-            {/* Last Name */}
             <div>
               <label className="block font-medium text-gray-800 mb-1">Last Name *</label>
               <input
@@ -596,7 +548,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
               {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
             </div>
 
-            {/* Email */}
             <div>
               <label className="block font-medium text-gray-800 mb-1">Email Address *</label>
               <input
@@ -613,7 +564,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
               {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
             </div>
 
-            {/* Phone */}
             <div>
               <label className="block font-medium text-gray-800 mb-1">Phone Number *</label>
               <input
@@ -630,7 +580,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
               {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
             </div>
 
-            {/* Country */}
             <div>
               <label className="block font-medium text-gray-800 mb-1">Country *</label>
               <select
@@ -656,7 +605,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
               {errors.country && <p className="text-red-500 text-sm mt-1">{errors.country}</p>}
             </div>
 
-            {/* City */}
             <div>
               <label className="block font-medium text-gray-800 mb-1">City</label>
               <input
@@ -669,7 +617,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
             </div>
           </div>
 
-          {/* Topic */}
           <div>
             <label className="block font-medium text-gray-800 mb-1">Topic *</label>
             <select
@@ -691,7 +638,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
             {errors.topic && <p className="text-red-500 text-sm mt-1">{errors.topic}</p>}
           </div>
 
-          {/* Notes */}
           <div>
             <label className="block font-medium text-gray-800 mb-1">Additional Notes</label>
             <textarea
@@ -703,7 +649,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
             />
           </div>
 
-          {/* Continue Button - Only shows when all required fields are filled */}
           {formData.firstName && formData.lastName && formData.email && formData.phone && formData.country && formData.topic && (
             <div className="flex justify-end mt-6">
               <button
@@ -734,21 +679,17 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
             </div>
           </div>
 
-          {/* Booking Summary */}
           <div className="bg-gray-50 rounded-xl p-6 space-y-4">
             <h3 className="font-semibold text-lg text-gray-800 border-b pb-2">Booking Summary</h3>
 
-            {/* Counsellor Info */}
             <div className="flex items-center gap-4">
-              <img\n                src={selectedCounsellor?.imageUrl || '/file.svg'}\n                alt={selectedCounsellor?.name || ''}\n                className="w-16 h-16 rounded-full object-cover"
-              />
+              <img src={selectedCounsellor?.imageUrl || '/file.svg'} alt={selectedCounsellor?.name || ''} className="w-16 h-16 rounded-full object-cover" />
               <div>
                 <p className="font-semibold text-gray-800">{selectedCounsellor?.name}</p>
                 <p className="text-sm text-gray-600">{selectedCounsellor?.title}</p>
               </div>
             </div>
 
-            {/* Details Grid */}
             <div className="grid grid-cols-2 gap-4 pt-4">
               <div>
                 <p className="text-sm text-gray-500">Date</p>
@@ -774,7 +715,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
               </div>
             </div>
 
-            {/* Personal Info */}
             <div className="border-t pt-4">
               <h4 className="font-semibold text-gray-800 mb-2">Your Information</h4>
               <div className="grid grid-cols-2 gap-4 text-sm">
@@ -805,7 +745,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
             )}
           </div>
 
-          {/* Terms */}
           <div className="flex items-start gap-2">
             <input type="checkbox" id="terms" className="mt-1" />
             <label htmlFor="terms" className="text-sm text-gray-600">
@@ -814,7 +753,6 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
             </label>
           </div>
 
-          {/* Submit Button */}
           <div className="flex justify-end gap-4">
             <button
               type="button"
@@ -921,5 +859,3 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
     </div>
   );
 }
-
-

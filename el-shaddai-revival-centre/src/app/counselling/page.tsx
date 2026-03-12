@@ -1,5 +1,5 @@
 import { Metadata } from 'next';
-import CounsellingBooking from '@/components/CounsellingBooking';
+import CounsellingBooking from '@/components/CounsellingBooking-fixed';
 
 export const metadata: Metadata = {
   title: 'Counselling Services | El-Shaddai Revival Centre',
@@ -146,45 +146,15 @@ export default function CounsellingPage() {
               <h3 className="text-xl font-bold text-[#003399] mb-4 text-center">
                 Topics We Cover
               </h3>
-              <div className="flex flex-wrap justify-center gap-2">
-                {[
-                  'Marriage & Family',
-                  'Pre-Marital',
-                  'Grief & Loss',
-                  'Anxiety & Stress',
-                  'Depression',
-                  'Faith & Spiritual',
-                  'Career Guidance',
-                  'Relationship Issues',
-                  'Addiction Recovery',
-                  'Child & Adolescent',
-                ].map((topic) => (
-                  <span
-                    key={topic}
-                    className="px-4 py-2 bg-gray-100 text-gray-700 rounded-full text-sm"
-                  >
-                    {topic}
-                  </span>
-                ))}
-              </div>
+              <p className="text-center text-gray-600 mb-6">Available topics will be listed here once configured in admin panel.</p>
             </div>
 
             {/* Contact Info */}
             <div className="mt-12 text-center bg-[#003399] text-white rounded-xl p-8">
               <h3 className="text-xl font-bold mb-4">Need Immediate Help?</h3>
               <p className="mb-4 text-gray-200">
-                If you're experiencing a crisis, please reach out immediately:
+                Contact details will be available once configured.
               </p>
-              <div className="flex flex-wrap justify-center gap-6">
-                <div>
-                  <p className="text-sm text-gray-300">Email</p>
-                  <p className="font-semibold">counselling@elshaddai.com</p>
-                </div>
-                <div>
-                  <p className="text-sm text-gray-300">Phone</p>
-                  <p className="font-semibold">+233 50 123 4567</p>
-                </div>
-              </div>
             </div>
           </div>
         </div>

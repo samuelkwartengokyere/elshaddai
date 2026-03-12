@@ -19,13 +19,11 @@ export default function ImageUpload({ value, onChange, label = 'Upload Image', c
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
     if (!file.type.startsWith('image/')) {
       setError('Please select an image file');
       return;
     }
 
-    // Validate file size (max 5MB)
     if (file.size > 5 * 1024 * 1024) {
       setError('Image must be less than 5MB');
       return;
@@ -88,7 +86,14 @@ export default function ImageUpload({ value, onChange, label = 'Upload Image', c
       {value ? (
         <div className="relative inline-block">
           <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-gray-200">
-            {value ? (\n              <img\n                src={value}\n                alt="Uploaded image"\n                className="w-full h-full object-cover"\n                onError={(e) => {\n                  (e.target as HTMLImageElement).src = '/file.svg';\n                }}\n              />\n            ) : (\n              <div className="w-full h-full bg-gray-200 flex items-center justify-center">\n                <ImageIcon className="h-8 w-8 text-gray-400" />\n              </div>\n            )}
+            <img
+              src={value || '/file.svg'}
+              alt="Uploaded image"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/file.svg';
+              }}
+            />
           </div>
           <button
             type="button"
@@ -125,4 +130,3 @@ export default function ImageUpload({ value, onChange, label = 'Upload Image', c
     </div>
   );
 }
-

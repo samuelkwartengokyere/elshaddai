@@ -53,18 +53,7 @@ const DAYS_OF_WEEK = [
   { value: 6, label: 'Saturday' },
 ];
 
-const SPECIALIZATIONS = [
-  'Marriage & Family',
-  'Pre-Marital',
-  'Grief & Loss',
-  'Anxiety & Stress',
-  'Depression',
-  'Faith & Spiritual',
-  'Career Guidance',
-  'Relationship Issues',
-  'Addiction Recovery',
-  'Child & Adolescent',
-];
+import { TOPICS } from '@/types/counselling';
 
 export default function CounsellingAdminPage() {
   const [counsellors, setCounsellors] = useState<Counsellor[]>([]);
@@ -709,7 +698,7 @@ export default function CounsellingAdminPage() {
                   Specializations
                 </label>
                 <div className="flex flex-wrap gap-2">
-                  {SPECIALIZATIONS.map((spec) => (
+                  {TOPICS.map((spec) => (
                     <button
                       key={spec}
                       type="button"
