@@ -310,12 +310,15 @@ export default function TeamsPage() {
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
             >
               <option value="">All Departments</option>
-              <option value="Leadership">Leadership</option>
-              <option value="Worship">Worship</option>
-              <option value="Children">Children</option>
-              <option value="Youth">Youth</option>
-              <option value="Outreach">Outreach</option>
-              <option value="Administration">Administration</option>
+              <option value="Senior Leadership">Senior Leadership</option>
+              <option value="Discipleship & Outreach">Discipleship & Outreach</option>
+              <option value="Youth Ministry">Youth Ministry</option>
+              <option value="Worship Team">Worship Team</option>
+              <option value="Media & Technology">Media & Technology</option>
+              <option value="Ushering Team">Ushering Team</option>
+              <option value="Security Team">Security Team</option>
+              <option value="Intercessory Prayer Team">Intercessory Prayer Team</option>
+              <option value="Greeters Team">Greeters Team</option>
             </select>
             <button
               type="submit"
@@ -561,58 +564,58 @@ export default function TeamsPage() {
               </div>
 
               {/* Image Upload */}
-  <div className="mb-4">
-    <label className="block text-sm font-medium text-gray-700 mb-1">
-      Profile Photo
-    </label>
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-gray-700 mb-1">
+                  Profile Photo
+                </label>
 
-    <input
-      type="file"
-      ref={fileInputRef}
-      accept="image/*"
-      onChange={handleImageUpload}
-      className="hidden"
-    />
+                <input
+                  type="file"
+                  ref={fileInputRef}
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  className="hidden"
+                />
 
-    <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
-      {imagePreview ? (
-        <div className="relative">
-          <img
-            src={imagePreview}
-            alt="Preview"
-            className="w-32 h-32 object-cover rounded-lg mx-auto"
-          />
+                <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
+                  {imagePreview ? (
+                    <div className="relative">
+                      <img
+                        src={imagePreview}
+                        alt="Preview"
+                        className="w-32 h-32 object-cover rounded-lg mx-auto"
+                      />
 
-          <button
-            type="button"
-            onClick={removeImage}
-            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
-          >
-            <X className="h-4 w-4" />
-          </button>
-        </div>   
-      ) : (
-        <div
-          onClick={() => fileInputRef.current?.click()}
-          className="cursor-pointer text-center py-4"
-        >
-          {uploadingImage ? (
-            <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
-          ) : (
-            <>
-              <ImageIcon className="h-8 w-8 mx-auto text-gray-400 mb-2" />
-              <p className="text-sm text-gray-500">
-                Click to upload a photo
-              </p>
-              <p className="text-xs text-gray-400">
-                PNG, JPG, GIF up to 5MB
-              </p>
-            </>
-          )}
-        </div>
-      )}
-    </div>
-  </div>
+                      <button
+                        type="button"
+                        onClick={removeImage}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>   
+                  ) : (
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      className="cursor-pointer text-center py-4"
+                    >
+                      {uploadingImage ? (
+                        <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
+                      ) : (
+                        <>
+                          <ImageIcon className="h-8 w-8 mx-auto text-gray-400 mb-2" />
+                          <p className="text-sm text-gray-500">
+                            Click to upload a photo
+                          </p>
+                          <p className="text-xs text-gray-400">
+                            PNG, JPG, GIF up to 5MB
+                          </p>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
 
               {/* Email & Phone */}
               <div className="grid grid-cols-2 gap-4 mb-4">
@@ -653,13 +656,19 @@ export default function TeamsPage() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
                 >
                   <option value="">Select Department</option>
-                  <option value="Leadership">Leadership</option>
-                  <option value="Worship">Worship</option>
-                  <option value="Children">Children</option>
-                  <option value="Youth">Youth</option>
-                  <option value="Outreach">Outreach</option>
-                  <option value="Administration">Administration</option>
-                  <option value="Other">Other</option>
+                  <optgroup label="Senior Leadership">
+                    <option value="Senior Leadership">Senior Leadership</option>
+                    <option value="Discipleship & Outreach">Discipleship & Outreach</option>
+                    <option value="Youth Ministry">Youth Ministry</option>
+                  </optgroup>
+                  <optgroup label="Ministry Teams">
+                    <option value="Worship Team">Worship Team</option>
+                    <option value="Media & Technology">Media & Technology</option>
+                    <option value="Ushering Team">Ushering Team</option>
+                    <option value="Security Team">Security Team</option>
+                    <option value="Intercessory Prayer Team">Intercessory Prayer Team</option>
+                    <option value="Greeters Team">Greeters Team</option>
+                  </optgroup>
                 </select>
               </div>
 

@@ -31,36 +31,42 @@ interface TeamMember {
 const ministryTeams = [
   {
     name: 'Worship Team',
+    slug: 'worship-team',
     description: 'Leading our congregation in worship through music and praise',
     members: 15,
     icon: '🎵'
   },
   {
     name: 'Media & Technology',
+    slug: 'media-technology',
     description: 'Managing audio, video, and livestream for our services',
     members: 8,
     icon: '🎥'
   },
   {
     name: 'Ushering Team',
+    slug: 'ushering-team',
     description: 'Welcoming and guiding visitors and members during services',
     members: 12,
     icon: '🚪'
   },
   {
     name: 'Security Team',
+    slug: 'security-team',
     description: 'Ensuring a safe environment for all attendees',
     members: 10,
     icon: '🛡️'
   },
   {
     name: 'Intercessory Prayer Team',
+    slug: 'intercessory-prayer-team',
     description: 'Praying for the church, community, and world',
     members: 6,
     icon: '🙏'
   },
   {
     name: 'Greeters Team',
+    slug: 'greeters-team',
     description: 'Making everyone feel welcome as they arrive',
     members: 8,
     icon: '👋'
@@ -330,10 +336,10 @@ export default function TeamPage() {
                       {team.members} members
                     </span>
                     <Link 
-                      href="/serve"
+                      href={`/about/team/${team.slug}`}
                       className="text-accent hover:text-red-600 font-medium flex items-center text-sm"
                     >
-                      Join Team <ArrowRight className="ml-1 h-4 w-4" />
+                      View Team <ArrowRight className="ml-1 h-4 w-4" />
                     </Link>
                   </div>
                 </div>

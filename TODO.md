@@ -1,32 +1,27 @@
-# El-Shaddai Revival Centre Website Update
+# TODO Progress Tracker for Team View Update
 
-## Color Scheme (Church Of Pentecost Colors)
+## Steps from Approved Plan:
 
-- **Primary (Blue):** #003399
-- **Secondary (Red):** #C8102E
-- **Black:** #000000
-- **White:** #FFFFFF
-- **Accent:** #C8102E (Red as accent)
+### 1. Create dynamic team page `/src/app/about/team/[department]/page.tsx`
 
-## Implementation Tasks
+- [x] Create the file with department-filtered team members fetch and display
 
-### ✅ Phase 1: Tailwind Configuration
+### 2. Update main team page `/src/app/about/team/page.tsx`
 
-- [x] Update tailwind.config.ts with Church Of Pentecost colors
+- [x] Change "Join Team" → "View Team"
+- [x] Update links to `/about/team/[department-slug]`
 
-### ✅ Phase 2: Core Components
+### 3. Create API route `/src/app/api/teams/route.ts`
 
-- [x] Update Header.tsx - Church name and branding
-- [x] Update Footer.tsx - Full footer update
-- [x] Update Hero.tsx - Welcome message
+- [x] Implement GET handler with filters for department, leadership, limit, sort by order_index
 
-### ✅ Phase 4: Testing
+### 4. Test changes
 
-- [x] Verify all color changes applied correctly
-- [x] Verify church name updated throughout the site
-- [x] Check responsive design
-- [x] Run build to verify no errors
+- [x] Verify navigation and data display
+- [x] Check fallback if no data
 
-## ✅ All Tasks Completed Successfully!
+### 5. Update TODO_TEAM_VIEW_UPDATE.md
 
-## Progress: Ready to Start
+- [ ] Mark all steps complete
+
+**Next Step: 5/5 (Finalize TODO)**
