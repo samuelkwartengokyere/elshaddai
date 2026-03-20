@@ -1,12 +1,8 @@
-# Real Email Submission for Contact/Prayer Forms
+# HeroSlider Images Enhancement
 
-## Plan Breakdown
+## Plan:
 
-- [x] 1. Create `/app/api/contact/route.ts` (send contact emails)
-- [x] 2. Create `/app/api/prayer/route.ts` (send prayer emails)
-- [x] 3. Update `app/contact/page.tsx` form to use real API
-- [x] 4. Update `app/prayer/page.tsx` form to use real API
-- [ ] 5. Test forms and APIs
-- [ ] 6. Complete task ✓
-
-**Status:** Starting implementation...
+- [x] Create `/public/images/slider/` folder
+- [ ] Add 5 hero-optimized images
+- [ ] Update HeroSlider.tsx slide data with new paths
+- [ ] Verify slider uses new images

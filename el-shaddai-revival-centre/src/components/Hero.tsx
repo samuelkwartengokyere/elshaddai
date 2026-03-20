@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { motion, Variants } from 'framer-motion'
+import HeroSlider from './HeroSlider'
 
 export default function Hero() {
   const [isLive, setIsLive] = useState(false)
@@ -46,10 +47,12 @@ export default function Hero() {
     },
   }
 
-  return (
-    <section className="relative bg-gradient-to-r from-primary to-secondary text-white py-20 min-h-[800px] flex flex-col justify-center items-center">
+return (
+    <section className="relative min-h-screen overflow-hidden text-white pt-32 pb-20 flex flex-col justify-center items-center">
+<HeroSlider />
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent/20 via-black/40 to-black/70 z-10" />
       <motion.div
-        className="container mx-auto px-4 text-center"
+        className="relative z-20 container mx-auto px-4 text-center"
         variants={containerVariants}
         initial="hidden"
         animate="visible"

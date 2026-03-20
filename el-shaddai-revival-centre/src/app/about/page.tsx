@@ -182,7 +182,7 @@ export default async function AboutPage() {
                 </div>
                 <div className="relative h-[800px] w-[500px] rounded-xl overflow-hidden shadow-lg bg-gray-200 group">
                   <Image
-                    src="https://images.pexels.com/photos/2323799/pexels-photo-2323799.jpeg"
+src="/images/elder.jpeg"
                     alt="El-Shaddai Revival Centre"
                     fill
                     className="object-cover group-hover:scale-105 transition duration-500"
@@ -334,13 +334,11 @@ export default async function AboutPage() {
                   <h3 className="text-2xl font-bold">Our Vision</h3>
                 </div>
                 <p className="text-gray-600 text-lg mb-6">
-                  To be a church where every person belongs, grows, and serves.
+                  Possessing the Nations: Unleashing the Whole Church to Transform Their World with Values and Principles of the Kingdom of God
                 </p>
                 <p className="text-gray-600">
-                  We envision a community where authenticity is valued, relationships are 
-                  cultivated, and lives are transformed. Our dream is to see thousands of 
-                  families strengthened, communities served, and individuals discovering 
-                  their God-given purpose.
+                 To become a global Pentecostal church that is culturally relevant in vibrant
+                 evangelism, church planting, discipleship and holistic ministry.
                 </p>
               </div>
             </div>
