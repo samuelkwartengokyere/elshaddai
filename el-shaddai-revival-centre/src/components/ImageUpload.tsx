@@ -1,7 +1,7 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { Upload, X, Loader2, Image as ImageIcon } from 'lucide-react';
+import { X, Loader2, Image as ImageIcon } from 'lucide-react';
 
 interface ImageUploadProps {
   value: string;
@@ -88,7 +88,14 @@ export default function ImageUpload({ value, onChange, label = 'Upload Image', c
       {value ? (
         <div className="relative inline-block">
           <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-gray-200">
-            {value ? (\n              <img\n                src={value}\n                alt="Uploaded image"\n                className="w-full h-full object-cover"\n                onError={(e) => {\n                  (e.target as HTMLImageElement).src = '/file.svg';\n                }}\n              />\n            ) : (\n              <div className="w-full h-full bg-gray-200 flex items-center justify-center">\n                <ImageIcon className="h-8 w-8 text-gray-400" />\n              </div>\n            )}
+            <img
+              src={value || '/file.svg'}
+              alt="Uploaded image"
+              className="w-full h-full object-cover"
+              onError={(e) => {
+                (e.target as HTMLImageElement).src = '/file.svg';
+              }}
+            />
           </div>
           <button
             type="button"

@@ -15,7 +15,7 @@
 ## Phase 3: Frontend
 
 - [x] 7. Update DonationForm with Paystack inline (`src/components/DonationForm.tsx`) - DONE
-- [ ] 8. Add NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY to environment - PENDING USER ACTION
+- [x] 8. Add NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY to environment - DONE
 
 ## Phase 4: Testing
 
@@ -25,8 +25,10 @@
 ## Setup Instructions
 
 1. Copy `.env.local.example` to `.env.local`
-2. Add your Paystack public key:
+2. Replace placeholders with your real Paystack keys:
    ```
-   NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=pk_test_your_public_key_here
+   NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY=pk_test_...
+   PAYSTACK_SECRET_KEY=sk_test_...
    ```
-3. Restart the development server
+3. Restart the development server (`npm run dev`)
+4. Test at http://localhost:3000/give

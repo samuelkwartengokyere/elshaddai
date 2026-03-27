@@ -1,5 +1,5 @@
-export interface MediaItem {
-  id?: string;
+export interface Media {
+  _id: string;
   title: string;
   description?: string;
   url: string;
@@ -9,10 +9,14 @@ export interface MediaItem {
   uploadedAt: Date;
 }
 
-export interface UploadResponse {
-  success: boolean;
-  filename?: string;
-  message: string;
-  url?: string;
-  error?: string;
+export type MediaType = 'image' | 'video' | 'document';
+export type MediaCategory = 'service' | 'event' | 'ministry' | 'other';
+
+export interface MediaFormData {
+  title: string;
+  description: string;
+  file: File | null;
+  type: MediaType;
+  category: MediaCategory;
 }
+

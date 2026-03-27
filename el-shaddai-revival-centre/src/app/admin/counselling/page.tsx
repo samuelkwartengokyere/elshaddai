@@ -15,6 +15,7 @@ import {
   Globe,
   MapPin
 } from 'lucide-react';
+import Image from 'next/image'
 import ImageUpload from '@/components/ImageUpload';
 
 interface Counsellor {
@@ -84,7 +85,7 @@ export default function CounsellingAdminPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
-  const [deletingId, setDeletingId] = useState<string | null>(null);
+
   const [showAll, setShowAll] = useState(false);
 
   const fetchCounsellors = async () => {
@@ -399,10 +400,11 @@ export default function CounsellingAdminPage() {
                 {/* Image */}
                 <div className="h-48 bg-gray-200 flex items-center justify-center relative">
                   {counsellor.imageUrl ? (
-                    <img 
+                      <Image 
                       src={counsellor.imageUrl} 
                       alt={counsellor.name}
-                      className="w-full h-full object-cover"
+                      fill
+                      className="object-cover"
                     />
                   ) : (
                     <Users className="h-16 w-16 text-gray-400" />

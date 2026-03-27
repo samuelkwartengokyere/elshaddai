@@ -1,5 +1,6 @@
 'use client'
 import { useState, useEffect } from 'react'
+import Image from 'next/image'
 import { 
   Plus, 
   Search, 
@@ -9,8 +10,7 @@ import {
   Clock,
   MapPin,
   Loader2,
-  X,
-  Image as ImageIcon
+  X
 } from 'lucide-react'
 import ImageUpload from '@/components/ImageUpload'
 
@@ -67,7 +67,6 @@ export default function EventsPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
-  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const fetchEvents = async () => {
     setLoading(true)
@@ -178,7 +177,7 @@ export default function EventsPage() {
       } else {
         setError(data.error || 'Failed to create event')
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred while creating event')
     } finally {
       setUploading(false)
@@ -213,7 +212,7 @@ export default function EventsPage() {
       } else {
         setError(data.error || 'Failed to update event')
       }
-    } catch (err) {
+    } catch {
       setError('An error occurred while updating event')
     } finally {
       setUploading(false)
@@ -223,7 +222,6 @@ export default function EventsPage() {
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this event?')) return
     
-    setDeletingId(id)
     try {
       const response = await fetch(`/api/events?id=${id}`, {
         method: 'DELETE'
@@ -236,11 +234,9 @@ export default function EventsPage() {
       } else {
         alert(data.error || 'Failed to delete event')
       }
-    } catch (err) {
-      console.error('Delete error:', err)
+    } catch {
+      console.error('Delete error:')
       alert('An error occurred while deleting')
-    } finally {
-      setDeletingId(null)
     }
   }
 
@@ -349,10 +345,11 @@ export default function EventsPage() {
                 {/* Event Image */}
                 {event.imageUrl && (
                   <div className="h-40 overflow-hidden">
-                    <img
+                <Image
                       src={event.imageUrl}
                       alt={event.title}
-                      className="w-full h-full object-cover"
+                      fill
+                      className="object-cover"
                     />
                   </div>
                 )}

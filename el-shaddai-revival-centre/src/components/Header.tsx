@@ -21,15 +21,11 @@ const defaultSettings: Settings = {
   churchName: 'El-Shaddai Revival Centre',
   churchTagline: 'The Church Of Pentecost',\n  logoUrl: '/church-logo.svg'\n}
 
-const LOCAL_LOGO = '/church-logo.svg'
-
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isMediaOpen, setIsMediaOpen] = useState(false)
   const [isMobileMediaOpen, setIsMobileMediaOpen] = useState(false)
   const [settings, setSettings] = useState<Settings>(defaultSettings)
-  const [loading, setLoading] = useState(true)
-  const [logoError, setLogoError] = useState(false)
   const mediaDropdownRef = useRef<HTMLDivElement>(null)
 
   // Memoize navItems to prevent recreation on re-renders
