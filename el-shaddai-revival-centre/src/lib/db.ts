@@ -582,6 +582,45 @@ export const counsellorsDb = {
     return getAll<DbCounsellor>('counsellors', 'name', 'asc')
   },
   
+  async getPaginated(page: number = 1, limit: number = 10, includeInactive: boolean = false): Promise<{
+    counsellors: DbCounsellor[];
+    total: number;
+    page: number;
+    limit: number;
+    totalPages: number;
+  }> {
+    if (!isSupabaseConfigured()) {
+      return { counsellors: [], total: 0, page, limit, totalPages: 0 };
+    }
+
+    const offset = (page - 1) * limit;
+    
+    let query = supabaseAdmin
+      .from('counsellors')
+      .select('*', { count: 'exact', head: false })
+      .order('name', { ascending: true })
+      .range(offset, offset + limit - 1);
+
+    if (!includeInactive) {
+      query = query.eq('is_available', true);
+    }
+
+    const { data, error, count } = await query;
+
+    if (error) {
+      console.error('Error fetching paginated counsellors:', error);
+      throw error;
+    }
+
+    return {
+      counsellors: data || [],
+      total: count || 0,
+      page,
+      limit,
+      totalPages: Math.ceil((count || 0) / limit)
+    };
+  },
+  
   async getById(id: string): Promise<DbCounsellor | null> {
     return getById<DbCounsellor>('counsellors', id)
   },
@@ -602,4 +641,96 @@ export const counsellorsDb = {
     return remove('counsellors', id)
   }
 }
+
+// Counselling slots operations (daily global limits)
+export interface DbCounsellingSlot {
+  id: string
+  date: string
+  max_slots: number
+  booked_slots: number
+  created_at: string
+  updated_at: string
+}
+
+export const counsellingSlotsDb = {
+  async getAll(): Promise<DbCounsellingSlot[]> {
+    return getAll<DbCounsellingSlot>('counselling_slots', 'date', 'asc')
+  },
+  
+  async getFuture(days: number = 30): Promise<DbCounsellingSlot[]> {
+    if (!isSupabaseConfigured()) return []
+    
+    const endDate = new Date()
+    endDate.setDate(endDate.getDate() + days)
+    
+    const { data, error } = await supabaseAdmin
+      .from('counselling_slots')
+      .select('*')
+      .gte('date', new Date().toISOString().split('T')[0])
+      .lte('date', endDate.toISOString().split('T')[0])
+      .order('date', { ascending: true })
+    
+    if (error) throw error
+    return data || []
+  },
+  
+  async getByDate(date: string): Promise<DbCounsellingSlot | null> {
+    if (!isSupabaseConfigured()) return null
+    
+    // Call Supabase function to ensure slot exists
+    const { data, error } = await supabaseAdmin.rpc('ensure_counselling_slot', { date_param: date })
+    
+    if (error) {
+      console.error('ensure_counselling_slot error:', error)
+      // Fallback query
+      return getById<DbCounsellingSlot>('counselling_slots', date) as any
+    }
+    
+    return data as DbCounsellingSlot
+  },
+  
+  async create(data: Partial<DbCounsellingSlot>): Promise<DbCounsellingSlot> {
+    return insert<DbCounsellingSlot>('counselling_slots', data)
+  },
+  
+  async update(id: string, data: Partial<DbCounsellingSlot>): Promise<DbCounsellingSlot> {
+    return update<DbCounsellingSlot>('counselling_slots', id, data)
+  },
+  
+  async incrementBooked(date: string): Promise<DbCounsellingSlot> {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase not configured for slot increment')
+    }
+    
+    const slot = await this.getByDate(date)
+    if (!slot) throw new Error(`No slot for date ${date}`)
+    
+    return update<DbCounsellingSlot>(`counselling_slots`, slot.id, {
+      booked_slots: slot.booked_slots + 1
+    })
+  },
+  
+  async decrementBooked(date: string): Promise<DbCounsellingSlot> {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase not configured for slot decrement')
+    }
+    
+    const slot = await this.getByDate(date)
+    if (!slot || slot.booked_slots === 0) throw new Error(`Invalid slot for date ${date}`)
+    
+    return update<DbCounsellingSlot>(`counselling_slots`, slot.id, {
+      booked_slots: slot.booked_slots - 1
+    })
+  },
+  
+  async setMaxSlots(date: string, max_slots: number): Promise<DbCounsellingSlot> {
+    const slot = await this.getByDate(date)
+    if (!slot) throw new Error(`No slot for date ${date}`)
+    
+    return update<DbCounsellingSlot>(`counselling_slots`, slot.id, {
+      max_slots
+    })
+  }
+}
+
 

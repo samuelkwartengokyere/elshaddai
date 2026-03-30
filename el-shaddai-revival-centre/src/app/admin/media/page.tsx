@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 
 import ImageUpload from '../../../components/ImageUpload';
 import { Media, MediaType, MediaCategory } from '@/types/media';
@@ -41,7 +41,7 @@ export default function MediaAdmin() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
 
-  const fetchMedia = async () => {
+  const fetchMedia = useCallback(async () => {
     setLoading(true);
     try {
       const params = new URLSearchParams();
@@ -55,17 +55,17 @@ export default function MediaAdmin() {
       if (data.success) {
         setMediaItems(data.media || []);
       }
-    } catch (err) {
+    } catch (err: unknown) {
       console.error('Error fetching media:', err);
       setError('Failed to load media');
     } finally {
       setLoading(false);
     }
-  };
+  }, [typeFilter, categoryFilter, search]);
 
   useEffect(() => {
     fetchMedia();
-  }, [typeFilter, categoryFilter, search]);
+  }, [fetchMedia]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,7 +120,8 @@ export default function MediaAdmin() {
       } else {
         setError(data.error || 'Failed to upload media');
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      console.error('Upload error:', err);
       setError('Upload failed. Please try again.');
     } finally {
       setUploading(false);
@@ -142,7 +143,8 @@ export default function MediaAdmin() {
       } else {
         setError(data.error || 'Failed to delete media');
       }
-    } catch (err) {
+    } catch (err: unknown) {
+      console.error('Delete error:', err);
       setError('Delete failed. Please try again.');
     }
   };

@@ -1,5 +1,6 @@
 'use client'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react' // Removed unused useRef
+import Image from 'next/image'
 import { 
   Plus, 
   Search, 
@@ -11,7 +12,6 @@ import {
   Loader2,
   X,
   Crown,
-  Upload,
   Image as ImageIcon
 } from 'lucide-react'
 
@@ -36,6 +36,7 @@ export default function TeamsPage() {
   const [departmentFilter, setDepartmentFilter] = useState('')
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [editingMember, setEditingMember] = useState<TeamMember | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null) // Added missing state
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -56,10 +57,8 @@ export default function TeamsPage() {
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create')
-  const [deletingId, setDeletingId] = useState<string | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [uploadingImage, setUploadingImage] = useState(false)
-  const fileInputRef = useRef<HTMLInputElement>(null)
 
   const fetchTeamMembers = async () => {
     setLoading(true)
@@ -81,8 +80,8 @@ export default function TeamsPage() {
           totalPages: data.pagination.totalPages
         }))
       }
-    } catch (err) {
-      console.error('Error fetching team members:', err)
+    } catch (error) { // Fixed: renamed 'err' to 'error'
+      console.error('Error fetching team members:', error)
     } finally {
       setLoading(false)
     }
@@ -175,7 +174,8 @@ export default function TeamsPage() {
       } else {
         setError(data.error || 'Failed to upload image')
       }
-    } catch (err) {
+    } catch (error) { // Fixed: renamed 'err' to 'error'
+      console.error('Image upload error:', error)
       setError('An error occurred while uploading image')
     } finally {
       setUploadingImage(false)
@@ -185,9 +185,6 @@ export default function TeamsPage() {
   const removeImage = () => {
     setFormData(prev => ({ ...prev, image: '' }))
     setImagePreview(null)
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
-    }
   }
 
   const handleCreate = async (e: React.FormEvent) => {
@@ -222,7 +219,8 @@ export default function TeamsPage() {
       } else {
         setError(data.error || 'Failed to add team member')
       }
-    } catch (err) {
+    } catch (error) { // Fixed: renamed 'err' to 'error'
+      console.error('Create error:', error)
       setError('An error occurred while adding team member')
     } finally {
       setUploading(false)
@@ -254,7 +252,8 @@ export default function TeamsPage() {
       } else {
         setError(data.error || 'Failed to update team member')
       }
-    } catch (err) {
+    } catch (error) { // Fixed: renamed 'err' to 'error'
+      console.error('Update error:', error)
       setError('An error occurred while updating team member')
     } finally {
       setUploading(false)
@@ -277,8 +276,8 @@ export default function TeamsPage() {
       } else {
         alert(data.error || 'Failed to delete team member')
       }
-    } catch (err) {
-      console.error('Delete error:', err)
+    } catch (error) { // Fixed: renamed 'err' to 'error'
+      console.error('Delete error:', error)
       alert('An error occurred while deleting')
     } finally {
       setDeletingId(null)
@@ -378,9 +377,10 @@ export default function TeamsPage() {
                 {/* Image */}
                 <div className="h-48 bg-gray-200 flex items-center justify-center relative">
                   {member.image ? (
-                    <img 
+                    <Image 
                       src={member.image} 
                       alt={member.name}
+                      fill
                       className="w-full h-full object-cover"
                     />
                   ) : (
@@ -426,10 +426,17 @@ export default function TeamsPage() {
                   <div className="flex justify-between mt-4 pt-4 border-t">
                     <button
                       onClick={() => handleDelete(member._id)}
-                      className="flex items-center text-red-500 hover:text-red-700"
+                      disabled={deletingId === member._id}
+                      className="flex items-center text-red-500 hover:text-red-700 disabled:opacity-50"
                     >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Delete
+                      {deletingId === member._id ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <>
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </>
+                      )}
                     </button>
                     <button
                       onClick={() => openEditModal(member)}
@@ -571,18 +578,20 @@ export default function TeamsPage() {
 
                 <input
                   type="file"
-                  ref={fileInputRef}
                   accept="image/*"
                   onChange={handleImageUpload}
                   className="hidden"
+                  id="image-upload-input"
                 />
 
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-4">
                   {imagePreview ? (
                     <div className="relative">
-                      <img
-                        src={imagePreview}
+                      <Image
+                        src={imagePreview || ''}
                         alt="Preview"
+                        width={128}
+                        height={128}
                         className="w-32 h-32 object-cover rounded-lg mx-auto"
                       />
 
@@ -595,9 +604,9 @@ export default function TeamsPage() {
                       </button>
                     </div>   
                   ) : (
-                    <div
-                      onClick={() => fileInputRef.current?.click()}
-                      className="cursor-pointer text-center py-4"
+                    <label 
+                      htmlFor="image-upload-input"
+                      className="cursor-pointer text-center py-4 block"
                     >
                       {uploadingImage ? (
                         <Loader2 className="h-8 w-8 animate-spin mx-auto text-blue-600" />
@@ -612,7 +621,7 @@ export default function TeamsPage() {
                           </p>
                         </>
                       )}
-                    </div>
+                    </label>
                   )}
                 </div>
               </div>
@@ -713,4 +722,3 @@ export default function TeamsPage() {
     </div>
   )
 }
-

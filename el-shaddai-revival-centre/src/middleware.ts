@@ -4,7 +4,7 @@ import { jwtVerify, createRemoteJWKSet } from 'jose'
 import { getMaintenanceMode } from '@/lib/maintenance'
 
 // Define protected and public routes
-const protectedRoutes = ['/admin']
+const protectedRoutes = ['/admin', '/financial-report']
 const publicRoutes = ['/admin/login', '/admin/api/auth/login', '/admin/api/auth/logout', '/admin/api/auth/refresh', '/maintenance']
 
 // Cookie name for auth token
@@ -84,7 +84,7 @@ export async function middleware(request: NextRequest) {
   const isLoginPage = pathname === '/admin/login'
   const isAdminApiRoute = pathname.startsWith('/admin/api')
   const isPublicApiRoute = publicRoutes.some(route => pathname.startsWith(route))
-  const isProtectedAdminRoute = pathname.startsWith('/admin') && !isLoginPage
+const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route)) && !isPublicApiRoute
   const isMaintenancePage = pathname === '/maintenance'
   const isAdminRoute = pathname.startsWith('/admin')
   
@@ -138,7 +138,7 @@ export async function middleware(request: NextRequest) {
   
   // === UNAUTHENTICATED USER TRYING TO ACCESS PROTECTED ROUTE ===
   // Redirect to login if not authenticated
-  if (isProtectedAdminRoute && !isValidToken) {
+if (isProtectedRoute && !isAdminUser) {
     const loginUrl = new URL('/admin/login', request.url)
     loginUrl.searchParams.set('callbackUrl', pathname)
     return NextResponse.redirect(loginUrl)

@@ -1,4 +1,5 @@
 'use client'
+import Image from 'next/image'
 import { useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
@@ -6,7 +7,6 @@ import {
   ArrowLeft, 
   Upload, 
   FileAudio, 
-  Image, 
   X, 
   Loader2,
   File
@@ -221,9 +221,11 @@ export default function UploadSermonPage() {
             <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 hover:border-accent transition duration-300">
               {thumbnailPreview ? (
                 <div className="relative">
-                  <img
+                  <Image
                     src={thumbnailPreview}
-                    alt="Thumbnail preview"
+                    alt="Thumbnail preview for sermon"
+                    width={400}
+                    height={192}
                     className="w-full h-48 object-cover rounded-lg"
                   />
                   <button
@@ -232,14 +234,15 @@ export default function UploadSermonPage() {
                       setThumbnailFile(null)
                       setThumbnailPreview('')
                     }}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1"
+                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition"
+                    aria-label="Remove thumbnail"
                   >
                     <X className="h-4 w-4" />
                   </button>
                 </div>
               ) : (
                 <div className="text-center py-8">
-                  <Image className="h-10 w-10 text-gray-400 mx-auto mb-2" />
+                  <File className="h-10 w-10 text-gray-400 mx-auto mb-2" />
                   <p className="text-gray-600 text-sm">Optional thumbnail</p>
                   <input
                     type="file"
@@ -388,4 +391,3 @@ export default function UploadSermonPage() {
     </div>
   )
 }
-

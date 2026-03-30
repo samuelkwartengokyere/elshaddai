@@ -1,29 +1,47 @@
-# Linting Fix TODO - In Progress
+# ESLint Fixes Progress - El-Shaddai Revival Centre
 
-## Completed:
+## Plan Status
 
-- [ ]
+- [x] Plan approved by user
+- [x] Create TODO.md ✅ **DONE**
 
-## In Progress:
+## Priority 1: Parsing/Syntax Errors (0/2)
 
-- [ ] 1. Fix src/app/admin/page.tsx - unused imports and img elements
+- [ ] Fix \`/src/app/admin/financial-report/page.tsx\` parsing
+- [ ] Fix \`/src/app/api/admin/financial-report/audit/route.ts\` parsing
 
-## To Fix:
+## Priority 2: Team Pages (2/2)
 
-- [ ] 2. Fix src/app/api/testimonies/route.tsx - unused TIMEOUT_MS
-- [ ] 3. Fix src/app/about/team/page.tsx - unused vars, ImageIcon, useEffect deps
-- [ ] 4. Fix src/app/admin/calendar/page.tsx - unused vars, useEffect deps
-- [ ] 5. Fix src/app/admin/counselling/page.tsx - unused vars, useEffect deps
-- [ ] 6. Fix src/app/admin/events/page.tsx - unused vars, useEffect deps
-- [ ] 7. Fix src/app/admin/layout.tsx - useEffect deps
-- [ ] 8. Fix src/app/admin/login/page.tsx - unused router
-- [ ] 9. Fix src/app/admin/media/page.tsx - useEffect deps, img elements, alt text
-- [ ] 10. Fix src/app/admin/sermons/page.tsx - useEffect deps, img elements
-- [ ] 11. Fix src/app/admin/settings/page.tsx - unused vars
-- [ ] 12. Fix src/app/admin/teams/page.tsx - useEffect deps, img elements
-- [ ] 13. Fix src/app/admin/testimonies/page.tsx - useEffect deps
-- [ ] 14. Fix src/components/DonationForm.tsx - unused vars
-- [ ] 15. Fix src/components/Header.tsx - unused vars
-- [ ] 16. Fix src/components/InternationalDonationForm.tsx - unused vars, img elements
-- [ ] 17. Fix src/components/SermonCard.tsx - unused imports
-- [ ] 18. Fix src/components/SermonUpload.tsx - unused imports, img elements
+- [x] \`/src/app/about/team/[department]/page.tsx\` (unused imports/vars, useEffect) ✅
+- [x] \`/src/app/about/team/page.tsx\` (unused error state) ✅
+
+## Priority 3: Admin Pages - Hooks/Images (3/6)
+
+- [x] \`/src/app/admin/media/page.tsx\` (useEffect, err vars) ✅
+- [x] \`/src/app/admin/events/page.tsx\` (img → Image) ✅
+- [x] \`/src/app/admin/sermons/page.tsx\` (img → Image) ✅
+- [ ] \`/src/app/admin/teams/page.tsx\` (unused vars, img)
+- [ ] \`/src/app/admin/testimonies/page.tsx\` (img → Image)
+- [ ] \`/src/app/admin/calendar/page.tsx\` (unused err)
+
+## Priority 4: Components & Other Pages (0/10)
+
+- [ ] CounsellingBooking\*.tsx (unused vars, img → Image)
+- [ ] Header\*.tsx (parsing/unused)
+- [ ] HomeContent.tsx (any/no-explicit-any, unescaped)
+- [ ] Financial-report public page (unescaped ')
+- [ ] Others (prayer, serve, testimonies pages)
+
+## Priority 5: API/Lib Files (0/15)
+
+- [ ] Remove unused imports/vars in API routes
+- [ ] Fix lib/youtube.ts anonymous export
+
+## Follow-up
+
+- [ ] Run \`npx eslint . --fix\`
+- [ ] Manual test key pages (admin, team, financial)
+- [ ] Full lint pass: \`npx eslint src/ --max-warnings 0\`
+- [ ] **COMPLETED** ✅
+
+**Progress: 1/45 files | Next: Parsing errors**

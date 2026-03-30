@@ -13,7 +13,9 @@ import {
   X,
   Star,
   Globe,
-  MapPin
+  MapPin,
+  Calendar,
+  RefreshCw
 } from 'lucide-react';
 import Image from 'next/image'
 import ImageUpload from '@/components/ImageUpload';
@@ -54,7 +56,7 @@ const DAYS_OF_WEEK = [
   { value: 6, label: 'Saturday' },
 ];
 
-import { TOPICS } from '@/types/counselling';
+import { TOPICS, CounsellingSlot, UpsertSlotData } from '@/types/counselling';
 
 export default function CounsellingAdminPage() {
   const [counsellors, setCounsellors] = useState<Counsellor[]>([]);
@@ -85,8 +87,80 @@ export default function CounsellingAdminPage() {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [modalMode, setModalMode] = useState<'create' | 'edit'>('create');
-
+  const [deletingId, setDeletingId] = useState<string | null>(null);
   const [showAll, setShowAll] = useState(false);
+  
+  // Slots tab state
+  const [activeTab, setActiveTab] = useState<'counsellors' | 'slots'>('counsellors');
+  const [slots, setSlots] = useState<CounsellingSlot[]>([]);
+  const [loadingSlots, setLoadingSlots] = useState(false);
+  const [slotForm, setSlotForm] = useState<UpsertSlotData>({ date: '', max_slots: 10 });
+  const [bulkDates, setBulkDates] = useState<string[]>([]);
+  const [bulkMaxSlots, setBulkMaxSlots] = useState(10);
+
+  // Slot management handlers
+  const handleSetSlot = async () => {
+    if (!slotForm.date) {
+      setError('Date is required');
+      return;
+    }
+    try {
+      setLoadingSlots(true);
+      const response = await fetch('/api/counselling-slots', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(slotForm)
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchSlots();
+        setSlotForm({ date: '', max_slots: 10 });
+        setSuccess('Slot updated successfully!');
+      } else {
+        setError(data.error || 'Failed to update slot');
+      }
+    } catch (error) {
+      console.error('Set slot error:', error);
+      setError('Failed to update slot');
+    } finally {
+      setLoadingSlots(false);
+    }
+  };
+
+  const handleBulkUpdate = async () => {
+    if (bulkDates.length === 0) {
+      setError('No dates selected');
+      return;
+    }
+    try {
+      setLoadingSlots(true);
+      const updates = bulkDates.map(date => ({
+        date,
+        max_slots: bulkMaxSlots
+      }));
+      const response = await fetch('/api/counselling-slots', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(updates)
+      });
+      const data = await response.json();
+      if (data.success) {
+        fetchSlots();
+        setSuccess(`Updated ${data.data?.updated || 0} slots`);
+      } else {
+        setError(data.error || 'Bulk update failed');
+      }
+    } catch (error) {
+      console.error('Bulk update error:', error);
+      setError('Bulk update failed');
+    } finally {
+      setLoadingSlots(false);
+    }
+  };
+
+  const handleEditSlot = (date: string, maxSlots: number) => {
+    setSlotForm({ date, max_slots: maxSlots });
+  };
 
   const fetchCounsellors = async () => {
     setLoading(true);
@@ -107,18 +181,40 @@ export default function CounsellingAdminPage() {
           totalPages: Math.ceil(data.data.total / pagination.limit)
         }));
       }
-    } catch (err) {
-      console.error('Error fetching counselors:', err);
+    } catch (error) {
+      console.error('Error fetching counselors:', error);
       setError('Failed to load counselors');
     } finally {
       setLoading(false);
     }
   };
 
+  // Fetch counsellors on mount/change
   useEffect(() => {
     fetchCounsellors();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pagination.page, showAll]);
+
+  // Fetch slots when slots tab activated
+  const fetchSlots = async () => {
+    setLoadingSlots(true);
+    try {
+      const response = await fetch('/api/counselling-slots?days=30');
+      const data = await response.json();
+      if (data.success) {
+        setSlots(data.data.slots);
+      }
+    } catch (error) {
+      console.error('Error fetching slots:', error);
+    } finally {
+      setLoadingSlots(false);
+    }
+  };
+
+  useEffect(() => {
+    if (activeTab === 'slots') {
+      fetchSlots();
+    }
+  }, [activeTab]);
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -203,7 +299,8 @@ export default function CounsellingAdminPage() {
       } else {
         setError(data.error || 'Failed to add counsellor');
       }
-    } catch (err) {
+    } catch (error) {
+      console.error('Create error:', error);
       setError('An error occurred while adding counsellor');
     } finally {
       setUploading(false);
@@ -235,7 +332,8 @@ export default function CounsellingAdminPage() {
       } else {
         setError(data.error || 'Failed to update counsellor');
       }
-    } catch (err) {
+    } catch (error) {
+      console.error('Update error:', error);
       setError('An error occurred while updating counsellor');
     } finally {
       setUploading(false);
@@ -258,8 +356,8 @@ export default function CounsellingAdminPage() {
       } else {
         alert(data.error || 'Failed to delete counsellor');
       }
-    } catch (err) {
-      console.error('Delete error:', err);
+    } catch (error) {
+      console.error('Delete error:', error);
       alert('An error occurred while deleting');
     } finally {
       setDeletingId(null);
@@ -311,215 +409,441 @@ export default function CounsellingAdminPage() {
 
   return (
     <div>
-      {/* Header */}
-      <div className="flex justify-between items-center mb-6">
-        <div className="flex items-center space-x-4">
-          <form onSubmit={handleSearch} className="flex items-center space-x-4">
-            <div className="relative">
-              <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Search counselors..."
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent w-64"
-              />
-            </div>
-            <label className="flex items-center space-x-2">
-              <input
-                type="checkbox"
-                checked={showAll}
-                onChange={(e) => {
-                  setShowAll(e.target.checked);
-                  setPagination(prev => ({ ...prev, page: 1 }));
-                }}
-                className="h-4 w-4 text-accent focus:ring-accent border-gray-300 rounded"
-              />
-              <span className="text-sm text-gray-600">Show inactive</span>
-            </label>
-            <button
-              type="submit"
-              className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-red-700 transition duration-300"
-            >
-              Search
-            </button>
-          </form>
-        </div>
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200 mb-6">
         <button
-          onClick={openCreateModal}
-          className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
+          onClick={() => setActiveTab('counsellors')}
+          className={`pb-4 px-1 border-b-2 font-medium ${
+            activeTab === 'counsellors'
+              ? 'border-[#C8102E] text-[#C8102E]'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
         >
-          <Plus className="h-5 w-5 mr-2" />
-          Add Counsellor
+          Counsellors
+        </button>
+        <button
+          onClick={() => setActiveTab('slots')}
+          className={`ml-8 pb-4 px-1 border-b-2 font-medium ${
+            activeTab === 'slots'
+              ? 'border-[#C8102E] text-[#C8102E]'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Daily Slots
         </button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
-        <div className="bg-white p-4 rounded-lg shadow">
-          <p className="text-gray-600 text-sm">Total Counsellors</p>
-          <p className="text-2xl font-bold">{pagination.total}</p>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <p className="text-gray-600 text-sm">Active</p>
-          <p className="text-2xl font-bold text-green-500">
-            {counsellors.filter(c => c.isActive).length}
-          </p>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <p className="text-gray-600 text-sm">Online Sessions</p>
-          <p className="text-2xl font-bold text-blue-500">
-            {counsellors.filter(c => c.isOnline).length}
-          </p>
-        </div>
-        <div className="bg-white p-4 rounded-lg shadow">
-          <p className="text-gray-600 text-sm">In-Person</p>
-          <p className="text-2xl font-bold text-purple-500">
-            {counsellors.filter(c => c.isInPerson).length}
-          </p>
-        </div>
-      </div>
-
-      {/* Loading */}
-      {loading && (
-        <div className="flex justify-center items-center py-20">
-          <Loader2 className="h-8 w-8 animate-spin text-accent" />
-          <span className="ml-2 text-gray-600">Loading counselors...</span>
-        </div>
-      )}
-
-      {/* Counsellors Grid */}
-      {!loading && (
+      {/* Counsellors Tab */}
+      {activeTab === 'counsellors' && (
         <>
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredCounsellors.map((counsellor) => (
-              <div 
-                key={counsellor.id} 
-                className={`bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition duration-300 ${!counsellor.isActive ? 'opacity-60' : ''}`}
-              >
-                {/* Image */}
-                <div className="h-48 bg-gray-200 flex items-center justify-center relative">
-                  {counsellor.imageUrl ? (
-                      <Image 
-                      src={counsellor.imageUrl} 
-                      alt={counsellor.name}
-                      fill
-                      className="object-cover"
-                    />
-                  ) : (
-                    <Users className="h-16 w-16 text-gray-400" />
-                  )}
-                  {!counsellor.isActive && (
-                    <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs">
-                      Inactive
-                    </div>
-                  )}
+          {/* Header */}
+          <div className="flex justify-between items-center mb-6">
+            <div className="flex items-center space-x-4">
+              <form onSubmit={handleSearch} className="flex items-center space-x-4">
+                <div className="relative">
+                  <Search className="absolute left-3 top-3 h-5 w-5 text-gray-400" />
+                  <input
+                    type="text"
+                    placeholder="Search counselors..."
+                    value={search}
+                    onChange={(e) => setSearch(e.target.value)}
+                    className="pl-10 pr-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent w-64"
+                  />
                 </div>
-                
-                {/* Info */}
-                <div className="p-4">
-                  <div className="flex items-center justify-between mb-2">
-                    <h3 className="font-bold text-gray-800">{counsellor.name}</h3>
-                    <div className="flex items-center">
-                      <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 mr-1" />
-                      <span className="text-sm font-medium">{counsellor.rating}</span>
-                    </div>
-                  </div>
-                  
-                  <p className="text-accent font-medium mb-2">{counsellor.title}</p>
-                  
-                  <div className="flex gap-2 mb-3">
-                    {counsellor.isOnline && (
-                      <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded flex items-center">
-                        <Globe className="h-3 w-3 mr-1" /> Online
-                      </span>
-                    )}
-                    {counsellor.isInPerson && (
-                      <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded flex items-center">
-                        <MapPin className="h-3 w-3 mr-1" /> In-Person
-                      </span>
-                    )}
-                  </div>
-
-                  <div className="flex flex-wrap gap-1 mb-3">
-                    {counsellor.specialization.slice(0, 3).map((spec) => (
-                      <span key={spec} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                        {spec}
-                      </span>
-                    ))}
-                    {counsellor.specialization.length > 3 && (
-                      <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
-                        +{counsellor.specialization.length - 3}
-                      </span>
-                    )}
-                  </div>
-                  
-                  <p className="text-gray-600 text-sm line-clamp-2 mb-4">{counsellor.bio}</p>
-                  
-                  <div className="space-y-2 text-sm text-gray-500">
-                    {counsellor.email && (
-                      <div className="flex items-center">
-                        <Mail className="h-4 w-4 mr-2" />
-                        <span className="truncate">{counsellor.email}</span>
-                      </div>
-                    )}
-                    {counsellor.phone && (
-                      <div className="flex items-center">
-                        <Phone className="h-4 w-4 mr-2" />
-                        <span>{counsellor.phone}</span>
-                      </div>
-                    )}
-                  </div>
-                  
-                  {/* Actions */}
-                  <div className="flex justify-between mt-4 pt-4 border-t">
-                    <button
-                      onClick={() => handleDelete(counsellor.id)}
-                      disabled={deletingId === counsellor.id}
-                      className="flex items-center text-red-500 hover:text-red-700 disabled:opacity-50"
-                    >
-                      {deletingId === counsellor.id ? (
-                        <Loader2 className="h-4 w-4 animate-spin" />
-                      ) : (
-                        <>
-                          <Trash2 className="h-4 w-4 mr-1" />
-                          Delete
-                        </>
-                      )}
-                    </button>
-                    <button
-                      onClick={() => openEditModal(counsellor)}
-                      className="flex items-center text-accent hover:text-red-600"
-                    >
-                      <Edit className="h-4 w-4 mr-1" />
-                      Edit
-                    </button>
-                  </div>
-                </div>
-              </div>
-            ))}
+                <label className="flex items-center space-x-2">
+                  <input
+                    type="checkbox"
+                    checked={showAll}
+                    onChange={(e) => {
+                      setShowAll(e.target.checked);
+                      setPagination(prev => ({ ...prev, page: 1 }));
+                    }}
+                    className="h-4 w-4 text-accent focus:ring-accent border-gray-300 rounded"
+                  />
+                  <span className="text-sm text-gray-600">Show inactive</span>
+                </label>
+                <button
+                  type="submit"
+                  className="px-4 py-2 bg-accent text-white rounded-lg hover:bg-red-700 transition duration-300"
+                >
+                  Search
+                </button>
+              </form>
+            </div>
+            <button
+              onClick={openCreateModal}
+              className="flex items-center px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300"
+            >
+              <Plus className="h-5 w-5 mr-2" />
+              Add Counsellor
+            </button>
           </div>
 
-          {/* Empty State */}
-          {filteredCounsellors.length === 0 && (
-            <div className="text-center py-20 bg-white rounded-lg shadow">
-              <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-              <h3 className="text-xl font-bold mb-2">No counselors found</h3>
-              <p className="text-gray-600 mb-4">
-                {search 
-                  ? 'Try adjusting your search'
-                  : 'Add your first counsellor to get started'}
+          {/* Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
+            <div className="bg-white p-4 rounded-lg shadow">
+              <p className="text-gray-600 text-sm">Total Counsellors</p>
+              <p className="text-2xl font-bold">{pagination.total}</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <p className="text-gray-600 text-sm">Active</p>
+              <p className="text-2xl font-bold text-green-500">
+                {counsellors.filter(c => c.isActive).length}
               </p>
-              <button
-                onClick={openCreateModal}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 inline-flex items-center"
-              >
-                <Plus className="h-5 w-5 mr-2" />
-                Add Counsellor
-              </button>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <p className="text-gray-600 text-sm">Online Sessions</p>
+              <p className="text-2xl font-bold text-blue-500">
+                {counsellors.filter(c => c.isOnline).length}
+              </p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <p className="text-gray-600 text-sm">In-Person</p>
+              <p className="text-2xl font-bold text-purple-500">
+                {counsellors.filter(c => c.isInPerson).length}
+              </p>
+            </div>
+          </div>
+
+          {/* Loading */}
+          {loading && (
+            <div className="flex justify-center items-center py-20">
+              <Loader2 className="h-8 w-8 animate-spin text-accent" />
+              <span className="ml-2 text-gray-600">Loading counselors...</span>
             </div>
           )}
+
+          {/* Counsellors Grid */}
+          {!loading && (
+            <>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredCounsellors.map((counsellor) => (
+                  <div 
+                    key={counsellor.id} 
+                    className={`bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition duration-300 ${!counsellor.isActive ? 'opacity-60' : ''}`}
+                  >
+                    {/* Image */}
+                    <div className="h-48 bg-gray-200 flex items-center justify-center relative">
+                      {counsellor.imageUrl ? (
+                        <Image 
+                          src={counsellor.imageUrl} 
+                          alt={counsellor.name}
+                          fill
+                          className="object-cover"
+                        />
+                      ) : (
+                        <Users className="h-16 w-16 text-gray-400" />
+                      )}
+                      {!counsellor.isActive && (
+                        <div className="absolute top-2 left-2 bg-red-500 text-white px-2 py-1 rounded text-xs">
+                          Inactive
+                        </div>
+                      )}
+                    </div>
+                    
+                    {/* Info */}
+                    <div className="p-4">
+                      <div className="flex items-center justify-between mb-2">
+                        <h3 className="font-bold text-gray-800">{counsellor.name}</h3>
+                        <div className="flex items-center">
+                          <Star className="h-4 w-4 text-yellow-500 fill-yellow-500 mr-1" />
+                          <span className="text-sm font-medium">{counsellor.rating}</span>
+                        </div>
+                      </div>
+                      
+                      <p className="text-accent font-medium mb-2">{counsellor.title}</p>
+                      
+                      <div className="flex gap-2 mb-3">
+                        {counsellor.isOnline && (
+                          <span className="text-xs bg-blue-100 text-blue-700 px-2 py-1 rounded flex items-center">
+                            <Globe className="h-3 w-3 mr-1" /> Online
+                          </span>
+                        )}
+                        {counsellor.isInPerson && (
+                          <span className="text-xs bg-purple-100 text-purple-700 px-2 py-1 rounded flex items-center">
+                            <MapPin className="h-3 w-3 mr-1" /> In-Person
+                          </span>
+                        )}
+                      </div>
+
+                      <div className="flex flex-wrap gap-1 mb-3">
+                        {counsellor.specialization.slice(0, 3).map((spec) => (
+                          <span key={spec} className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                            {spec}
+                          </span>
+                        ))}
+                        {counsellor.specialization.length > 3 && (
+                          <span className="text-xs bg-gray-100 text-gray-600 px-2 py-1 rounded">
+                            +{counsellor.specialization.length - 3}
+                          </span>
+                        )}
+                      </div>
+                      
+                      <p className="text-gray-600 text-sm line-clamp-2 mb-4">{counsellor.bio}</p>
+                      
+                      <div className="space-y-2 text-sm text-gray-500">
+                        {counsellor.email && (
+                          <div className="flex items-center">
+                            <Mail className="h-4 w-4 mr-2" />
+                            <span className="truncate">{counsellor.email}</span>
+                          </div>
+                        )}
+                        {counsellor.phone && (
+                          <div className="flex items-center">
+                            <Phone className="h-4 w-4 mr-2" />
+                            <span>{counsellor.phone}</span>
+                          </div>
+                        )}
+                      </div>
+                      
+                      {/* Actions */}
+                      <div className="flex justify-between mt-4 pt-4 border-t">
+                        <button
+                          onClick={() => handleDelete(counsellor.id)}
+                          disabled={deletingId === counsellor.id}
+                          className="flex items-center text-red-500 hover:text-red-700 disabled:opacity-50"
+                        >
+                          {deletingId === counsellor.id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <>
+                              <Trash2 className="h-4 w-4 mr-1" />
+                              Delete
+                            </>
+                          )}
+                        </button>
+                        <button
+                          onClick={() => openEditModal(counsellor)}
+                          className="flex items-center text-accent hover:text-red-600"
+                        >
+                          <Edit className="h-4 w-4 mr-1" />
+                          Edit
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+
+              {/* Empty State */}
+              {filteredCounsellors.length === 0 && (
+                <div className="text-center py-20 bg-white rounded-lg shadow">
+                  <Users className="h-16 w-16 text-gray-300 mx-auto mb-4" />
+                  <h3 className="text-xl font-bold mb-2">No counselors found</h3>
+                  <p className="text-gray-600 mb-4">
+                    {search 
+                      ? 'Try adjusting your search'
+                      : 'Add your first counsellor to get started'}
+                  </p>
+                  <button
+                    onClick={openCreateModal}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition duration-300 inline-flex items-center"
+                  >
+                    <Plus className="h-5 w-5 mr-2" />
+                    Add Counsellor
+                  </button>
+                </div>
+              )}
+            </>
+          )}
         </>
+      )}
+
+      {/* Slots Tab */}
+      {activeTab === 'slots' && (
+        <div>
+          {/* Slots Stats */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div className="bg-gradient-to-r from-green-400 to-green-500 p-4 rounded-lg text-white shadow-lg">
+              <p className="text-green-100">Today's Slots</p>
+              <p className="text-2xl font-bold">{slots.find(s => s.date === new Date().toISOString().split('T')[0])?.available_slots || 0}</p>
+            </div>
+            <div className="bg-gradient-to-r from-blue-400 to-blue-500 p-4 rounded-lg text-white shadow-lg">
+              <p className="text-blue-100">Total Booked</p>
+              <p className="text-2xl font-bold">{slots.reduce((sum, s) => sum + s.booked_slots, 0)}</p>
+            </div>
+            <div className="bg-gradient-to-r from-orange-400 to-orange-500 p-4 rounded-lg text-white shadow-lg">
+              <p className="text-orange-100">Avg Available</p>
+              <p className="text-2xl font-bold">{Math.round(slots.reduce((sum, s) => sum + s.available_slots, 0) / slots.length) || 0}</p>
+            </div>
+          </div>
+
+          {/* Slots Controls */}
+          <div className="bg-white p-6 rounded-lg shadow mb-6">
+            <h3 className="text-lg font-semibold mb-4">Quick Actions</h3>
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {/* Single Date */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Set Single Day</label>
+                <div className="flex gap-2">
+                  <input
+                    type="date"
+                    value={slotForm.date}
+                    onChange={(e) => setSlotForm({ ...slotForm, date: e.target.value })}
+                    className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    value={slotForm.max_slots}
+                    onChange={(e) => setSlotForm({ ...slotForm, max_slots: parseInt(e.target.value) || 10 })}
+                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500"
+                    placeholder="10"
+                  />
+                  <button
+                    onClick={handleSetSlot}
+                    className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 whitespace-nowrap"
+                  >
+                    Set
+                  </button>
+                </div>
+              </div>
+
+              {/* Bulk Update */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Bulk Update</label>
+                <div className="flex gap-2">
+                  <input
+                    type="number"
+                    min="1"
+                    max="30"
+                    value={bulkDates.length || ''}
+                    onChange={(e) => {
+                      const num = parseInt(e.target.value) || 0;
+                      const dates: string[] = [];
+                      const today = new Date();
+                      for (let i = 0; i < num; i++) {
+                        const date = new Date(today);
+                        date.setDate(today.getDate() + i);
+                        dates.push(date.toISOString().split('T')[0]);
+                      }
+                      setBulkDates(dates);
+                    }}
+                    className="w-20 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                    placeholder="Days"
+                  />
+                  <input
+                    type="number"
+                    min="0"
+                    max="50"
+                    value={bulkMaxSlots}
+                    onChange={(e) => setBulkMaxSlots(parseInt(e.target.value) || 10)}
+                    className="w-24 px-3 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-green-500"
+                    placeholder="10"
+                  />
+                  <button
+                    onClick={handleBulkUpdate}
+                    disabled={bulkDates.length === 0}
+                    className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 disabled:bg-gray-400 whitespace-nowrap"
+                  >
+                    Bulk Set
+                  </button>
+                </div>
+              </div>
+
+              {/* Refresh */}
+              <div className="flex items-end">
+                <button
+                  onClick={fetchSlots}
+                  disabled={loadingSlots}
+                  className="flex items-center gap-2 px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 disabled:bg-gray-400"
+                >
+                  {loadingSlots ? (
+                    <Loader2 className="animate-spin h-4 w-4" />
+                  ) : (
+                    <RefreshCw className="h-4 w-4" />
+                  )}
+                  Refresh
+                </button>
+              </div>
+            </div>
+          </div>
+
+          {/* Slots Table */}
+          {loadingSlots ? (
+            <div className="flex items-center justify-center py-12">
+              <Loader2 className="animate-spin h-8 w-8 text-gray-400 mr-2" />
+              <span>Loading slots...</span>
+            </div>
+          ) : slots.length === 0 ? (
+            <div className="text-center py-12">
+              <Calendar className="mx-auto h-16 w-16 text-gray-400 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No slots data</h3>
+              <p className="text-gray-500 mb-4">Use Quick Actions to set up daily limits</p>
+              <button
+                onClick={fetchSlots}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700"
+              >
+                Load Slots
+              </button>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Date
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Max Slots
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Booked
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Available
+                    </th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
+                      Actions
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {slots.map((slot) => (
+                    <tr key={slot.date} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">
+                        {new Date(slot.date).toLocaleDateString('en-US', { 
+                          weekday: 'short', 
+                          month: 'short', 
+                          day: 'numeric' 
+                        })}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {slot.max_slots}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className="px-2 inline-flex text-xs leading-5 font-semibold rounded-full bg-red-100 text-red-800">
+                          {slot.booked_slots}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          slot.available_slots === 0 
+                            ? 'bg-gray-100 text-gray-800' 
+                            : slot.available_slots < 3 
+                            ? 'bg-yellow-100 text-yellow-800' 
+                            : 'bg-green-100 text-green-800'
+                        }`}>
+                          {slot.available_slots}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-right text-sm font-medium">
+                        <button
+                          onClick={() => handleEditSlot(slot.date, slot.max_slots)}
+                          className="text-blue-600 hover:text-blue-900 mr-3"
+                        >
+                          Edit
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
       )}
 
       {/* Create/Edit Modal */}
@@ -801,4 +1125,3 @@ export default function CounsellingAdminPage() {
     </div>
   );
 }
-

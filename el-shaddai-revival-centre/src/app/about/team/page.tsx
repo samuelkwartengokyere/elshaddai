@@ -73,92 +73,12 @@ const ministryTeams = [
   }
 ]
 
-// Fallback leadership data in case API fails
-const fallbackLeadershipTeam: TeamMember[] = [
-  {
-    _id: '1',
-    name: 'Pastor John Smith',
-    role: 'Senior Pastor',
-    bio: 'Leading our congregation with wisdom and compassion for over 20 years. Pastor John has a heart for souls and a vision to see our community transformed by the power of God.',
-    image: '/images/team/pastor-john.jpg',
-    email: 'pastor.john@elshaddai.com',
-    phone: '+233 50 123 4567',
-    department: 'Senior Leadership',
-    isLeadership: true,
-    isPublished: true,
-    order: 1
-  },
-  {
-    _id: '2',
-    name: 'Pastor Sarah Johnson',
-    role: 'Associate Pastor',
-    bio: 'Passionate about discipleship and community outreach. Sarah leads our connect groups and coordinates community service initiatives.',
-    image: '/images/team/pastor-sarah.jpg',
-    email: 'pastor.sarah@elshaddai.com',
-    phone: '+233 50 123 4568',
-    department: 'Discipleship & Outreach',
-    isLeadership: true,
-    isPublished: true,
-    order: 2
-  },
-  {
-    _id: '3',
-    name: 'David Williams',
-    role: 'Worship Pastor',
-    bio: 'Guiding our worship team to create meaningful worship experiences. David has a gift for leading people into God\'s presence through music and praise.',
-    image: '/images/team/david.jpg',
-    email: 'david@elshaddai.com',
-    phone: '+233 50 123 4569',
-    department: 'Worship & Arts',
-    isLeadership: true,
-    isPublished: true,
-    order: 3
-  },
-  {
-    _id: '4',
-    name: 'Mary Thompson',
-    role: "Children's Director",
-    bio: 'Dedicated to nurturing the faith of the next generation. Mary leads our children\'s ministry with creativity and love.',
-    image: '/images/team/mary.jpg',
-    email: 'mary@elshaddai.com',
-    phone: '+233 50 123 4570',
-    department: "Children's Ministry",
-    isLeadership: true,
-    isPublished: true,
-    order: 4
-  },
-  {
-    _id: '5',
-    name: 'James Osei',
-    role: 'Youth Pastor',
-    bio: 'Empowering young people to discover their purpose in God. James leads our youth with energy and biblical wisdom.',
-    image: '/images/team/james.jpg',
-    email: 'james@elshaddai.com',
-    phone: '+233 50 123 4571',
-    department: 'Youth Ministry',
-    isLeadership: true,
-    isPublished: true,
-    order: 5
-  },
-  {
-    _id: '6',
-    name: 'Grace Mensah',
-    role: 'Women\'s Ministry Leader',
-    bio: 'Encouraging women in their spiritual journey through fellowship, teaching, and support groups.',
-    image: '/images/team/grace.jpg',
-    email: 'grace@elshaddai.com',
-    phone: '+233 50 123 4572',
-    department: "Women's Ministry",
-    isLeadership: true,
-    isPublished: true,
-    order: 6
-  }
-]
+
 
 export default function TeamPage() {
   const [leadershipTeam, setLeadershipTeam] = useState<TeamMember[]>([])
   const [loading, setLoading] = useState(true)
-  const [error, setError] = useState('')
+
 
   useEffect(() => {
     fetchLeadershipTeam()
@@ -182,20 +102,19 @@ export default function TeamPage() {
         const sorted = [...data.teamMembers].sort((a, b) => a.order - b.order)
         setLeadershipTeam(sorted)
       } else {
-        // Use fallback if no data from API
-        setLeadershipTeam(fallbackLeadershipTeam)
+        setLeadershipTeam([])
       }
     } catch (err) {
       console.error('Error fetching leadership team:', err)
-      // Use fallback data on error
-      setLeadershipTeam(fallbackLeadershipTeam)
+      // No fallback on error - show empty
+      setLeadershipTeam([])
     } finally {
       setLoading(false)
     }
   }
 
   // Determine which team to display
-  const displayTeam = leadershipTeam.length > 0 ? leadershipTeam : fallbackLeadershipTeam
+  const displayTeam = leadershipTeam
 
   return (
     <div className="min-h-screen bg-gray-50">

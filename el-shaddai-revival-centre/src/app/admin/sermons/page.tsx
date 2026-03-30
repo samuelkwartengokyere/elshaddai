@@ -1,6 +1,7 @@
 'use client'
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { 
   Upload, 
   Search, 
@@ -49,6 +50,7 @@ export default function SermonsPage() {
   const [seriesFilter, setSeriesFilter] = useState('')
   const [showEditModal, setShowEditModal] = useState(false)
   const [editingSermon, setEditingSermon] = useState<Sermon | null>(null)
+  const [deletingId, setDeletingId] = useState<string | null>(null) // Added missing state
   const [pagination, setPagination] = useState({
     page: 1,
     limit: 10,
@@ -67,8 +69,7 @@ export default function SermonsPage() {
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
-  const [deletingId, setDeletingId] = useState<string | null>(null)
-
+  
   const fetchSermons = async () => {
     setLoading(true)
     try {
@@ -152,7 +153,8 @@ export default function SermonsPage() {
       } else {
         setError(data.error || 'Failed to update sermon')
       }
-    } catch (err) {
+    } catch (error) {  // Fixed: renamed 'err' to 'error'
+      console.error('Update error:', error)
       setError('An error occurred while updating sermon')
     } finally {
       setUploading(false)
@@ -301,10 +303,12 @@ export default function SermonsPage() {
                     <td className="px-6 py-4">
                       <div className="flex items-center">
                         {sermon.thumbnail ? (
-                          <img
+                          <Image
                             src={sermon.thumbnail}
                             alt={sermon.title}
-                            className="h-12 w-12 rounded-lg object-cover mr-4"
+                            width={48}
+                            height={48}
+                            className="rounded-lg object-cover mr-4"
                           />
                         ) : (
                           <div className="h-12 w-12 rounded-lg bg-accent-10 flex items-center justify-center mr-4">
@@ -370,10 +374,15 @@ export default function SermonsPage() {
                         </button>
                         <button
                           onClick={() => handleDelete(sermon._id)}
-                          className="p-2 text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-lg"
+                          disabled={deletingId === sermon._id}
+                          className="p-2 text-gray-500 hover:text-red-600 hover:bg-gray-100 rounded-lg disabled:opacity-50"
                           title="Delete"
                         >
-                          <Trash2 className="h-4 w-4" />
+                          {deletingId === sermon._id ? (
+                            <Loader2 className="h-4 w-4 animate-spin" />
+                          ) : (
+                            <Trash2 className="h-4 w-4" />
+                          )}
                         </button>
                       </div>
                     </td>
@@ -607,4 +616,3 @@ export default function SermonsPage() {
     </div>
   )
 }
-

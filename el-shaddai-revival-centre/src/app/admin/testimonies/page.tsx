@@ -14,6 +14,7 @@ import {
   Upload,
   Camera
 } from 'lucide-react'
+import Image from 'next/image'
 
 interface Testimony {
   _id: string
@@ -92,8 +93,8 @@ export default function TestimoniesPage() {
           totalPages: data.pagination.totalPages
         }))
       }
-    } catch (err) {
-      console.error('Error fetching testimonies:', err)
+    } catch (error) { // Fixed: renamed 'err' to 'error'
+      console.error('Error fetching testimonies:', error)
     } finally {
       setLoading(false)
     }
@@ -238,7 +239,8 @@ export default function TestimoniesPage() {
       } else {
         setError(data.error || 'Failed to create testimony')
       }
-    } catch (err) {
+    } catch (error) { // Fixed: renamed 'err' to 'error'
+      console.error('Create error:', error)
       setError('An error occurred while creating testimony')
     } finally {
       setUploading(false)
@@ -305,7 +307,8 @@ export default function TestimoniesPage() {
       } else {
         setError(data.error || 'Failed to update testimony')
       }
-    } catch (err) {
+    } catch (error) { // Fixed: renamed 'err' to 'error'
+      console.error('Update error:', error)
       setError('An error occurred while updating testimony')
     } finally {
       setUploading(false)
@@ -330,8 +333,8 @@ export default function TestimoniesPage() {
       } else {
         alert(data.error || 'Failed to delete testimony')
       }
-    } catch (err) {
-      console.error('Delete error:', err)
+    } catch (error) { // Fixed: renamed 'err' to 'error'
+      console.error('Delete error:', error)
       alert('An error occurred while deleting')
     } finally {
       setDeletingId(null)
@@ -450,7 +453,7 @@ export default function TestimoniesPage() {
                 
                 {/* Content Preview */}
                 <div className="p-4">
-              <p className="text-gray-600 text-sm line-clamp-3 mb-4">{testimony.content}</p>
+                  <p className="text-gray-600 text-sm line-clamp-3 mb-4">{testimony.content}</p>
                   
                   <div className="space-y-2 text-sm text-gray-500">
                     <div className="flex items-center">
@@ -467,10 +470,17 @@ export default function TestimoniesPage() {
                   <div className="flex justify-between mt-4 pt-4 border-t">
                     <button
                       onClick={() => handleDelete(testimony._id)}
-                      className="flex items-center text-red-500 hover:text-red-700"
+                      disabled={deletingId === testimony._id}
+                      className="flex items-center text-red-500 hover:text-red-700 disabled:opacity-50"
                     >
-                      <Trash2 className="h-4 w-4 mr-1" />
-                      Delete
+                      {deletingId === testimony._id ? (
+                        <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+                      ) : (
+                        <>
+                          <Trash2 className="h-4 w-4 mr-1" />
+                          Delete
+                        </>
+                      )}
                     </button>
                     <button
                       onClick={() => openEditModal(testimony)}
@@ -661,9 +671,11 @@ export default function TestimoniesPage() {
                 <div className="border-2 border-dashed border-gray-300 rounded-lg p-4 text-center hover:border-accent transition duration-300">
                   {previewUrl ? (
                     <div className="relative">
-                      <img
+                      <Image
                         src={previewUrl}
-                        alt="Preview"
+                        alt="Testimony image preview"
+                        width={192}
+                        height={192}
                         className="max-h-48 mx-auto rounded-lg object-cover"
                       />
                       <button
@@ -745,4 +757,3 @@ export default function TestimoniesPage() {
     </div>
   )
 }
-

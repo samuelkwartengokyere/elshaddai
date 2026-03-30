@@ -190,15 +190,6 @@ export default function GivePage() {
           </div>
         </div>
 
-        {/* Financial Transparency */}
-        <div className="text-center mt-12">
-          <p className="text-gray-600">
-            We are committed to financial integrity and transparency. 
-            <a href="/financial-report" className="text-accent hover:text-red-600 ml-2 font-medium">
-              View our annual financial report →
-            </a>
-          </p>
-        </div>
       </div>
     </div>
   )

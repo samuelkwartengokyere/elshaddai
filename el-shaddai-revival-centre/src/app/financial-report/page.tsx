@@ -381,7 +381,7 @@ export default function FinancialReportPage() {
             <Heart className="h-16 w-16 text-accent mx-auto mb-6" />
             <h2 className="text-3xl font-bold mb-4">Thank You for Your Generosity</h2>
             <p className="text-gray-600 text-lg mb-8">
-              Your gifts make it possible for us to fulfill our mission of spreading God's love and serving our community. 
+              Your gifts make it possible for us to fulfill our mission of spreading God&apos;s love and serving our community. 
               Every dollar given is a dollar invested in eternity.
             </p>
             <Link

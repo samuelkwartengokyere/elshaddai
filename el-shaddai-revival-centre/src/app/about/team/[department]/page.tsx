@@ -3,10 +3,9 @@
 import Image from 'next/image'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import { use, useState, useEffect } from 'react'
+import { use, useState, useEffect, useCallback } from 'react'
 import { 
   Users, 
-  ArrowLeft, 
   Mail, 
   Phone, 
   ChevronLeft, 
@@ -36,8 +35,7 @@ const ministryTeams = [
   { name: 'Greeters Team', slug: 'greeters-team', description: 'Making everyone feel welcome as they arrive', icon: '👋' }
 ]
 
-// Fallback data
-const fallbackMembers: TeamMember[] = []
+
 
 export default function DepartmentTeamPage({ params }: { params: Promise<{ department: string }> }) {
   const resolvedParams = use(params)
@@ -51,11 +49,7 @@ export default function DepartmentTeamPage({ params }: { params: Promise<{ depar
     notFound()
   }
 
-  useEffect(() => {
-    fetchTeamMembers()
-  }, [department])
-
-  const fetchTeamMembers = async () => {
+  const fetchTeamMembers = useCallback(async () => {
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
       const url = new URL(`${baseUrl}/api/teams`)
@@ -81,7 +75,13 @@ export default function DepartmentTeamPage({ params }: { params: Promise<{ depar
     } finally {
       setLoading(false)
     }
-  }
+  }, [department, teamConfig!])
+
+  useEffect(() => {
+    fetchTeamMembers()
+  }, [department, fetchTeamMembers])
+
+
 
   return (
     <div className="min-h-screen bg-gray-50">

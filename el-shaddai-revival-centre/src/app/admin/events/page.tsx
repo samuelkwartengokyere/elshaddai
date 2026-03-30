@@ -605,9 +605,11 @@ export default function EventsPage() {
                     <div className="flex-1">
                       <p className="text-sm text-gray-500 mb-2">Image preview:</p>
                       <div className="w-32 h-32 rounded-lg overflow-hidden border border-gray-200">
-                        <img
+                        <Image
                           src={formData.imageUrl}
                           alt="Event preview"
+                          width={128}
+                          height={128}
                           className="w-full h-full object-cover"
                         />
                       </div>

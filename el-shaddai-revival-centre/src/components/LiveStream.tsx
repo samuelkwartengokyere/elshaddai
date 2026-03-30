@@ -227,23 +227,17 @@ export default function LiveStream() {
         </div>
 
         <div className="max-w-6xl mx-auto">
-          {/* YouTube not configured message */}
-          {!embedUrl && (
-            <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
-              <div className="flex items-start">
-                <AlertCircle className="h-5 w-5 text-yellow-500 mr-3 mt-0.5" />
-                <div>
-                  <h3 className="font-medium text-yellow-700">YouTube Channel Not Configured</h3>
-                  <p className="text-sm text-yellow-600 mt-1">
-                    To enable live streaming, please configure your YouTube channel in the admin settings.
-                  </p>
-                  <a
-                    href="/admin/settings"
-                    className="inline-block mt-3 text-sm text-accent hover:text-red-600 font-medium"
-                  >
-                    Go to Settings →
-                  </a>
-                </div>
+{/* Neutral placeholder - no config warning on public page */}
+          {(!loading && !embedUrl) && (
+            <div className="bg-gray-50 border border-gray-200 rounded-lg p-8 mb-6 text-center">
+              <Play className="h-16 w-16 mx-auto mb-4 text-gray-400" />
+              <h3 className="text-xl font-medium text-gray-700 mb-2">Join Live During Service Times</h3>
+              <p className="text-gray-500 mb-4 max-w-md mx-auto">
+                Live stream player will appear here during our scheduled services. 
+                Check service times below.
+              </p>
+              <div className="text-sm text-gray-400">
+                Next service: {getNextServiceTime()}
               </div>
             </div>
           )}
@@ -260,11 +254,14 @@ export default function LiveStream() {
                   allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                 />
               ) : (
-                <div className="absolute top-0 left-0 w-full h-full bg-gray-900 flex items-center justify-center">
-                  <div className="text-center text-gray-400 p-4">
-                    <Play className="h-16 w-16 mx-auto mb-4 opacity-50" />
-                    <p className="text-lg">Live stream player not available</p>
-                    <p className="text-sm mt-2">Configure YouTube channel in admin settings</p>
+                <div className="absolute top-0 left-0 w-full h-full bg-gray-900 flex flex-col items-center justify-center text-center p-8">
+                  <Play className="h-20 w-20 mx-auto mb-6 opacity-30" />
+                  <div className="text-white">
+                    <p className="text-xl mb-2">Live Stream Player</p>
+                    <p className="text-lg mb-6 max-w-sm mx-auto leading-relaxed">
+                      Player will automatically load during service times
+                    </p>
+                    <p className="text-sm opacity-75">Check service schedule below</p>
                   </div>
                 </div>
               )}
@@ -413,22 +410,20 @@ function getNextServiceTime(): string {
   if (day === 0) {
     if (currentMinutes < 9 * 60) return 'Today at 9:00 AM'
     if (currentMinutes < 11 * 60) return 'Today at 11:00 AM'
+    if (currentMinutes < 14 * 60) return 'Today at 2:00 PM (approx)'
   }
   // Wednesday
   if (day === 3 && currentMinutes < 19 * 60) return 'Today at 7:00 PM'
   // Friday
   if (day === 5 && currentMinutes < 19 * 60) return 'Today at 7:00 PM'
 
-  // Next service
-  // Next Sunday
-  if (day === 0) return 'Next Sunday at 9:00 AM'
-  // Next Wednesday
-  if (day === 1 || day === 2) return 'Wednesday at 7:00 PM'
-  if (day === 3) return 'Wednesday at 7:00 PM'
-  // Next Friday
-  if (day === 4) return 'Friday at 7:00 PM'
-  if (day === 5) return 'Friday at 7:00 PM'
-  // Next Sunday
-  return 'Sunday at 9:00 AM'
+  // Next services
+  const daysUntil = (targetDay: number) => (targetDay + 7 - day) % 7 || 7
+  if (day === 0) return 'Next Wednesday at 7:00 PM'
+  if (day === 1 || day === 2) return `Wednesday at 7:00 PM (${daysUntil(3)} days)`
+  if (day === 3) return 'Friday at 7:00 PM'
+  if (day === 4) return `Friday at 7:00 PM (1 day)`
+  if (day === 5) return 'Next Sunday at 9:00 AM'
+  return `Sunday at 9:00 AM (${daysUntil(0)} days)`
 }
 

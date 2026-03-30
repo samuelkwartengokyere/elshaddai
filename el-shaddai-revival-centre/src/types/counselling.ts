@@ -1,5 +1,22 @@
 // Counselling Types
 
+// Daily Slot Management
+export interface CounsellingSlot {
+  id: string;
+  date: string; // YYYY-MM-DD
+  max_slots: number;
+  booked_slots: number;
+  available_slots: number; // computed: max_slots - booked_slots
+  created_at: string;
+  updated_at: string;
+}
+
+export interface UpsertSlotData {
+  date: string;
+  max_slots: number;
+}
+
+
 export interface Counsellor {
   id: string;
   name: string;

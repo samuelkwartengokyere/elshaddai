@@ -91,7 +91,8 @@ export default function AdminCalendarPage() {
       } else {
         setError(data.error || 'Failed to fetch events')
       }
-    } catch (err) {
+    } catch (error) {  // Fixed: renamed 'err' to 'error'
+      console.error('Fetch events error:', error)
       setError('Failed to connect to server')
     } finally {
       setLoading(false)
@@ -174,7 +175,8 @@ export default function AdminCalendarPage() {
       } else {
         setError(data.error || 'Failed to save event')
       }
-    } catch (err) {
+    } catch (error) {  // Fixed: renamed 'err' to 'error'
+      console.error('Save event error:', error)
       setError('Failed to save event')
     }
   }
@@ -199,8 +201,8 @@ export default function AdminCalendarPage() {
       } else {
         alert(data.error || 'Failed to delete event')
       }
-    } catch (err) {
-      console.error('Delete error:', err)
+    } catch (error) {  // Fixed: renamed 'err' to 'error'
+      console.error('Delete error:', error)
       alert('An error occurred while deleting')
     } finally {
       setDeletingId(null)
@@ -226,8 +228,8 @@ export default function AdminCalendarPage() {
       } else {
         alert(data.error || 'Failed to delete events')
       }
-    } catch (err) {
-      console.error('Delete error:', err)
+    } catch (error) {  // Fixed: renamed 'err' to 'error'
+      console.error('Delete error:', error)
       alert('An error occurred while deleting')
     }
   }
@@ -245,7 +247,8 @@ export default function AdminCalendarPage() {
     try {
       // Parse CSV
       const lines = csvData.trim().split('\n')
-      const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
+      // Removed unused 'headers' variable
+      // const headers = lines[0].split(',').map(h => h.trim().toLowerCase())
       
       const events = []
       for (let i = 1; i < lines.length; i++) {
@@ -279,7 +282,8 @@ export default function AdminCalendarPage() {
       } else {
         setError(data.error || 'Failed to import events')
       }
-    } catch (err) {
+    } catch (error) {  // Fixed: renamed 'err' to 'error'
+      console.error('CSV import error:', error)
       setError('Failed to import CSV data')
     }
   }
@@ -726,4 +730,3 @@ export default function AdminCalendarPage() {
     </div>
   )
 }
-

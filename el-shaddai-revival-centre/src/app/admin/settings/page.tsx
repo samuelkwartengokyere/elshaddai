@@ -120,11 +120,10 @@ export default function AdminSettings() {
   })
   const [modalLoading, setModalLoading] = useState(false)
   const [modalError, setModalError] = useState('')
-
+  const [deletingAdminId, setDeletingAdminId] = useState<string | null>(null) // Renamed for clarity
   const [maintenanceMode, setMaintenanceMode] = useState(false)
   const [maintenanceMessage, setMaintenanceMessage] = useState('')
   const [maintenanceSaving, setMaintenanceSaving] = useState(false)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { fetchSettings(); fetchCurrentUser() }, [])
@@ -301,11 +300,7 @@ export default function AdminSettings() {
     setProfileImage(avatarUrl); setSelectedAvatarIndex(index); setCustomUrl('')
   }
 
-  const handleCustomUrlSubmit = () => { 
-    if (customUrl.trim()) { 
-      setProfileImage(customUrl.trim()) 
-    } 
-  }
+  // Removed unused handleCustomUrlSubmit function
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -330,13 +325,13 @@ export default function AdminSettings() {
 
   const handleDeleteAdmin = async (adminId: string) => {
     if (!confirm('Are you sure you want to delete this admin user?')) return
-    setDeletingId(adminId)
+    setDeletingAdminId(adminId) // Updated variable name
     try {
       const response = await fetch(`/api/admins/${adminId}`, { method: 'DELETE' })
       const data = await response.json()
       if (data.success) { alert('Admin deleted successfully!'); fetchAdmins() } else { alert(data.error || 'Failed to delete admin') }
     } catch (error) { console.error('Error deleting admin:', error); alert('An error occurred while deleting') }
-    finally { setDeletingId(null) }
+    finally { setDeletingAdminId(null) }
   }
 
   const handleSaveAdmin = async () => {
@@ -452,6 +447,21 @@ export default function AdminSettings() {
 
         {activeTab === 'youtube' && (
           <div className="bg-white rounded-xl shadow-md p-6">
+            {/* Config warning - shown only in admin when unconfigured */}
+            {(!youtubeSettings.channelId && !youtubeSettings.channelUrl) && (
+              <div className="bg-yellow-50 border border-yellow-200 rounded-lg p-6 mb-6">
+                <div className="flex items-start">
+                  <AlertCircle className="h-5 w-5 text-yellow-500 mr-3 mt-0.5" />
+                  <div>
+                    <h3 className="font-medium text-yellow-700">YouTube Channel Not Configured</h3>
+                    <p className="text-sm text-yellow-600 mt-1">
+                      To enable live streaming and auto-sync sermons on the public website, configure your YouTube channel below.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center mb-6"><Youtube className="h-6 w-6 text-red-600 mr-3" /><h2 className="text-xl font-bold text-gray-800">YouTube Channel Settings</h2></div>
             
             {/* Sync Status Display */}
@@ -649,7 +659,8 @@ export default function AdminSettings() {
                     <tr key={admin._id} className="border-b">
                       <td className="py-3 px-4 flex items-center">
                         <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center text-white mr-3">{admin.name.charAt(0).toUpperCase()}</div>
-                        {admin.name}</td>
+                        {admin.name}
+                      </td>
                       <td className="py-3 px-4">{admin.email}</td>
                       <td className="py-3 px-4"><span className="px-2 py-1 rounded text-xs bg-blue-100">{admin.role}</span></td>
                       <td className="py-3 px-4">

@@ -56,37 +56,7 @@ async function getLeadershipTeam(): Promise<TeamMember[]> {
   }
 }
 
-// Fallback data
-const fallbackTeam: TeamMember[] = [
-  {
-    name: 'Pastor John Smith',
-    role: 'Senior Pastor',
-    bio: 'Leading our congregation with wisdom and compassion for over 20 years.',
-    image: 'https://api.dicebear.com/7.x/person/svg?seed=john',
-    isLeadership: true
-  },
-  {
-    name: 'Pastor Sarah Johnson',
-    role: 'Associate Pastor',
-    bio: 'Passionate about discipleship and community outreach.',
-    image: 'https://api.dicebear.com/7.x/person/svg?seed=sarah',
-    isLeadership: true
-  },
-  {
-    name: 'David Williams',
-    role: 'Worship Pastor',
-    bio: 'Guiding our worship team to create meaningful worship experiences.',
-    image: 'https://api.dicebear.com/7.x/person/svg?seed=david',
-    isLeadership: true
-  },
-  {
-    name: 'Mary Thompson',
-    role: 'Children\'s Director',
-    bio: 'Dedicated to nurturing the faith of the next generation.',
-    image: 'https://api.dicebear.com/7.x/person/svg?seed=mary',
-    isLeadership: true
-  }
-]
+
 
 const coreValues: CoreValue[] = [
   {
@@ -144,7 +114,7 @@ const IconMap: Record<string, React.ComponentType<{ className?: string }>> = {
 
 export default async function AboutPage() {
   const leadershipTeam = await getLeadershipTeam()
-  const displayTeam = leadershipTeam.length > 0 ? leadershipTeam : fallbackTeam
+  const displayTeam = leadershipTeam
 
   return (
     <>
