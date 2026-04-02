@@ -12,7 +12,7 @@
   "dependencies": {
     "@paystack/inline-js": "^2.22.7",
     "@supabase/ssr": "^0.10.0",
-    "@supabase/supabase-js": "^2.101.0",
+    "@supabase/supabase-js": "^2.101.1",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/jspdf": "^1.3.3",
@@ -21,13 +21,13 @@
     "axios": "^1.13.4",
     "bcryptjs": "^3.0.3",
     "cloudinary": "^2.9.0",
+    "dotenv": "^17.4.0",
     "ethers": "^6.16.0",
     "framer-motion": "^12.33.0",
     "jose": "^6.1.3",
     "jsonwebtoken": "^9.0.3",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.563.0",
-
     "multer": "^2.0.2",
     "next": "16.1.6",
     "nodemailer": "^8.0.0",

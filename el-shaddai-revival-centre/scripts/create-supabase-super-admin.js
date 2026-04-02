@@ -1,8 +1,11 @@
 #!/usr/bin/env node
 /**
  * Create Super Admin User in Supabase
- * Run: cd el-shaddai-revival-centre && npm i @supabase/supabase-js bcryptjs && node scripts/create-supabase-super-admin.js
+ * Run: cd el-shaddai-revival-centre && npm i @supabase/supabase-js bcryptjs dotenv && node scripts/create-supabase-super-admin.js
  */
+
+import { config } from 'dotenv'
+config()
 
 import { createClient } from '@supabase/supabase-js'
 import bcrypt from 'bcryptjs'
