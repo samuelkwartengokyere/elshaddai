@@ -1,0 +1,21 @@
+<parameter name="content"># API /admins Fix Plan
+
+## Status: In Progress
+
+### Steps:
+
+1. [ ] Create Supabase super admin script (scripts/create-super-admin-supabase.js)
+2. [ ] Edit src/app/api/admins/route.tsx to add ?test=1 bypass for dev testing
+3. [ ] Run SUPABASE_SCHEMA.md SQL in Supabase dashboard
+4. [ ] cd el-shaddai-revival-centre && node scripts/create-super-admin-supabase.js
+5. [ ] Test curl http://localhost:3000/api/admins?test=1 (should return dev admin)
+6. [ ] Login /admin/login with super_admin credentials
+7. [ ] Test curl with auth cookie
+8. [ ] [ ] Remove test bypass
+
+## Commands to run:
+```
+curl -s http://localhost:3000/api/admins?test=1 || echo \"Test bypass ready\"
+```
+
+**Next step: I'll create the super admin script and edit the API file.**</parameter>

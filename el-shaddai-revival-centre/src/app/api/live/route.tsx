@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB, { isDatabaseConnected } from '@/lib/database'
-import Settings from '@/models/Settings'
+import { settingsDb } from '@/lib/db'
 import { getInMemoryYouTubeSettings } from '@/lib/youtubeStorage'
 import { checkChannelLiveStatus, extractChannelId, getChannelIdFromUsername } from '@/lib/youtube'
 
@@ -71,14 +71,14 @@ export async function GET(request: NextRequest) {
     // Check both dbConnection and connection readiness
     const isReady = await isDatabaseConnected()
     
-    if (dbConnection && isReady) {
+    if (isReady) {
       try {
-        settings = await Settings.findOne().lean() as Record<string, unknown> | null
+        const dbSettings = await settingsDb.get('youtube')
+        settings = dbSettings ? dbSettings.value as Record<string, unknown> : {} as Record<string, unknown>
       } catch (error) {
         console.error('Database query error:', error)
+        settings = {} as Record<string, unknown>
       }
-    } else if (!dbConnection) {
-      console.warn('Database connection not available, using fallback mode')
     } else {
       console.warn('Database connection not ready yet, using fallback mode')
     }

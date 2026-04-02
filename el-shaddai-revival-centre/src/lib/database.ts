@@ -13,23 +13,25 @@
  * 3. Run the SQL schema from SUPABASE_SCHEMA.md in Supabase SQL Editor
  */
 
-import { isSupabaseConfigured, getSupabaseConfig } from './supabase'
+// Inline config check - avoid import issues with Turbopack static analysis
+import { isSupabaseConfigured } from './supabase'
+
+// Removed hardcoded config - use src/lib/supabase.ts only
+// Production requires NEXT_PUBLIC_SUPABASE_URL + keys in .env.local
 
 /**
  * Connect to database - returns connection status
  */
 async function connectDB(): Promise<boolean> {
-  const config = getSupabaseConfig()
+  if (process.env.NODE_ENV === 'production' && !isSupabaseConfigured()) {
+    throw new Error('❌ Supabase env vars missing in production. Add to .env.local: NEXT_PUBLIC_SUPABASE_URL, NEXT_PUBLIC_SUPABASE_ANON_KEY, SUPABASE_SERVICE_ROLE_KEY')
+  }
   
-  if (config.isConfigured) {
+  if (isSupabaseConfigured()) {
     console.log('✅ Supabase is configured and ready')
     return true
   } else {
-    console.log('⚠️ Using in-memory storage (Supabase not configured)')
-    console.log('To enable Supabase, add the following to .env.local:')
-    console.log('  NEXT_PUBLIC_SUPABASE_URL=https://your-project.supabase.co')
-    console.log('  NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key')
-    console.log('  SUPABASE_SERVICE_ROLE_KEY=your-service-role-key')
+    console.warn('⚠️ Supabase not configured - using limited mode (dev only)')
     return false
   }
 }
@@ -45,20 +47,19 @@ export async function isDatabaseConnected(): Promise<boolean> {
  * Get database configuration status
  */
 export function getDatabaseStatus() {
-  const config = getSupabaseConfig()
+  const connected = isSupabaseConfigured()
   return {
-    connected: config.isConfigured,
-    ready: config.isConfigured,
+    connected,
+    ready: connected,
     connecting: false,
     retries: 0,
-    state: config.isConfigured ? 'supabase' : 'in-memory',
+    state: connected ? 'supabase' : 'limited',
     config: {
-      url: config.url,
-      hasAnonKey: config.hasAnonKey,
-      hasServiceKey: config.hasServiceKey
+      url: process.env.NEXT_PUBLIC_SUPABASE_URL || undefined,
+      hasAnonKey: !!process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
+      hasServiceKey: !!process.env.SUPABASE_SERVICE_ROLE_KEY
     }
   }
 }
 
 export default connectDB
-

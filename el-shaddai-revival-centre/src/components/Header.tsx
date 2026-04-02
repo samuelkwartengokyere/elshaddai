@@ -19,12 +19,15 @@ interface NavItem {
 
 const defaultSettings: Settings = {
   churchName: 'El-Shaddai Revival Centre',
-  churchTagline: 'The Church Of Pentecost',\n  logoUrl: '/church-logo.svg'\n}
+  churchTagline: `The Church Of Pentecost`,
+  logoUrl: '/church-logo.svg'
+}
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isMediaOpen, setIsMediaOpen] = useState(false)
   const [isMobileMediaOpen, setIsMobileMediaOpen] = useState(false)
+  const [loading, setLoading] = useState(true)
   const [settings, setSettings] = useState<Settings>(defaultSettings)
   const mediaDropdownRef = useRef<HTMLDivElement>(null)
 
@@ -168,7 +171,6 @@ export default function Header() {
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden"
                 >
@@ -194,6 +196,10 @@ export default function Header() {
     )
   }
 
+  if (loading) {
+    return <header className="bg-white shadow-md h-16" />
+  }
+
   return (
     <motion.header
       className="bg-white shadow-md sticky top-0 z-50"
@@ -206,13 +212,12 @@ export default function Header() {
               transition={{ duration: 0.3 }}
             >
               <Image
-src={settings.logoUrl || '/church-logo.svg'}
+                src={settings.logoUrl || '/church-logo.svg'}
                 alt={settings.churchName || 'Church Logo'}
                 width={50}
                 height={50}
                 className="object-contain"
                 priority
-                onError={() => setLogoError(true)}
               />
             </motion.div>
             <div className="flex flex-col">
@@ -275,3 +280,4 @@ src={settings.logoUrl || '/church-logo.svg'}
     </motion.header>
   )
 }
+

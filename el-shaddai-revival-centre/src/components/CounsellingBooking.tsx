@@ -361,7 +361,7 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
         </div>
       )}
 
-      {/* Step Content */}
+      {/* Step: Select Counsellor */}
       {currentStep === 'counsellor' && (
         <div className="space-y-6">
           <div className="text-center mb-6">
@@ -439,7 +439,7 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
             <div className="text-red-500 text-sm text-center mt-4">{errors.counsellor}</div>
           )}
 
-          {/* Continue Button - Only shows when counsellor is selected */}
+          {/* Continue Button */}
           {formData.counsellorId && (
             <div className="flex justify-end mt-6">
               <button
@@ -454,6 +454,7 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
         </div>
       )}
 
+      {/* Step: Date & Time */}
       {currentStep === 'datetime' && (
         <div className="space-y-6">
           <div className="flex items-center gap-4 mb-6">
@@ -475,7 +476,10 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
           {/* Selected Counsellor Summary */}
           {selectedCounsellor && (
             <div className="bg-gray-50 rounded-lg p-4 flex items-center gap-4">
-              <img\n                src={selectedCounsellor.imageUrl || '/file.svg'}\n                alt={selectedCounsellor.name}\n                className="w-16 h-16 rounded-full object-cover"
+              <img 
+                src={selectedCounsellor.imageUrl || '/file.svg'} 
+                alt={selectedCounsellor.name} 
+                className="w-16 h-16 rounded-full object-cover"
               />
               <div>
                 <h3 className="font-semibold text-gray-800">{selectedCounsellor.name}</h3>
@@ -529,7 +533,7 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
             <div className="text-red-500 text-sm">{errors.preferredDate || errors.preferredTime}</div>
           )}
 
-          {/* Continue Button - Only shows when date and time are selected */}
+          {/* Continue Button */}
           {formData.preferredDate && formData.preferredTime && (
             <div className="flex justify-end mt-6">
               <button
@@ -544,6 +548,7 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
         </div>
       )}
 
+      {/* Step: Details */}
       {currentStep === 'details' && (
         <div className="space-y-6">
           <div className="flex items-center gap-4 mb-6">
@@ -556,168 +561,152 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
             </button>
             <div>
               <h2 className="text-2xl font-bold text-[#003399]">Your Details</h2>
-              <p className="text-gray-600">Please provide your information for the booking</p>
+              <p className="text-gray-600">Enter your contact information</p>
+            </div>
+          </div>
+
+          {/* Selected Counsellor & Time Summary */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="font-semibold mb-2">Counsellor</h4>
+              <div className="flex items-center gap-3">
+                <img 
+                  src={selectedCounsellor?.imageUrl || '/file.svg'} 
+                  alt={selectedCounsellor?.name || ''} 
+                  className="w-12 h-12 rounded-full object-cover"
+                />
+                <div>
+                  <p className="font-semibold">{selectedCounsellor?.name}</p>
+                  <p className="text-sm text-gray-500">{selectedCounsellor?.title}</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="font-semibold mb-2">Appointment</h4>
+              <p className="text-sm">{formatDateForDisplay(formData.preferredDate)} at {formatTimeForDisplay(formData.preferredTime)}</p>
+              <p className="text-sm text-gray-500">{formData.sessionDuration} minutes ({formData.bookingType})</p>
             </div>
           </div>
 
           {/* Form Fields */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* First Name */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label className="block font-medium text-gray-800 mb-1">First Name *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
               <input
                 type="text"
                 value={formData.firstName}
                 onChange={(e) => handleFieldChange('firstName', e.target.value)}
-                className={`w-full px-4 py-3 rounded-lg border-2 focus:outline-none focus:ring-2 ${
-                  errors.firstName
-                    ? 'border-red-500 focus:ring-red-200'
-                    : 'border-gray-200 focus:border-[#C8102E] focus:ring-red-100'
-                }`}
-                placeholder="Enter your first name"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C8102E] focus:border-transparent"
+                placeholder="John"
               />
-              {errors.firstName && <p className="text-red-500 text-sm mt-1">{errors.firstName}</p>}
+              {errors.firstName && <p className="mt-1 text-sm text-red-600">{errors.firstName}</p>}
             </div>
-
-            {/* Last Name */}
             <div>
-              <label className="block font-medium text-gray-800 mb-1">Last Name *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
               <input
                 type="text"
                 value={formData.lastName}
                 onChange={(e) => handleFieldChange('lastName', e.target.value)}
-                className={`w-full px-4 py-3 rounded-lg border-2 focus:outline-none focus:ring-2 ${
-                  errors.lastName
-                    ? 'border-red-500 focus:ring-red-200'
-                    : 'border-gray-200 focus:border-[#C8102E] focus:ring-red-100'
-                }`}
-                placeholder="Enter your last name"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C8102E] focus:border-transparent"
+                placeholder="Doe"
               />
-              {errors.lastName && <p className="text-red-500 text-sm mt-1">{errors.lastName}</p>}
+              {errors.lastName && <p className="mt-1 text-sm text-red-600">{errors.lastName}</p>}
             </div>
-
-            {/* Email */}
             <div>
-              <label className="block font-medium text-gray-800 mb-1">Email Address *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
               <input
                 type="email"
                 value={formData.email}
                 onChange={(e) => handleFieldChange('email', e.target.value)}
-                className={`w-full px-4 py-3 rounded-lg border-2 focus:outline-none focus:ring-2 ${
-                  errors.email
-                    ? 'border-red-500 focus:ring-red-200'
-                    : 'border-gray-200 focus:border-[#C8102E] focus:ring-red-100'
-                }`}
-                placeholder="your.email@example.com"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C8102E] focus:border-transparent"
+                placeholder="john@example.com"
               />
-              {errors.email && <p className="text-red-500 text-sm mt-1">{errors.email}</p>}
+              {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
             </div>
-
-            {/* Phone */}
             <div>
-              <label className="block font-medium text-gray-800 mb-1">Phone Number *</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Phone *</label>
               <input
                 type="tel"
                 value={formData.phone}
                 onChange={(e) => handleFieldChange('phone', e.target.value)}
-                className={`w-full px-4 py-3 rounded-lg border-2 focus:outline-none focus:ring-2 ${
-                  errors.phone
-                    ? 'border-red-500 focus:ring-red-200'
-                    : 'border-gray-200 focus:border-[#C8102E] focus:ring-red-100'
-                }`}
-                placeholder="+233 50 123 4567"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C8102E] focus:border-transparent"
+                placeholder="+233 123 456 789"
               />
-              {errors.phone && <p className="text-red-500 text-sm mt-1">{errors.phone}</p>}
+              {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone}</p>}
             </div>
-
-            {/* Country */}
             <div>
-              <label className="block font-medium text-gray-800 mb-1">Country *</label>
-              <select
+              <label className="block text-sm font-medium text-gray-700 mb-2">Country *</label>
+              <input
+                type="text"
                 value={formData.country}
                 onChange={(e) => handleFieldChange('country', e.target.value)}
-                className={`w-full px-4 py-3 rounded-lg border-2 focus:outline-none focus:ring-2 ${
-                  errors.country
-                    ? 'border-red-500 focus:ring-red-200'
-                    : 'border-gray-200 focus:border-[#C8102E] focus:ring-red-100'
-                }`}
-              >
-                <option value="">Select your country</option>
-                <option value="GH">Ghana</option>
-                <option value="NG">Nigeria</option>
-                <option value="KE">Kenya</option>
-                <option value="ZA">South Africa</option>
-                <option value="US">United States</option>
-                <option value="GB">United Kingdom</option>
-                <option value="CA">Canada</option>
-                <option value="AU">Australia</option>
-                <option value="OTHER">Other</option>
-              </select>
-              {errors.country && <p className="text-red-500 text-sm mt-1">{errors.country}</p>}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C8102E] focus:border-transparent"
+                placeholder="Ghana"
+              />
+              {errors.country && <p className="mt-1 text-sm text-red-600">{errors.country}</p>}
             </div>
-
-            {/* City */}
             <div>
-              <label className="block font-medium text-gray-800 mb-1">City</label>
+              <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
               <input
                 type="text"
                 value={formData.city}
                 onChange={(e) => handleFieldChange('city', e.target.value)}
-                className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:border-[#C8102E] focus:outline-none focus:ring-2 focus:ring-red-100"
-                placeholder="Enter your city"
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C8102E] focus:border-transparent"
+                placeholder="Accra"
               />
             </div>
           </div>
 
-          {/* Topic */}
+          {/* Topic Selection */}
           <div>
-            <label className="block font-medium text-gray-800 mb-1">Topic *</label>
-            <select
-              value={formData.topic}
-              onChange={(e) => handleFieldChange('topic', e.target.value)}
-              className={`w-full px-4 py-3 rounded-lg border-2 focus:outline-none focus:ring-2 ${
-                errors.topic
-                  ? 'border-red-500 focus:ring-red-200'
-                  : 'border-gray-200 focus:border-[#C8102E] focus:ring-red-100'
-              }`}
-            >
-              <option value="">Select a topic</option>
+            <label className="block text-sm font-medium text-gray-700 mb-3">Counselling Topic *</label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
               {TOPICS.map((topic) => (
-                <option key={topic} value={topic}>
+                <button
+                  key={topic}
+                  type="button"
+                  onClick={() => handleFieldChange('topic', topic)}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    formData.topic === topic
+                      ? 'border-[#C8102E] bg-red-50 text-[#C8102E]'
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
                   {topic}
-                </option>
+                </button>
               ))}
-            </select>
-            {errors.topic && <p className="text-red-500 text-sm mt-1">{errors.topic}</p>}
+            </div>
+            {errors.topic && <p className="mt-2 text-sm text-red-600">{errors.topic}</p>}
           </div>
 
           {/* Notes */}
           <div>
-            <label className="block font-medium text-gray-800 mb-1">Additional Notes</label>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Additional Notes (Optional)</label>
             <textarea
+              rows={4}
               value={formData.notes}
               onChange={(e) => handleFieldChange('notes', e.target.value)}
-              rows={4}
-              className="w-full px-4 py-3 rounded-lg border-2 border-gray-200 focus:border-[#C8102E] focus:outline-none focus:ring-2 focus:ring-red-100 resize-none"
-              placeholder="Any additional information you'd like to share..."
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C8102E] focus:border-transparent resize-vertical"
+              placeholder="Any additional information or specific concerns..."
             />
           </div>
 
-          {/* Continue Button - Only shows when all required fields are filled */}
-          {formData.firstName && formData.lastName && formData.email && formData.phone && formData.country && formData.topic && (
+          {/* Continue Button */}
+          {Object.keys(errors).length === 0 && (
             <div className="flex justify-end mt-6">
               <button
                 type="button"
                 onClick={() => goToStep('confirm')}
-                className="flex items-center gap-2 px-6 py-3 bg-[#C8102E] text-white rounded-lg hover:bg-[#A00D25] transition-colors"
+                className="flex items-center gap-2 px-8 py-4 bg-[#C8102E] text-white rounded-xl hover:bg-[#A00D25] transition-all font-semibold shadow-lg"
               >
-                Review Booking <ChevronRight size={20} />
+                Review & Confirm <ChevronRight size={20} />
               </button>
             </div>
           )}
         </div>
       )}
 
+      {/* Step: Confirm */}
       {currentStep === 'confirm' && (
         <div className="space-y-6">
           <div className="flex items-center gap-4 mb-6">
@@ -729,197 +718,145 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
               <ChevronLeft size={24} className="text-gray-600" />
             </button>
             <div>
-              <h2 className="text-2xl font-bold text-[#003399]">Review & Confirm</h2>
+              <h2 className="text-2xl font-bold text-[#003399]">Confirm Booking</h2>
               <p className="text-gray-600">Please review your booking details</p>
             </div>
           </div>
 
-          {/* Booking Summary */}
-          <div className="bg-gray-50 rounded-xl p-6 space-y-4">
-            <h3 className="font-semibold text-lg text-gray-800 border-b pb-2">Booking Summary</h3>
-
+          <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl p-8 border-2 border-dashed border-gray-200">
             {/* Counsellor Info */}
-            <div className="flex items-center gap-4">
-              <img\n src={selectedCounsellor?.imageUrl || '/file.svg'}\n                alt={selectedCounsellor?.name || ''}\n                className="w-16 h-16 rounded-full object-cover"
+            <div className="flex items-center gap-4 mb-6">
+              <img 
+                src={selectedCounsellor?.imageUrl || '/file.svg'} 
+                alt={selectedCounsellor?.name || ''} 
+                className="w-16 h-16 rounded-full object-cover"
               />
               <div>
-                <p className="font-semibold text-gray-800">{selectedCounsellor?.name}</p>
-                <p className="text-sm text-gray-600">{selectedCounsellor?.title}</p>
+                <p className="font-semibold text-xl text-gray-800">{selectedCounsellor?.name}</p>
+                <p className="text-lg text-gray-600">{selectedCounsellor?.title}</p>
               </div>
             </div>
 
-            {/* Details Grid */}
-            <div className="grid grid-cols-2 gap-4 pt-4">
+            {/* Appointment Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
               <div>
-                <p className="text-sm text-gray-500">Date</p>
-                <p className="font-medium">{formatDateForDisplay(formData.preferredDate)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Time</p>
-                <p className="font-medium">{formatTimeForDisplay(formData.preferredTime)}</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Duration</p>
-                <p className="font-medium">{formData.sessionDuration} minutes</p>
-              </div>
-              <div>
-                <p className="text-sm text-gray-500">Type</p>
-                <p className="font-medium capitalize">
-                  {formData.bookingType === 'online' ? 'Online (Teams)' : 'In-Person'}
-                </p>
-              </div>
-              <div className="col-span-2">
-                <p className="text-sm text-gray-500">Topic</p>
-                <p className="font-medium">{formData.topic}</p>
-              </div>
-            </div>
-
-            {/* Personal Info */}
-            <div className="border-t pt-4">
-              <h4 className="font-semibold text-gray-800 mb-2">Your Information</h4>
-              <div className="grid grid-cols-2 gap-4 text-sm">
-                <div>
-                  <p className="text-gray-500">Name</p>
-                  <p className="font-medium">{formData.firstName} {formData.lastName}</p>
+                <h4 className="font-semibold text-gray-800 mb-3">Appointment Details</h4>
+                <div className="space-y-2 text-lg">
+                  <div className="flex items-center gap-3">
+                    <Clock size={20} className="text-[#C8102E]" />
+                    <span>{formatDateForDisplay(formData.preferredDate)} at {formatTimeForDisplay(formData.preferredTime)}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {formData.bookingType === 'online' ? <Video size={20} className="text-[#C8102E]" /> : <MapPin size={20} className="text-[#C8102E]" />}
+                    <span>{formData.sessionDuration} min {formData.bookingType} session</span>
+                  </div>
                 </div>
-                <div>
-                  <p className="text-gray-500">Email</p>
-                  <p className="font-medium">{formData.email}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Phone</p>
-                  <p className="font-medium">{formData.phone}</p>
-                </div>
-                <div>
-                  <p className="text-gray-500">Country</p>
-                  <p className="font-medium">{formData.country}</p>
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-800 mb-3">Topic</h4>
+                <div className="bg-white rounded-lg p-4 shadow-sm">
+                  <p className="text-lg font-medium">{formData.topic}</p>
                 </div>
               </div>
             </div>
 
+            {/* Contact Info */}
+            <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
+              <h4 className="font-semibold text-gray-800 mb-4">Contact Information</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div><span className="font-medium">Name:</span> {formData.firstName} {formData.lastName}</div>
+                <div><span className="font-medium">Email:</span> {formData.email}</div>
+                <div><span className="font-medium">Phone:</span> {formData.phone}</div>
+                <div><span className="font-medium">Location:</span> {formData.country}, {formData.city}</div>
+              </div>
+            </div>
+
+            {/* Notes */}
             {formData.notes && (
-              <div className="border-t pt-4">
-                <p className="text-sm text-gray-500 mb-1">Notes</p>
-                <p className="text-sm text-gray-700">{formData.notes}</p>
+              <div className="bg-white rounded-xl p-6 shadow-sm">
+                <h4 className="font-semibold text-gray-800 mb-3">Notes</h4>
+                <p className="text-gray-700 whitespace-pre-wrap">{formData.notes}</p>
               </div>
             )}
-          </div>
 
-          {/* Terms */}
-          <div className="flex items-start gap-2">
-            <input type="checkbox" id="terms" className="mt-1" />
-            <label htmlFor="terms" className="text-sm text-gray-600">
-              I agree to the terms and conditions and consent to receiving communications about my
-              booking.
-            </label>
-          </div>
-
-          {/* Submit Button */}
-          <div className="flex justify-end gap-4">
-            <button
-              type="button"
-              onClick={() => goToStep('details')}
-              className="px-6 py-3 border-2 border-gray-200 text-gray-700 rounded-lg hover:bg-gray-50 transition-colors"
-            >
-              Back
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit}
-              disabled={isSubmitting}
-              className="flex items-center gap-2 px-6 py-3 bg-[#C8102E] text-white rounded-lg hover:bg-[#A00D25] transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="animate-spin" size={20} />
-                  Processing...
-                </>
-              ) : (
-                <>Confirm Booking</>
-              )}
-            </button>
+            <div className="pt-6 border-t flex justify-end gap-4">
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className="px-8 py-4 bg-[#C8102E] text-white rounded-xl hover:bg-[#A00D25] transition-all font-semibold shadow-xl flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="animate-spin" size={24} />
+                    Creating Booking...
+                  </>
+                ) : (
+                  <>
+                    Confirm & Book Now
+                    <Check size={20} />
+                  </>
+                )}
+              </button>
+            </div>
           </div>
         </div>
       )}
 
-      {currentStep === 'success' && (
-        <div className="text-center py-12">
-          <div className="w-20 h-20 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
-            <Check size={40} className="text-green-500" />
+      {/* Step: Success */}
+      {currentStep === 'success' && bookingResult && (
+        <div className="text-center space-y-8 py-12">
+          <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Check className="w-12 h-12 text-green-500" />
           </div>
-
-          <h2 className="text-3xl font-bold text-gray-800 mb-2">Booking Confirmed!</h2>
-          <p className="text-gray-600 mb-8">
-            Your counselling session has been booked successfully.
-          </p>
-
-          {bookingResult && (
-            <div className="bg-gray-50 rounded-xl p-6 max-w-md mx-auto mb-8">
-              <div className="mb-4">
-                <p className="text-sm text-gray-500">Confirmation Number</p>
-                <p className="text-2xl font-bold text-[#003399]">
-                  {bookingResult.confirmationNumber}
-                </p>
-              </div>
-
-              <div className="space-y-3 text-left">
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Counsellor</span>
-                  <span className="font-medium">{bookingResult.booking.counsellor.name}</span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Date</span>
-                  <span className="font-medium">
-                    {formatDateForDisplay(bookingResult.booking.preferredDate)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Time</span>
-                  <span className="font-medium">
-                    {formatTimeForDisplay(bookingResult.booking.preferredTime)}
-                  </span>
-                </div>
-                <div className="flex justify-between">
-                  <span className="text-gray-500">Type</span>
-                  <span className="font-medium capitalize">
-                    {bookingResult.booking.bookingType === 'online' ? 'Online' : 'In-Person'}
-                  </span>
-                </div>
-              </div>
-
-              {bookingResult.booking.teamsMeetingUrl && (
-                <div className="mt-6 pt-4 border-t">
-                  <a
-                    href={bookingResult.booking.teamsMeetingUrl}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center justify-center gap-2 w-full py-3 bg-[#003399] text-white rounded-lg hover:bg-[#002266] transition-colors"
-                  >
-                    <Video size={18} />
-                    Join Teams Meeting
-                  </a>
-                </div>
-              )}
-            </div>
-          )}
-
-          <div className="bg-blue-50 rounded-lg p-4 max-w-md mx-auto mb-8 text-sm text-blue-700">
-            <p>
-              A confirmation email has been sent to <strong>{formData.email}</strong>
+          <div>
+            <h2 className="text-3xl font-bold text-green-600 mb-4">Booking Confirmed!</h2>
+            <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+              Your counselling session has been successfully booked. You will receive a confirmation email shortly.
             </p>
+            <div className="bg-green-50 border-2 border-green-200 rounded-2xl p-8 max-w-2xl mx-auto">
+              <h3 className="font-bold text-2xl text-green-800 mb-4">Confirmation #{bookingResult.confirmationNumber}</h3>
+              <div className="grid md:grid-cols-2 gap-6 text-lg">
+                <div>
+                  <p className="font-semibold text-gray-800">Counsellor</p>
+                  <p>{bookingResult.booking.counsellor.name}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-800">Date & Time</p>
+                  <p>{formatDateForDisplay(bookingResult.booking.preferredDate)} at {formatTimeForDisplay(bookingResult.booking.preferredTime)}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-800">Topic</p>
+                  <p>{bookingResult.booking.topic}</p>
+                </div>
+                {bookingResult.booking.teamsMeetingUrl && (
+                  <div>
+                    <p className="font-semibold text-gray-800">Meeting Link</p>
+                    <a href={bookingResult.booking.teamsMeetingUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                      Join Meeting
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
-
-          <button
-            type="button"
-            onClick={resetBooking}
-            className="px-6 py-3 bg-[#C8102E] text-white rounded-lg hover:bg-[#A00D25] transition-colors"
-          >
-            Book Another Session
-          </button>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={resetBooking}
+              className="px-8 py-3 bg-[#C8102E] text-white rounded-xl hover:bg-[#A00D25] transition-all font-semibold"
+            >
+              Book Another Session
+            </button>
+            <a
+              href="/counselling"
+              className="px-8 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-semibold"
+            >
+              Back to Counselling
+            </a>
+          </div>
         </div>
       )}
     </div>
   );
 }
-
 

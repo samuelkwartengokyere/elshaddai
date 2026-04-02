@@ -10,10 +10,23 @@
  * - Add SUPABASE_SERVICE_ROLE_KEY to .env.local (for admin operations)
  */
 
-import { supabase, supabaseAdmin, isSupabaseConfigured } from './supabase'
+import { isSupabaseConfigured } from './supabase'
+import { getSupabaseAdminAsync } from './supabase'
+
+import type { SupabaseClient } from '@supabase/supabase-js'
+
+// Lazy admin client
+let _supabaseAdmin: SupabaseClient | null = null
+async function getSupabaseAdmin(): Promise<SupabaseClient> {
+  if (!_supabaseAdmin) {
+    _supabaseAdmin = await getSupabaseAdminAsync()
+  }
+  return _supabaseAdmin!
+}
 
 // Type definitions
 export interface DbAdmin {
+  is_active: boolean
   id: string
   email: string
   name: string
@@ -176,6 +189,8 @@ async function getAll<T>(table: string, orderBy?: string, orderDirection?: 'asc'
   if (!isSupabaseConfigured()) {
     return []
   }
+
+  const supabaseAdmin = await getSupabaseAdmin()
   
   let query = supabaseAdmin.from(table).select('*')
   
@@ -197,6 +212,8 @@ async function getById<T>(table: string, id: string): Promise<T | null> {
   if (!isSupabaseConfigured()) {
     return null
   }
+  
+  const supabaseAdmin = await getSupabaseAdmin()
   
   const { data, error } = await supabaseAdmin
     .from(table)
@@ -220,6 +237,8 @@ async function insert<T>(table: string, data: Partial<T>): Promise<T> {
     throw new Error('Supabase not configured')
   }
   
+  const supabaseAdmin = await getSupabaseAdmin()
+  
   const { data: result, error } = await supabaseAdmin
     .from(table)
     .insert(data)
@@ -238,6 +257,8 @@ async function update<T>(table: string, id: string, data: Partial<T>): Promise<T
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase not configured')
   }
+  
+  const supabaseAdmin = await getSupabaseAdmin()
   
   const { data: result, error } = await supabaseAdmin
     .from(table)
@@ -258,6 +279,8 @@ async function remove(table: string, id: string): Promise<void> {
   if (!isSupabaseConfigured()) {
     throw new Error('Supabase not configured')
   }
+  
+  const supabaseAdmin = await getSupabaseAdmin()
   
   const { error } = await supabaseAdmin
     .from(table)
@@ -282,9 +305,15 @@ export const adminsDb = {
   
   async getByEmail(email: string): Promise<DbAdmin | null> {
     if (!isSupabaseConfigured()) {
+      const isProd = process.env.NODE_ENV === 'production'
+      if (isProd) {
+        throw new Error('Supabase database required in production - check environment variables')
+      }
+      console.warn('[DB WARN] Supabase not configured - login will fail for all admins')
       return null
     }
     
+    const supabaseAdmin = await getSupabaseAdmin()
     const { data, error } = await supabaseAdmin
       .from('admins')
       .select('*')
@@ -325,7 +354,8 @@ export const settingsDb = {
       return null
     }
     
-    const { data, error } = await supabaseAdmin
+    const supabaseAdminInstance = await getSupabaseAdmin()
+    const { data, error } = await supabaseAdminInstance
       .from('settings')
       .select('*')
       .eq('key', key)
@@ -345,6 +375,8 @@ export const settingsDb = {
     if (!isSupabaseConfigured()) {
       throw new Error('Supabase not configured')
     }
+    
+    const supabaseAdmin = await getSupabaseAdmin()
     
     // Try to update first
     const { data: existing } = await supabaseAdmin
@@ -593,6 +625,7 @@ export const counsellorsDb = {
       return { counsellors: [], total: 0, page, limit, totalPages: 0 };
     }
 
+    const supabaseAdmin = await getSupabaseAdmin()
     const offset = (page - 1) * limit;
     
     let query = supabaseAdmin
@@ -660,6 +693,7 @@ export const counsellingSlotsDb = {
   async getFuture(days: number = 30): Promise<DbCounsellingSlot[]> {
     if (!isSupabaseConfigured()) return []
     
+    const supabaseAdmin = await getSupabaseAdmin()
     const endDate = new Date()
     endDate.setDate(endDate.getDate() + days)
     
@@ -677,6 +711,7 @@ export const counsellingSlotsDb = {
   async getByDate(date: string): Promise<DbCounsellingSlot | null> {
     if (!isSupabaseConfigured()) return null
     
+    const supabaseAdmin = await getSupabaseAdmin()
     // Call Supabase function to ensure slot exists
     const { data, error } = await supabaseAdmin.rpc('ensure_counselling_slot', { date_param: date })
     

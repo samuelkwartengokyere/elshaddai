@@ -19,21 +19,19 @@ interface NavItem {
 
 const defaultSettings: Settings = {
   churchName: 'El-Shaddai Revival Centre',
-  churchTagline: 'The Church Of Pentecost',
+  churchTagline: `The Church Of Pentecost`,
   logoUrl: '/church-logo.svg'
 }
-
-const LOCAL_LOGO = '/church-logo.svg'
 
 export default function Header() {
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const [isMediaOpen, setIsMediaOpen] = useState(false)
-  const [isMobileMediaOpen, setIsMobileMediaOpen] = useState(false)
-  const [settings, setSettings] = useState<Settings>(defaultSettings)
+const [isMobileMediaOpen, setIsMobileMediaOpen] = useState(false)
   const [loading, setLoading] = useState(true)
-  const [logoError, setLogoError] = useState(false)
+  const [settings, setSettings] = useState<Settings>(defaultSettings)
   const mediaDropdownRef = useRef<HTMLDivElement>(null)
 
+  // Memoize navItems to prevent recreation on re-renders
   const navItems = useMemo<NavItem[]>(() => [
     { name: 'Home', href: '/' },
     { name: 'About Us', href: '/about' },
@@ -57,6 +55,7 @@ export default function Header() {
     fetchSettings()
   }, [])
 
+  // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event: MouseEvent) => {
       if (mediaDropdownRef.current && !mediaDropdownRef.current.contains(event.target as Node)) {
@@ -72,16 +71,18 @@ export default function Header() {
       const response = await fetch('/api/settings')
       const data = await response.json()
       
-      if (data.success && data.settings && data.settings.logoUrl) {
+      if (data.success && data.settings) {
         setSettings(data.settings)
       }
     } catch (error) {
       console.error('Error fetching settings:', error)
+      // Use default settings on error
     } finally {
       setLoading(false)
     }
   }
 
+  // Desktop Navigation Item Component
   const DesktopNavItem = ({ item }: { item: NavItem }) => {
     if (item.dropdown) {
       return (
@@ -103,6 +104,7 @@ export default function Header() {
             />
           </button>
 
+          {/* Dropdown Menu */}
           <AnimatePresence>
             {isMediaOpen && (
               <motion.div
@@ -146,6 +148,7 @@ export default function Header() {
     )
   }
 
+  // Mobile Navigation Item Component
   const MobileNavItem = ({ item, level = 0 }: { item: NavItem; level?: number }) => {
     const hasDropdown = item.dropdown && item.dropdown.length > 0
 
@@ -168,7 +171,6 @@ export default function Header() {
                 <motion.div
                   initial={{ opacity: 0, height: 0 }}
                   animate={{ opacity: 1, height: 'auto' }}
-                  exit={{ opacity: 0, height: 0 }}
                   transition={{ duration: 0.2 }}
                   className="overflow-hidden"
                 >
@@ -230,12 +232,14 @@ export default function Header() {
             </div>
           </Link>
 
+          {/* Desktop Navigation */}
           <nav className="hidden md:flex space-x-8">
             {navItems.map((item) => (
               <DesktopNavItem key={item.name} item={item} />
             ))}
           </nav>
 
+          {/* Mobile menu button */}
           <motion.button
             className="md:hidden"
             onClick={() => setIsMenuOpen(!isMenuOpen)}
@@ -246,6 +250,7 @@ export default function Header() {
           </motion.button>
         </div>
 
+        {/* Mobile Navigation */}
         <AnimatePresence>
           {isMenuOpen && (
             <motion.div

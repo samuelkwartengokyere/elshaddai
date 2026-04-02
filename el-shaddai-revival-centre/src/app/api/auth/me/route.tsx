@@ -1,93 +1,40 @@
-import { NextRequest, NextResponse } from 'next/server'
-import connectDB from '@/lib/database'
-import Admin from '@/models/Admin'
-import { getCurrentAdmin, getAuthToken } from '@/lib/auth'
+import { NextRequest, NextResponse } from 'next/server';
+import { getCurrentAdmin } from '@/lib/auth'
+import { adminsDb } from '@/lib/db'
 
 export async function GET(request: NextRequest) {
   try {
-    const token = getAuthToken(request)
-    
-    if (!token) {
+    const admin = getCurrentAdmin(request)
+    if (!admin) {
       return NextResponse.json(
         { success: false, error: 'Not authenticated' },
         { status: 401 }
       )
     }
-    
-    const admin = getCurrentAdmin(request)
-    
-    if (!admin) {
-      return NextResponse.json(
-        { success: false, error: 'Invalid or expired token' },
-        { status: 401 }
-      )
-    }
-    
-    // Check if this is a development mode token (non-MongoDB ObjectId)
-    const isDevToken = admin.adminId === 'dev-admin-id' || admin.adminId.length !== 24
-    
-    if (isDevToken) {
-      // In development mode with hardcoded credentials - return info from token
-      return NextResponse.json({
-        success: true,
-        user: {
-          adminId: admin.adminId,
-          email: admin.email,
-          role: admin.role,
-          name: admin.name || 'Admin',
-          profileImage: admin.profileImage || ''
-        },
-        isInMemoryMode: true
-      })
-    }
-    
-    const dbConnection = await connectDB()
-    
-    if (!dbConnection) {
-      // In-memory mode - return info from token
-      return NextResponse.json({
-        success: true,
-        user: {
-          adminId: admin.adminId,
-          email: admin.email,
-          role: admin.role,
-          name: admin.name || 'Admin',
-          profileImage: admin.profileImage || ''
-        },
-        isInMemoryMode: true
-      })
-    }
-    
-    // Get full admin details from database
-    const fullAdmin = await Admin.findById(admin.adminId)
-      .select('-password')
-      .lean()
-    
+
+    // Fetch full admin data from Supabase admins table
+    const fullAdmin = await adminsDb.getById(admin.adminId)
     if (!fullAdmin) {
       return NextResponse.json(
         { success: false, error: 'Admin not found' },
         { status: 404 }
       )
     }
-    
-    return NextResponse.json({
-      success: true,
-      user: {
-        adminId: fullAdmin._id.toString(),
-        email: fullAdmin.email,
-        name: fullAdmin.name,
-        role: fullAdmin.role,
-        isActive: fullAdmin.isActive,
-        profileImage: fullAdmin.profileImage,
-        lastLogin: fullAdmin.lastLogin,
-        createdAt: fullAdmin.createdAt
-      }
-    })
-    
+
+    const user = {
+      adminId: fullAdmin.id,
+      email: fullAdmin.email,
+      name: fullAdmin.name,
+      role: fullAdmin.role,
+      profileImage: fullAdmin.profile_image
+    }
+
+    return NextResponse.json({ success: true, user })
+
   } catch (error) {
-    console.error('Get current user error:', error)
+    console.error('Get me error:', error)
     return NextResponse.json(
-      { success: false, error: 'Internal server error' },
+      { success: false, error: 'Server error' },
       { status: 500 }
     )
   }

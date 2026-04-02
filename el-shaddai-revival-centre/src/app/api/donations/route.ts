@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase';
 import { initializeTransaction, generateReference } from '@/lib/paystack';
 import { sendEmail } from '@/lib/email';
 
@@ -35,6 +35,11 @@ export async function POST(request: NextRequest) {
     const reference = generateReference('donation');
 
     // Insert pending donation
+    const supabaseAdmin = await getSupabaseAdmin();
+    if (!supabaseAdmin) {
+      return NextResponse.json({ success: false, error: 'Database not configured' }, { status: 500 });
+    }
+
     const { data: donation, error: dbError } = await supabaseAdmin
       .from('donations')
       .insert({
@@ -84,7 +89,7 @@ export async function POST(request: NextRequest) {
       }
     }
 
-// Send init confirmation email to donor
+    // Send init confirmation email to donor
     const initSubject = `Donation Started - Ref: ${reference}`;
     const initHtml = `
       <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
@@ -115,4 +120,3 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
-

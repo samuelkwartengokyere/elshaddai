@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { supabaseAdmin } from '@/lib/supabase';
+import { getSupabaseAdmin } from '@/lib/supabase';
 import { verifyTransaction } from '@/lib/paystack';
 import { sendEmail } from '@/lib/email';
 
@@ -14,6 +14,11 @@ export async function GET(request: NextRequest) {
     }
 
     // Fetch donation
+    const supabaseAdmin = await getSupabaseAdmin();
+    if (!supabaseAdmin) {
+      return NextResponse.json({ success: false, error: 'Database not configured' }, { status: 500 });
+    }
+
     const { data: donation, error: fetchError } = await supabaseAdmin
       .from('donations')
       .select('*')
@@ -119,4 +124,3 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ success: false, error: 'Internal server error' }, { status: 500 });
   }
 }
-

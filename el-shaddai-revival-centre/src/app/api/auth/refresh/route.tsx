@@ -1,6 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import connectDB from '@/lib/database'
-import Admin from '@/models/Admin'
+import { getSupabaseAdmin } from '@/lib/supabase'
 import { 
   verifyRefreshToken, 
   generateToken, 
@@ -53,13 +52,16 @@ export async function POST(request: NextRequest) {
     let adminEmail = null
     let adminRole = 'admin' // Default role
     
-    try {
-      const dbConnection = await connectDB()
-      
-      if (dbConnection) {
-        const admin = await Admin.findById(adminId).select('email role isActive').lean()
-        
-        if (!admin) {
+    const supabaseAdmin = await getSupabaseAdmin();
+    if (supabaseAdmin) {
+      try {
+        const { data: admin, error } = await supabaseAdmin
+          .from('admins')
+          .select('email, role, is_active')
+          .eq('id', adminId)
+          .single();
+
+        if (error || !admin) {
           return NextResponse.json(
             { 
               success: false, 
@@ -68,8 +70,8 @@ export async function POST(request: NextRequest) {
             { status: 401 }
           )
         }
-        
-        if (!admin.isActive) {
+
+        if (!admin.is_active) {
           return NextResponse.json(
             { 
               success: false, 
@@ -78,16 +80,14 @@ export async function POST(request: NextRequest) {
             { status: 403 }
           )
         }
-        
+
         adminEmail = admin.email
         adminRole = admin.role
-      } else {
-        // No database - use token info for dev mode
-        console.log('⚠️  No database connection, using dev mode token refresh')
+      } catch (dbError) {
+        console.error('Database error during token refresh:', dbError)
       }
-    } catch (dbError) {
-      console.error('Database error during token refresh:', dbError)
-      // Continue with limited info if database fails
+    } else {
+      console.log('⚠️  No database connection, using dev mode token refresh')
     }
     
     // Generate new tokens

@@ -30,8 +30,9 @@ export interface Counsellor {
   isOnline: boolean;
   isInPerson: boolean;
   yearsOfExperience: number;
-  rating: number;
+rating: number;
   reviewCount: number;
+  isActive?: boolean;
 }
 
 export interface Availability {

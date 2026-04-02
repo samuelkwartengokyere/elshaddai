@@ -12,7 +12,7 @@
   "dependencies": {
     "@paystack/inline-js": "^2.22.7",
     "@supabase/ssr": "^0.10.0",
-    "@supabase/supabase-js": "^2.97.0",
+    "@supabase/supabase-js": "^2.101.0",
     "@types/bcryptjs": "^2.4.6",
     "@types/jsonwebtoken": "^9.0.10",
     "@types/jspdf": "^1.3.3",
@@ -27,7 +27,7 @@
     "jsonwebtoken": "^9.0.3",
     "jspdf": "^4.2.1",
     "lucide-react": "^0.563.0",
-    "mongoose": "^9.1.5",
+
     "multer": "^2.0.2",
     "next": "16.1.6",
     "nodemailer": "^8.0.0",

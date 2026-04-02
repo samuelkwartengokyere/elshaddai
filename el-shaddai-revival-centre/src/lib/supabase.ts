@@ -142,5 +142,6 @@ export async function createRouteHandlerClient() {
 }
 
 // For backward compatibility - create a promise-based supabaseAdmin
-export const supabaseAdmin = getSupabaseAdmin()
+// Top-level export causing module eval - use async getSupabaseAdmin() instead
+export const getSupabaseAdminAsync = getSupabaseAdmin
 
