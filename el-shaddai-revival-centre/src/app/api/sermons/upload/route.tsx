@@ -2,24 +2,37 @@ import { NextResponse } from 'next/server'
 import { writeFile } from 'fs/promises'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
-import connectDB from '@/lib/database'
-import Sermon from '@/models/Sermon'
+
+// In-memory storage for sermons (consistent with sermons/route.tsx)
+interface SermonType {
+  _id: string
+  title: string
+  speaker: string
+  date: string
+  description: string
+  thumbnail: string
+  videoUrl: string
+  embedUrl: string
+  audioUrl: string | null
+  duration: string
+  durationSeconds: number
+  series: string | null
+  biblePassage: string | null
+  tags: string[]
+  isYouTube: boolean
+  viewCount: string
+  source: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+let inMemorySermons: SermonType[] = []
 
 // Mark this route as dynamic to prevent static generation
 export const dynamic = 'force-dynamic'
 
 export async function POST(request: Request) {
   try {
-    const dbConnection = await connectDB()
-    
-    // Check if database connection is available
-    if (!dbConnection) {
-      return NextResponse.json(
-        { error: 'Database connection not available. Please check your environment variables.' },
-        { status: 503 }
-      )
-    }
-    
     const formData = await request.formData()
     const file = formData.get('file') as File
     const thumbnail = formData.get('thumbnail') as File | null
@@ -30,7 +43,7 @@ export async function POST(request: Request) {
     const series = formData.get('series') as string
     const biblePassage = formData.get('biblePassage') as string
     const tags = formData.get('tags') as string
-    
+
     if (!file) {
       return NextResponse.json(
         { error: 'No file uploaded' },
@@ -43,11 +56,11 @@ export async function POST(request: Request) {
     const buffer = Buffer.from(bytes)
     const extension = path.extname(file.name)
     const filename = `${uuidv4()}${extension}`
-    
+
     // Save file to public/uploads
     const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'sermons')
     const filepath = path.join(uploadDir, filename)
-    
+
     await writeFile(filepath, buffer)
 
     // Handle thumbnail upload
@@ -62,27 +75,36 @@ export async function POST(request: Request) {
       thumbnailPath = `/uploads/sermons/${thumbFilename}`
     }
 
-    // Save sermon to database
-    const sermon = new Sermon({
-      title,
-      speaker,
-      date: new Date(date),
-      description,
-      series,
-      biblePassage,
-      tags: tags ? tags.split(',').map((tag: string) => tag.trim()) : [],
+    // Create sermon in in-memory storage
+    const newSermon: SermonType = {
+      _id: uuidv4(),
+      title: title || '',
+      speaker: speaker || '',
+      date: date || new Date().toISOString(),
+      description: description || '',
+      thumbnail: thumbnailPath || '',
+      videoUrl: '',
+      embedUrl: '',
       audioUrl: `/uploads/sermons/${filename}`,
-      thumbnail: thumbnailPath || undefined,
+      duration: '',
+      durationSeconds: 0,
+      series: series || null,
+      biblePassage: biblePassage || null,
+      tags: tags ? tags.split(',').map((tag: string) => tag.trim()) : [],
+      isYouTube: false,
+      viewCount: '0',
+      source: 'database',
       createdAt: new Date(),
       updatedAt: new Date()
-    })
+    }
 
-    await sermon.save()
+    inMemorySermons = [...inMemorySermons, newSermon]
 
     return NextResponse.json({
       success: true,
       message: 'Sermon uploaded successfully',
-      sermon
+      sermon: newSermon,
+      fallback: true
     }, { status: 201 })
 
   } catch (error) {

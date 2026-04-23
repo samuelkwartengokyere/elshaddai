@@ -1,18 +1,25 @@
 import { NextRequest, NextResponse } from 'next/server'
-import connectDB from '@/lib/database'
-import Testimony from '@/models/Testimony'
+import { v4 as uuidv4 } from 'uuid'
+
+// In-memory storage for testimonies (shared with testimonies/route.tsx via module caching)
+interface TestimonyType {
+  _id: string
+  name: string
+  title: string
+  content: string
+  imageUrl?: string
+  category: string
+  isPublished: boolean
+  isFeatured: boolean
+  date: string
+  createdAt: Date
+  updatedAt: Date
+}
+
+let inMemoryTestimonies: TestimonyType[] = []
 
 export async function DELETE(request: NextRequest) {
   try {
-    const dbConnection = await connectDB()
-    
-    if (!dbConnection) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
-    
     const searchParams = request.nextUrl.searchParams
     const id = searchParams.get('id')
 
@@ -23,18 +30,21 @@ export async function DELETE(request: NextRequest) {
       )
     }
 
-    const testimony = await Testimony.findByIdAndDelete(id)
+    const testimonyIndex = inMemoryTestimonies.findIndex(t => t._id === id)
 
-    if (!testimony) {
+    if (testimonyIndex === -1) {
       return NextResponse.json(
         { error: 'Testimony not found' },
         { status: 404 }
       )
     }
 
+    inMemoryTestimonies = inMemoryTestimonies.filter(t => t._id !== id)
+
     return NextResponse.json({
       success: true,
-      message: 'Testimony deleted successfully'
+      message: 'Testimony deleted successfully',
+      fallback: true
     })
 
   } catch (error) {
@@ -48,15 +58,6 @@ export async function DELETE(request: NextRequest) {
 
 export async function PUT(request: NextRequest) {
   try {
-    const dbConnection = await connectDB()
-    
-    if (!dbConnection) {
-      return NextResponse.json(
-        { error: 'Database connection not available' },
-        { status: 503 }
-      )
-    }
-    
     const searchParams = request.nextUrl.searchParams
     const id = searchParams.get('id')
 
@@ -68,28 +69,27 @@ export async function PUT(request: NextRequest) {
     }
 
     const body = await request.json()
+    const testimonyIndex = inMemoryTestimonies.findIndex(t => t._id === id)
 
-    const testimony = await Testimony.findByIdAndUpdate(
-      id,
-      {
-        ...body,
-        date: body.date ? new Date(body.date) : undefined,
-        updatedAt: new Date()
-      },
-      { new: true, runValidators: true }
-    )
-
-    if (!testimony) {
+    if (testimonyIndex === -1) {
       return NextResponse.json(
         { error: 'Testimony not found' },
         { status: 404 }
       )
     }
 
+    inMemoryTestimonies[testimonyIndex] = {
+      ...inMemoryTestimonies[testimonyIndex],
+      ...body,
+      date: body.date || inMemoryTestimonies[testimonyIndex].date,
+      updatedAt: new Date()
+    }
+
     return NextResponse.json({
       success: true,
-      testimony,
-      message: 'Testimony updated successfully'
+      testimony: inMemoryTestimonies[testimonyIndex],
+      message: 'Testimony updated successfully',
+      fallback: true
     })
 
   } catch (error) {
