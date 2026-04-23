@@ -1,33 +1,66 @@
 'use client';
 
 import { useState, useRef } from 'react';
-import { X, Loader2, Image as ImageIcon } from 'lucide-react';
+import { X, Loader2, Image, Video, FileText } from 'lucide-react';
 
-interface ImageUploadProps {
+interface MediaUploadProps {
   value: string;
   onChange: (url: string) => void;
   label?: string;
+  type?: 'image' | 'video' | 'audio' | 'document';
+  category?: string;
+  title?: string;
   className?: string;
 }
 
-export default function ImageUpload({ value, onChange, label = 'Upload Image', className = '' }: ImageUploadProps) {
+export default function MediaUpload({ 
+  value, 
+  onChange, 
+  label = 'Upload Media', 
+  type = 'image',
+  category = 'ministry',
+  title = 'Media upload',
+  className = '' 
+}: MediaUploadProps) {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const getAccept = () => {
+    switch (type) {
+      case 'video': return 'video/*';
+      case 'audio': return 'audio/*';
+      case 'document': return '.pdf';
+      default: return 'image/*';
+    }
+  };
+
+  const getIcon = () => {
+    switch (type) {
+      case 'video': return Video;
+      case 'document': return FileText;
+      default: return Image;
+    }
+  };
+
+  const getMaxSizeMB = (t: string) => {
+    switch (t) {
+      case 'video': return 50;
+      case 'audio': return 10;
+      case 'document': return 10;
+      default: return 5;
+    }
+  };
+
+  const Icon = getIcon();
 
   const handleFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    // Validate file type
-    if (!file.type.startsWith('image/')) {
-      setError('Please select an image file');
-      return;
-    }
-
-    // Validate file size (max 5MB)
-    if (file.size > 5 * 1024 * 1024) {
-      setError('Image must be less than 5MB');
+    const maxSize = getMaxSizeMB(type) * 1024 * 1024;
+    if (file.size > maxSize) {
+      setError(`File too large. Max ${getMaxSizeMB(type)}MB`);
       return;
     }
 
@@ -37,9 +70,9 @@ export default function ImageUpload({ value, onChange, label = 'Upload Image', c
     try {
       const formData = new FormData();
       formData.append('file', file);
-      formData.append('title', 'counsellor-profile');
-      formData.append('type', 'image');
-      formData.append('category', 'ministry');
+      formData.append('title', title);
+      formData.append('type', type);
+      formData.append('category', category);
       formData.append('date', new Date().toISOString());
 
       const response = await fetch('/api/media', {
@@ -52,11 +85,11 @@ export default function ImageUpload({ value, onChange, label = 'Upload Image', c
       if (data.success) {
         onChange(data.media.url);
       } else {
-        setError(data.error || 'Failed to upload image');
+        setError(data.error || 'Failed to upload media');
       }
     } catch (err) {
       console.error('Upload error:', err);
-      setError('Failed to upload image');
+      setError('Failed to upload media');
     } finally {
       setUploading(false);
     }
@@ -80,29 +113,43 @@ export default function ImageUpload({ value, onChange, label = 'Upload Image', c
       <input
         ref={fileInputRef}
         type="file"
-        accept="image/*"
+        accept={getAccept()}
         onChange={handleFileChange}
         className="hidden"
       />
 
       {value ? (
-        <div className="relative inline-block">
-          <div className="w-32 h-32 rounded-full overflow-hidden border-2 border-gray-200">
-            <img
-              src={value || '/file.svg'}
-              alt="Uploaded image"
-              className="w-full h-full object-cover"
-              onError={(e) => {
-                (e.target as HTMLImageElement).src = '/file.svg';
-              }}
-            />
+        <div className="relative group">
+          <div className={`w-32 h-32 rounded-lg overflow-hidden border-2 border-gray-200 ${
+            type === 'image' ? 'rounded-full' : 'rounded-lg'
+          }`}>
+            {type === 'image' ? (
+              <img
+                src={value}
+                alt="Uploaded media"
+                className="w-full h-full object-cover"
+                onError={(e) => {
+                  ;(e.target as HTMLImageElement).src = '/file.svg';
+                }}
+              />
+            ) : (
+              <video 
+                src={value} 
+                className="w-full h-full object-cover"
+                muted 
+                playsInline
+              >
+                <img src="/file.svg" alt="Media preview unavailable" />
+              </video>
+            )}
           </div>
           <button
             type="button"
             onClick={handleRemove}
-            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+            className="absolute -top-1 -right-1 bg-red-500 text-white rounded-full p-1.5 hover:bg-red-600 transition-all opacity-0 group-hover:opacity-100"
+            title="Remove"
           >
-            <X className="h-4 w-4" />
+            <X className="h-3.5 w-3.5" />
           </button>
         </div>
       ) : (
@@ -110,7 +157,7 @@ export default function ImageUpload({ value, onChange, label = 'Upload Image', c
           type="button"
           onClick={() => fileInputRef.current?.click()}
           disabled={uploading}
-          className="w-32 h-32 rounded-full border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-500 hover:border-accent hover:text-accent transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-32 h-32 rounded-lg border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-500 hover:border-blue-400 hover:text-blue-600 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {uploading ? (
             <>
@@ -119,15 +166,15 @@ export default function ImageUpload({ value, onChange, label = 'Upload Image', c
             </>
           ) : (
             <>
-              <ImageIcon className="h-8 w-8" />
-              <span className="text-xs mt-1">{label}</span>
+              <Icon className="h-8 w-8" />
+              <span className="text-xs mt-2 text-center">{label}</span>
             </>
           )}
         </button>
       )}
 
       {error && (
-        <p className="text-red-500 text-sm mt-1">{error}</p>
+        <p className="mt-2 text-red-500 text-xs">{error}</p>
       )}
     </div>
   );

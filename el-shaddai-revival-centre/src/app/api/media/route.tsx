@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile } from 'fs/promises'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { mediaDb, isDbConfigured } from '@/lib/db'
 import { getCurrentAdmin } from '@/lib/auth'
+import { uploadToBucket, deleteFromBucket, BUCKETS, SUPPORTED_MIME_TYPES, MAX_FILE_SIZES } from '@/lib/storage'
 
 export async function GET(request: NextRequest) {
   try {
@@ -108,9 +108,14 @@ export async function POST(request: NextRequest) {
     const description = formData.get('description') as string
     const type = formData.get('type') as string
     const category = formData.get('category') as string
+    const supabaseConfigured = isDbConfigured()
+
     const date = formData.get('date') as string
 
-    if (!file) {
+    const url = formData.get('url') as string
+    const isMetadataOnly = !file && url
+
+    if (!isMetadataOnly && !file) {
       return NextResponse.json(
         { error: 'No file uploaded' },
         { status: 400 }
@@ -124,29 +129,64 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate unique filename and save file
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
+    if (isMetadataOnly) {
+      // Metadata only - url already uploaded, save to DB
+      if (!supabaseConfigured) {
+        return NextResponse.json({ error: 'Database required for metadata' }, { status: 503 })
+      }
+
+      
+      const newMedia = await mediaDb.create({
+        title,
+        description: description || null,
+        url,
+        type,
+        category,
+        tags: []
+      })
+
+      return NextResponse.json({
+        success: true,
+        message: 'Media metadata saved',
+        media: newMedia
+      }, { status: 201 })
+    }
+
+    // Full file upload flow
+    // Validate mime type
+    const supportedTypes = (SUPPORTED_MIME_TYPES as any)[type]
+    if (!supportedTypes?.includes(file.type)) {
+      return NextResponse.json(
+        { error: `Invalid file type for ${type}. Supported: ${supportedTypes?.join(', ')}` },
+        { status: 400 }
+      )
+    }
+
+    // Validate file size
+    const maxSize = (MAX_FILE_SIZES as any)[type]
+    if (file.size > maxSize) {
+      return NextResponse.json(
+        { error: `File too large for ${type}. Max: ${(maxSize / 1024 / 1024).toFixed(1)}MB` },
+        { status: 400 }
+      )
+    }
+
+    // Generate unique path in media bucket
     const extension = path.extname(file.name)
-    const filename = `${uuidv4()}${extension}`
+    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+    const filePath = `${type}s/${uuidv4()}-${safeName}`
 
-    // Save file to public/uploads/media
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'media')
-    const filepath = path.join(uploadDir, filename)
-
-    await writeFile(filepath, buffer)
-
-    const fileUrl = `/uploads/media/${filename}`
+    // Upload to Supabase Storage
+    const publicUrl = await uploadToBucket(file, BUCKETS.MEDIA, filePath)
     
-    // Try Supabase first
-    const supabaseConfigured = isDbConfigured()
-    
+    // Save metadata to DB
     if (supabaseConfigured) {
+
       try {
         const newMedia = await mediaDb.create({
           title,
           description: description || null,
-          url: fileUrl,
+          url: publicUrl,
           type,
           category,
           tags: []
@@ -154,7 +194,7 @@ export async function POST(request: NextRequest) {
 
         return NextResponse.json({
           success: true,
-          message: 'Media uploaded successfully',
+          message: 'Media uploaded to Supabase Storage',
           media: {
             _id: newMedia.id,
             title: newMedia.title,
@@ -166,45 +206,26 @@ export async function POST(request: NextRequest) {
             date: newMedia.created_at,
             uploadedAt: newMedia.created_at
           },
-          isSupabaseMode: true
+          storage: 'supabase',
+          filePath
         }, { status: 201 })
       } catch (dbError) {
         console.error('[Media API] Database error:', dbError)
-        // Still return success since file was saved
+        // Cleanup storage on DB failure
+        await deleteFromBucket(BUCKETS.MEDIA, filePath).catch(console.error)
         return NextResponse.json({
-          success: true,
-          message: 'Media uploaded successfully (file saved, DB error)',
-          media: {
-            _id: uuidv4(),
-            title,
-            description,
-            url: fileUrl,
-            type,
-            category,
-            date: new Date(date).toISOString(),
-            uploadedAt: new Date()
-          },
-          isSupabaseMode: false
-        }, { status: 201 })
+          success: false,
+          error: 'File uploaded but DB save failed',
+          filePath
+        }, { status: 500 })
       }
     }
     
-    // Fall back to in-memory if Supabase not configured
+    // No fallback - require Supabase for storage
     return NextResponse.json({
-      success: true,
-      message: 'Media uploaded successfully',
-      media: {
-        _id: uuidv4(),
-        title,
-        description,
-        url: fileUrl,
-        type,
-        category,
-        date: new Date(date).toISOString(),
-        uploadedAt: new Date()
-      },
-      isInMemoryMode: true
-    }, { status: 201 })
+      success: false,
+      error: 'Supabase database required for media storage'
+    }, { status: 503 })
 
   } catch (error) {
     console.error('Upload error:', error)
@@ -322,7 +343,7 @@ export async function DELETE(request: NextRequest) {
       )
     }
     
-    // Try Supabase first
+    // Delete from DB + Storage
     const supabaseConfigured = isDbConfigured()
     
     if (supabaseConfigured) {
@@ -335,18 +356,32 @@ export async function DELETE(request: NextRequest) {
             { status: 404 }
           )
         }
+
+        // Extract storage path from URL (supabase or local fallback)
+        let storagePath: string | null = null
+        if (existingMedia.url?.startsWith('/uploads/media/')) {
+          storagePath = existingMedia.url.slice('/uploads/media/'.length)
+        } else if (existingMedia.url?.includes('/storage/v1/object/public/media/')) {
+          const match = existingMedia.url.match(/\/object\/public\/media\/(.+)/)
+          storagePath = match?.[1] || null
+        }
+
+        // Delete from storage first (ignore errors)
+        if (storagePath) {
+          await deleteFromBucket(BUCKETS.MEDIA, storagePath).catch(console.error)
+        }
         
         await mediaDb.delete(mediaId)
 
         return NextResponse.json({
           success: true,
-          message: 'Media deleted successfully',
-          isSupabaseMode: true
+          message: 'Media deleted from DB and Storage',
+          deletedPath: storagePath || 'unknown'
         })
       } catch (dbError) {
         console.error('[Media API] Database error:', dbError)
         return NextResponse.json(
-          { error: 'Failed to delete media in database' },
+          { error: 'Failed to delete media from database' },
           { status: 500 }
         )
       }

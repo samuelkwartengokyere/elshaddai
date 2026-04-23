@@ -1,10 +1,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { getCurrentAdmin } from '@/lib/auth'
-import fs from 'fs'
+import { uploadToBucket, BUCKETS } from '@/lib/storage'
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,30 +45,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Generate unique filename
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
+    // Generate unique path for avatars bucket
     const extension = path.extname(file.name)
-    const filename = `${uuidv4()}${extension}`
+    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+    const filePath = `avatars/${uuidv4()}-${safeName}`
 
-    // Save file to public/uploads/profile
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'profile')
-    
-    // Create directory if it doesn't exist
-    if (!fs.existsSync(uploadDir)) {
-      await mkdir(uploadDir, { recursive: true })
-    }
-    
-    const filepath = path.join(uploadDir, filename)
-
-    await writeFile(filepath, buffer)
-
-    // Return the URL
-    const fileUrl = `/uploads/profile/${filename}`
+    // Upload to Supabase Storage
+    const publicUrl = await uploadToBucket(file, BUCKETS.AVATARS, filePath)
     
     return NextResponse.json({
       success: true,
-      url: fileUrl
+      url: publicUrl,
+      path: filePath
     })
 
   } catch (error) {

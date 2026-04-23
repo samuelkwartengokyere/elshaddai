@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { writeFile, mkdir } from 'fs/promises'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
+import { uploadToBucket, BUCKETS } from '@/lib/storage'
 
 export async function POST(request: NextRequest) {
   try {
@@ -31,32 +31,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Get file extension
-    const extension = file.name.split('.').pop() || 'jpg'
-    const filename = `${uuidv4()}.${extension}`
+    // Generate unique path for avatars bucket
+    const extension = path.extname(file.name)
+    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+    const filePath = `teams/${uuidv4()}-${safeName}`
 
-    // Create upload directory if it doesn't exist
-    const uploadDir = path.join(process.cwd(), 'public', 'uploads', 'team')
-    
-    try {
-      await mkdir(uploadDir, { recursive: true })
-    } catch (mkdirError) {
-      // Directory might already exist, continue
-    }
-
-    // Convert file to buffer and save
-    const bytes = await file.arrayBuffer()
-    const buffer = Buffer.from(bytes)
-    const filepath = path.join(uploadDir, filename)
-    
-    await writeFile(filepath, buffer)
-
-    // Return the URL
-    const imageUrl = `/uploads/team/${filename}`
+    // Upload to Supabase Storage
+    const publicUrl = await uploadToBucket(file, BUCKETS.AVATARS, filePath)
 
     return NextResponse.json({
       success: true,
-      imageUrl,
+      url: publicUrl,
+      path: filePath,
       message: 'Image uploaded successfully'
     })
 

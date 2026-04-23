@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 
-import ImageUpload from '../../../components/ImageUpload';
+import MediaUpload from '../../../components/ImageUpload';
+import path from 'path';
 import { Media, MediaType, MediaCategory } from '@/types/media';
 import { 
   Plus, 
@@ -85,12 +86,17 @@ export default function MediaAdmin() {
     setShowUploadModal(true);
   };
 
-  const handleImageChange = (url: string) => {
+  const handleMediaChange = (url: string) => {
     setFormData(prev => ({ ...prev, url }));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!formData.url) {
+      setError('Please upload a file first');
+      return;
+    }
+
     setUploading(true);
     setError('');
     setSuccess('');
@@ -101,10 +107,8 @@ export default function MediaAdmin() {
       mediaData.append('description', formData.description);
       mediaData.append('type', formData.type);
       mediaData.append('category', formData.category);
-      
-      if (formData.url) {
-        mediaData.append('url', formData.url);
-      }
+      mediaData.append('url', formData.url);  // URL from MediaUpload
+      mediaData.append('date', new Date().toISOString());
 
       const response = await fetch('/api/media', {
         method: 'POST',
@@ -114,19 +118,20 @@ export default function MediaAdmin() {
       const data = await response.json();
 
       if (data.success) {
-        setSuccess('Media uploaded successfully!');
+        setSuccess('Media saved successfully!');
         setShowUploadModal(false);
         fetchMedia();
       } else {
-        setError(data.error || 'Failed to upload media');
+        setError(data.error || 'Failed to save media');
       }
     } catch (err: unknown) {
-      console.error('Upload error:', err);
-      setError('Upload failed. Please try again.');
+      console.error('Save error:', err);
+      setError('Save failed. Please try again.');
     } finally {
       setUploading(false);
     }
   };
+
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this media item?')) return;
@@ -389,11 +394,15 @@ export default function MediaAdmin() {
                   <label className="block text-sm font-semibold text-gray-900 mb-4">
                     Media File *
                   </label>
-                  <ImageUpload
+                  <MediaUpload
                     value={formData.url}
-                    onChange={handleImageChange}
+                    onChange={handleMediaChange}
+                    type={formData.type}
+                    category={formData.category}
+                    title={formData.title}
                     label="Click to upload"
                   />
+
                 </div>
               </div>
 
