@@ -260,9 +260,29 @@ export default function MediaAdmin() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {mediaItems.map((item) => (
-              <div key={item._id} className="group bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all overflow-hidden">
-                <div className="h-48 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center p-8">
-                  {getTypeIcon(item.type)}
+            <div key={item._id} className="group bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all overflow-hidden">
+                <div className="h-48 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden">
+                  {item.url ? (
+                    <img
+                      src={item.url}
+                      alt={item.title}
+                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      onError={(e) => {
+                        const target = e.target as HTMLImageElement;
+                        target.style.display = 'none';
+                        const parent = target.parentElement;
+                        if (parent) {
+                          const iconDiv = document.createElement('div');
+                          iconDiv.className = 'p-8';
+                          parent.appendChild(iconDiv);
+                        }
+                      }}
+                    />
+                  ) : (
+                    <div className="p-8">
+                      {getTypeIcon(item.type)}
+                    </div>
+                  )}
                 </div>
                 <div className="p-6">
                   <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full mb-3 ${getCategoryColor(item.category)}`}>

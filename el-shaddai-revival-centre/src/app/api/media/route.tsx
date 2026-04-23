@@ -178,6 +178,7 @@ export async function POST(request: NextRequest) {
 
     // Upload to Supabase Storage
     const publicUrl = await uploadToBucket(file, BUCKETS.MEDIA, filePath)
+    console.log(`[Media API] Generated public URL: ${publicUrl}`)
     
     // Save metadata to DB
     if (supabaseConfigured) {

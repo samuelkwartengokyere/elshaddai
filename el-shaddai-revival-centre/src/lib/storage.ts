@@ -50,6 +50,8 @@ export async function uploadToBucket(
     .from(bucket)
     .getPublicUrl(data.path)
 
+  console.log(`[Storage] Uploaded to ${bucket}/${data.path}: ${publicUrl}`)
+
   return publicUrl
 }
 
