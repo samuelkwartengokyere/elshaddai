@@ -7,12 +7,19 @@ interface GalleryItem {
   _id: string
   url: string
   title?: string
-  caption?: string
+  description?: string
   type?: 'image' | 'video' | 'document'
   category?: string
-  createdAt: string
   uploadedAt: string
 }
+
+const categories = [
+  { label: 'All', value: '' },
+  { label: 'Services', value: 'service' },
+  { label: 'Events', value: 'event' },
+  { label: 'Ministry', value: 'ministry' },
+  { label: 'Other', value: 'other' }
+]
 
 export default function GalleryPage() {
   const [items, setItems] = useState<GalleryItem[]>([])
@@ -22,19 +29,10 @@ export default function GalleryPage() {
   const [lightboxItem, setLightboxItem] = useState<GalleryItem | null>(null)
   const [brokenMedia, setBrokenMedia] = useState<Set<string>>(new Set())
 
-  const categories = [
-    'All',
-    'Sunday Service',
-    'Wednesday Service',
-    'Special Events',
-    'Youth',
-    'Children',
-    'Outreach'
-  ]
-
   useEffect(() => {
     fetchItems()
-  }, [])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedCategory])
 
   const fetchItems = async () => {
     setLoading(true)
@@ -43,7 +41,7 @@ export default function GalleryPage() {
       // Filter for images and videos only
       params.append('type', 'image,video')
       if (search) params.append('search', search)
-      if (selectedCategory && selectedCategory !== 'All') params.append('category', selectedCategory)
+      if (selectedCategory) params.append('category', selectedCategory)
 
       const response = await fetch(`/api/media?${params.toString()}`)
       const data = await response.json()
@@ -65,6 +63,8 @@ export default function GalleryPage() {
   }
 
   const isVideo = (item: GalleryItem) => item.type === 'video'
+
+  const displayTitle = (item: GalleryItem) => item.description || item.title || 'Untitled'
 
   return (
     <div className="min-h-screen bg-gray-50 py-12">
@@ -96,7 +96,7 @@ export default function GalleryPage() {
               className="px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent bg-white"
             >
               {categories.map(cat => (
-                <option key={cat} value={cat === 'All' ? '' : cat}>{cat}</option>
+                <option key={cat.value} value={cat.value}>{cat.label}</option>
               ))}
             </select>
             <button
@@ -144,7 +144,7 @@ export default function GalleryPage() {
                     ) : !isVideo(item) && !brokenMedia.has(item._id) ? (
                       <img
                         src={item.url}
-                        alt={item.caption || item.title || 'Gallery image'}
+                        alt={displayTitle(item)}
                         className="w-full h-full object-cover transition duration-300 group-hover:scale-110"
                         onError={() => setBrokenMedia(prev => new Set(prev).add(item._id))}
                       />
@@ -163,16 +163,14 @@ export default function GalleryPage() {
                         )}
                       </div>
                     )}
-                    <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition duration-300" />
-                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent transform translate-y-full group-hover:translate-y-0 transition duration-300">
-                      {(item.caption || item.title) && (
-                        <p className="text-white font-medium">{item.caption || item.title}</p>
-                      )}
+                    <div className="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors duration-300 pointer-events-none" />
+                    <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent translate-y-full group-hover:translate-y-0 transition-transform duration-300">
+                      <p className="text-white font-medium">{displayTitle(item)}</p>
                       {item.category && (
-                        <p className="text-gray-300 text-sm">{item.category}</p>
+                        <p className="text-gray-300 text-sm capitalize">{item.category}</p>
                       )}
                     </div>
-                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition duration-300">
+                    <div className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
                       <div className="bg-white/90 p-2 rounded-full">
                         {isVideo(item) ? (
                           <Play className="h-5 w-5 text-gray-700" />
@@ -217,7 +215,7 @@ export default function GalleryPage() {
               ) : !isVideo(lightboxItem) && !brokenMedia.has(lightboxItem._id) ? (
                 <img
                   src={lightboxItem.url}
-                  alt={lightboxItem.caption || lightboxItem.title || 'Gallery image'}
+                  alt={displayTitle(lightboxItem)}
                   className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
                   onError={() => setBrokenMedia(prev => new Set(prev).add(lightboxItem._id))}
                 />
@@ -237,11 +235,9 @@ export default function GalleryPage() {
                   <p className="text-gray-400 text-sm mt-2">Could not load media from storage</p>
                 </div>
               )}
-              {(lightboxItem.caption || lightboxItem.title) && (
-                <p className="text-white text-center mt-4 text-lg">{lightboxItem.caption || lightboxItem.title}</p>
-              )}
+              <p className="text-white text-center mt-4 text-lg">{displayTitle(lightboxItem)}</p>
               {lightboxItem.category && (
-                <p className="text-gray-400 text-center mt-2">{lightboxItem.category}</p>
+                <p className="text-gray-400 text-center mt-2 capitalize">{lightboxItem.category}</p>
               )}
             </div>
             <button

@@ -31,9 +31,19 @@ export async function GET(request: NextRequest) {
         if (category) {
           media = media.filter(m => m.category === category)
         }
+
+        // Filter by search (title or description)
+        const searchQuery = searchParams.get('search')
+        if (searchQuery) {
+          const q = searchQuery.toLowerCase()
+          media = media.filter(m => 
+            (m.title && m.title.toLowerCase().includes(q)) ||
+            (m.description && m.description.toLowerCase().includes(q))
+          )
+        }
         
-        // Sort
-        if (sort === 'date') {
+        // Sort — default to newest first
+        if (sort === 'date_asc') {
           media = media.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime())
         } else {
           media = media.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
