@@ -4,6 +4,7 @@ import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { getCurrentAdmin } from '@/lib/auth'
 import { uploadToBucket, BUCKETS } from '@/lib/storage'
+import { getSupabaseAdmin } from '@/lib/supabase'
 
 export async function POST(request: NextRequest) {
   try {
@@ -50,6 +51,27 @@ export async function POST(request: NextRequest) {
     const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
     const filePath = `avatars/${uuidv4()}-${safeName}`
 
+    // Ensure the avatars bucket exists before uploading
+    const supabase = await getSupabaseAdmin()
+    if (supabase) {
+      const { data: buckets } = await supabase.storage.listBuckets()
+      const bucketExists = buckets?.some(b => b.name === BUCKETS.AVATARS)
+      if (!bucketExists) {
+        const { error: createError } = await supabase.storage.createBucket(BUCKETS.AVATARS, {
+          public: true,
+          fileSizeLimit: 52428800, // 50MB
+          allowedMimeTypes: ['image/*', 'video/*', 'audio/*', 'application/pdf']
+        })
+        if (createError) {
+          console.error('Failed to create avatars bucket:', createError)
+          return NextResponse.json(
+            { success: false, error: `Failed to create storage bucket: ${createError.message}` },
+            { status: 500 }
+          )
+        }
+      }
+    }
+
     // Upload to Supabase Storage
     const publicUrl = await uploadToBucket(file, BUCKETS.AVATARS, filePath)
     
@@ -59,10 +81,11 @@ export async function POST(request: NextRequest) {
       path: filePath
     })
 
-  } catch (error) {
+  } catch (error: any) {
     console.error('Profile image upload error:', error)
+    const message = error?.message || String(error)
     return NextResponse.json(
-      { success: false, error: 'Failed to upload image' },
+      { success: false, error: `Upload failed: ${message}` },
       { status: 500 }
     )
   }

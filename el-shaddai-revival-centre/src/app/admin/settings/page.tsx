@@ -50,6 +50,7 @@ interface AdminUser {
   isActive: boolean
   createdAt: string
   lastLogin?: string
+  profileImage?: string
 }
 
 interface CurrentUser {
@@ -291,6 +292,8 @@ export default function AdminSettings() {
         setMessage({ type: 'success', text: 'Profile updated successfully!' })
         setCurrentUser({ ...currentUser, name: profileName, profileImage })
         fetchSettings()
+        // Reload to refresh layout user state (sidebar/header profile image)
+        window.location.reload()
       } else { setMessage({ type: 'error', text: data.error || 'Failed to update profile' }) }
     } catch (error) { console.error('Error saving profile:', error); setMessage({ type: 'error', text: 'Failed to update profile' }) }
     finally { setProfileSaving(false) }
@@ -312,11 +315,11 @@ export default function AdminSettings() {
     setUploadingImage(true); setMessage(null)
     try {
       const formData = new FormData(); formData.append('file', file)
-      const response = await fetch('/api/admins/profile-image', { method: 'POST', body: formData })
+      const response = await fetch('/api/admins/profile-image', { method: 'POST', body: formData, credentials: 'include' })
       const data = await response.json()
       if (data.success) { setProfileImage(data.url); setMessage({ type: 'success', text: 'Image uploaded successfully!' }) }
-      else { setMessage({ type: 'error', text: data.error || 'Failed to upload image' }) }
-    } catch (error) { console.error('Error uploading image:', error); setMessage({ type: 'error', text: 'Failed to upload image' }) }
+      else { setMessage({ type: 'error', text: data.error || `Failed to upload image (status ${response.status})` }) }
+    } catch (error) { console.error('Error uploading image:', error); setMessage({ type: 'error', text: 'Failed to upload image. Check console for details.' }) }
     finally { setUploadingImage(false) }
   }
 
@@ -601,7 +604,7 @@ export default function AdminSettings() {
                     <label className="block text-sm font-medium text-gray-700 mb-2">Current Profile Image</label>
                     <div className="flex items-center justify-center bg-gray-100 rounded-lg p-6">
                       {profileImage ? (
-                        <Image src={profileImage} alt="Profile" width={120} height={120} className="rounded-full" onError={() => setProfileImage('')} />
+                        <img src={profileImage} alt="Profile" width={120} height={120} className="rounded-full object-cover" onError={() => setProfileImage('')} />
                       ) : (
                         <div className="w-24 h-24 bg-accent rounded-full flex items-center justify-center text-white"><span className="text-3xl font-bold">{currentUser.name?.charAt(0).toUpperCase() || 'A'}</span></div>
                       )}
@@ -658,7 +661,11 @@ export default function AdminSettings() {
                   {admins.map(admin => (
                     <tr key={admin._id} className="border-b">
                       <td className="py-3 px-4 flex items-center">
-                        <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center text-white mr-3">{admin.name.charAt(0).toUpperCase()}</div>
+                        {admin.profileImage ? (
+                          <img src={admin.profileImage} alt={admin.name} className="w-8 h-8 rounded-full object-cover mr-3" />
+                        ) : (
+                          <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center text-white mr-3">{admin.name.charAt(0).toUpperCase()}</div>
+                        )}
                         {admin.name}
                       </td>
                       <td className="py-3 px-4">{admin.email}</td>

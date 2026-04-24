@@ -204,17 +204,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         </nav>
 
         <div className="p-4 border-t border-gray-700 flex-shrink-0 bg-primary mb-18">
-          {user && (
+            {user && (
             <div className={`flex items-center ${isSidebarOpen ? 'space-x-3' : 'justify-center'} mb-2`}>
               {/* Check profileImage FIRST, then fallback to initial */}
               {user.profileImage ? (
                 <div className="w-8 h-8 rounded-full overflow-hidden">
-                  <Image
+                  <img
                     src={user.profileImage}
                     alt={user.name}
                     width={32}
                     height={32}
-                    className="object-cover"
+                    className="object-cover w-full h-full"
                   />
                 </div>
               ) : (
@@ -259,17 +259,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             {navItems.find(item => pathname.startsWith(item.href))?.name || 'Admin Panel'}
           </h1>
           <div className="flex items-center space-x-4">
-            {user && (
+              {user && (
               <div className="flex items-center space-x-3">
                 {/* Check profileImage FIRST, then fallback to initial */}
                 {user.profileImage ? (
                   <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 mb-1">
-                    <Image
+                    <img
                       src={user.profileImage}
                       alt={user.name}
                       width={40}
                       height={40}
-                      className="object-cover"
+                      className="object-cover w-full h-full"
                     />
                   </div>
                 ) : (

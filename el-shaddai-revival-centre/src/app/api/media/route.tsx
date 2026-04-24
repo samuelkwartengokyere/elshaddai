@@ -4,6 +4,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { mediaDb, isDbConfigured } from '@/lib/db'
 import { getCurrentAdmin } from '@/lib/auth'
 import { uploadToBucket, deleteFromBucket, BUCKETS, SUPPORTED_MIME_TYPES, MAX_FILE_SIZES, isBucketPublic } from '@/lib/storage'
+import { getSupabaseAdmin } from '@/lib/supabase'
 
 export async function GET(request: NextRequest) {
   try {
@@ -204,6 +205,27 @@ export async function POST(request: NextRequest) {
     const extension = path.extname(file.name)
     const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
     const filePath = `${type}s/${uuidv4()}-${safeName}`
+
+    // Ensure the media bucket exists before uploading
+    const supabase = await getSupabaseAdmin()
+    if (supabase) {
+      const { data: buckets } = await supabase.storage.listBuckets()
+      const bucketExists = buckets?.some(b => b.name === BUCKETS.MEDIA)
+      if (!bucketExists) {
+        const { error: createError } = await supabase.storage.createBucket(BUCKETS.MEDIA, {
+          public: true,
+          fileSizeLimit: 52428800, // 50MB
+          allowedMimeTypes: ['image/*', 'video/*', 'audio/*', 'application/pdf']
+        })
+        if (createError) {
+          console.error('Failed to create media bucket:', createError)
+          return NextResponse.json(
+            { success: false, error: `Failed to create storage bucket: ${createError.message}` },
+            { status: 500 }
+          )
+        }
+      }
+    }
 
     // Check bucket is public before upload
     const bucketPublic = await isBucketPublic(BUCKETS.MEDIA)

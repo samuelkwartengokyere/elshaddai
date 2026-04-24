@@ -41,7 +41,7 @@ export async function GET(request: NextRequest) {
             email: admin.email,
             name: admin.name,
             role: admin.role,
-            profile_image: admin.profile_image,
+            profileImage: admin.profile_image,
             createdAt: admin.created_at,
             updatedAt: admin.updated_at
           })),
