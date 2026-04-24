@@ -2,8 +2,6 @@
 
 import React, { useState, useEffect, useCallback } from 'react';
 
-import MediaUpload from '../../../components/ImageUpload';
-import path from 'path';
 import { Media, MediaType, MediaCategory } from '@/types/media';
 import { 
   Plus, 
@@ -13,7 +11,8 @@ import {
   X,
   Image as ImageIcon,
   Video,
-  FileText
+  FileText,
+  Star
 } from 'lucide-react';
 
 interface MediaFormData {
@@ -21,7 +20,6 @@ interface MediaFormData {
   description: string;
   type: MediaType;
   category: MediaCategory;
-  url: string;
 }
 
 export default function MediaAdmin() {
@@ -35,9 +33,10 @@ export default function MediaAdmin() {
     title: '',
     description: '',
     type: 'image',
-    category: 'ministry',
-    url: ''
+    category: 'ministry'
   });
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string>('');
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
@@ -78,22 +77,53 @@ export default function MediaAdmin() {
       title: '',
       description: '',
       type: 'image',
-      category: 'ministry',
-      url: ''
+      category: 'ministry'
     });
+    setSelectedFile(null);
+    setPreviewUrl('');
     setError('');
     setSuccess('');
     setShowUploadModal(true);
   };
 
-  const handleMediaChange = (url: string) => {
-    setFormData(prev => ({ ...prev, url }));
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setSelectedFile(file);
+    setPreviewUrl(URL.createObjectURL(file));
+  };
+
+  const handleRemoveFile = () => {
+    setSelectedFile(null);
+    setPreviewUrl('');
+  };
+
+  const getMaxSizeMB = (t: MediaType) => {
+    switch (t) {
+      case 'video': return 50;
+      case 'document': return 10;
+      default: return 5;
+    }
+  };
+
+  const getAccept = () => {
+    switch (formData.type) {
+      case 'video': return 'video/*';
+      case 'document': return '.pdf,.doc,.docx';
+      default: return 'image/*';
+    }
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!formData.url) {
-      setError('Please upload a file first');
+    if (!selectedFile) {
+      setError('Please select a file to upload');
+      return;
+    }
+
+    const maxSize = getMaxSizeMB(formData.type) * 1024 * 1024;
+    if (selectedFile.size > maxSize) {
+      setError(`File too large. Max ${getMaxSizeMB(formData.type)}MB`);
       return;
     }
 
@@ -103,11 +133,11 @@ export default function MediaAdmin() {
 
     try {
       const mediaData = new FormData();
+      mediaData.append('file', selectedFile);
       mediaData.append('title', formData.title);
       mediaData.append('description', formData.description);
       mediaData.append('type', formData.type);
       mediaData.append('category', formData.category);
-      mediaData.append('url', formData.url);  // URL from MediaUpload
       mediaData.append('date', new Date().toISOString());
 
       const response = await fetch('/api/media', {
@@ -118,15 +148,17 @@ export default function MediaAdmin() {
       const data = await response.json();
 
       if (data.success) {
-        setSuccess('Media saved successfully!');
+        setSuccess('Media uploaded successfully!');
         setShowUploadModal(false);
+        setSelectedFile(null);
+        setPreviewUrl('');
         fetchMedia();
       } else {
-        setError(data.error || 'Failed to save media');
+        setError(data.error || 'Failed to upload media');
       }
     } catch (err: unknown) {
-      console.error('Save error:', err);
-      setError('Save failed. Please try again.');
+      console.error('Upload error:', err);
+      setError('Upload failed. Please try again.');
     } finally {
       setUploading(false);
     }
@@ -153,6 +185,8 @@ export default function MediaAdmin() {
       setError('Delete failed. Please try again.');
     }
   };
+
+  const [brokenImages, setBrokenImages] = useState<Set<string>>(new Set());
 
   const getTypeIcon = (type: MediaType) => {
     switch (type) {
@@ -261,26 +295,24 @@ export default function MediaAdmin() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {mediaItems.map((item) => (
             <div key={item._id} className="group bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all overflow-hidden">
-                <div className="h-48 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden">
-                  {item.url ? (
+                <div className="h-48 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden relative">
+                  {item.isFeatured && (
+                    <div className="absolute top-2 left-2 z-10 bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
+                      <Star className="h-3 w-3 fill-current" />
+                      Featured
+                    </div>
+                  )}
+                  {item.url && !brokenImages.has(item._id) ? (
                     <img
                       src={item.url}
                       alt={item.title}
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
-                      onError={(e) => {
-                        const target = e.target as HTMLImageElement;
-                        target.style.display = 'none';
-                        const parent = target.parentElement;
-                        if (parent) {
-                          const iconDiv = document.createElement('div');
-                          iconDiv.className = 'p-8';
-                          parent.appendChild(iconDiv);
-                        }
-                      }}
+                      onError={() => setBrokenImages(prev => new Set(prev).add(item._id))}
                     />
                   ) : (
-                    <div className="p-8">
+                    <div className="flex flex-col items-center justify-center p-8 text-center">
                       {getTypeIcon(item.type)}
+                      <span className="text-xs text-gray-400 mt-2">{item.url ? 'Preview unavailable' : 'No preview'}</span>
                     </div>
                   )}
                 </div>
@@ -386,7 +418,11 @@ export default function MediaAdmin() {
                   <select
                     required
                     value={formData.type}
-                    onChange={(e) => setFormData(prev => ({ ...prev, type: e.target.value as MediaType }))}
+                    onChange={(e) => {
+                      setFormData(prev => ({ ...prev, type: e.target.value as MediaType }));
+                      setSelectedFile(null);
+                      setPreviewUrl('');
+                    }}
                     className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
                   >
                     <option value="image">Image</option>
@@ -414,15 +450,42 @@ export default function MediaAdmin() {
                   <label className="block text-sm font-semibold text-gray-900 mb-4">
                     Media File *
                   </label>
-                  <MediaUpload
-                    value={formData.url}
-                    onChange={handleMediaChange}
-                    type={formData.type}
-                    category={formData.category}
-                    title={formData.title}
-                    label="Click to upload"
+                  <input
+                    type="file"
+                    accept={getAccept()}
+                    onChange={handleFileChange}
+                    className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-blue-50 file:text-blue-700 hover:file:bg-blue-100"
                   />
-
+                  {previewUrl && (
+                    <div className="mt-4 relative inline-block">
+                      <div className="w-32 h-32 rounded-lg overflow-hidden border-2 border-gray-200">
+                        {formData.type === 'image' ? (
+                          <img
+                            src={previewUrl}
+                            alt="Preview"
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <video
+                            src={previewUrl}
+                            className="w-full h-full object-cover"
+                            muted
+                            playsInline
+                          />
+                        )}
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveFile}
+                        className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1 hover:bg-red-600 transition-colors"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                  <p className="mt-2 text-xs text-gray-500">
+                    Max size: {getMaxSizeMB(formData.type)}MB
+                  </p>
                 </div>
               </div>
 
@@ -437,7 +500,7 @@ export default function MediaAdmin() {
                 </button>
                 <button
                   type="submit"
-                  disabled={uploading || !formData.url || !formData.title}
+                  disabled={uploading || !selectedFile || !formData.title}
                   className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all shadow-lg"
                 >
                   {uploading ? (

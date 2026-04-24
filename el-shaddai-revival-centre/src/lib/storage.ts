@@ -85,6 +85,37 @@ export function getPublicUrl(
   return `${supabaseUrl}/storage/v1/object/public/${bucket}/${path}`
 }
 
+/** Check if a bucket is publicly accessible */
+export async function isBucketPublic(bucket: string): Promise<boolean> {
+  const supabase = await getSupabaseAdmin()
+  if (!supabase) return false
+
+  try {
+    const { data, error } = await supabase.storage.getBucket(bucket)
+    if (error) {
+      console.error(`[Storage] Error checking bucket ${bucket}:`, error)
+      return false
+    }
+    return data?.public ?? false
+  } catch (err) {
+    console.error(`[Storage] Failed to check bucket ${bucket}:`, err)
+    return false
+  }
+}
+
+/** Log bucket status warnings */
+export async function checkBucketStatus(): Promise<void> {
+  for (const bucket of Object.values(BUCKETS)) {
+    const isPublic = await isBucketPublic(bucket)
+    if (!isPublic) {
+      console.warn(`⚠️  [Storage] Bucket "${bucket}" is NOT PUBLIC. Images will not display on the website.`)
+      console.warn(`   Fix: Go to Supabase Dashboard > Storage > Buckets > ${bucket} > Toggle "Public bucket" ON`)
+    } else {
+      console.log(`✅ [Storage] Bucket "${bucket}" is public`)
+    }
+  }
+}
+
 /** List files in bucket folder */
 export async function listBucketFiles(
   bucket: string,

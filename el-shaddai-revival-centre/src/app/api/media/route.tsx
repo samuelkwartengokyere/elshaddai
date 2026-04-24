@@ -3,7 +3,7 @@ import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { mediaDb, isDbConfigured } from '@/lib/db'
 import { getCurrentAdmin } from '@/lib/auth'
-import { uploadToBucket, deleteFromBucket, BUCKETS, SUPPORTED_MIME_TYPES, MAX_FILE_SIZES } from '@/lib/storage'
+import { uploadToBucket, deleteFromBucket, BUCKETS, SUPPORTED_MIME_TYPES, MAX_FILE_SIZES, isBucketPublic } from '@/lib/storage'
 
 export async function GET(request: NextRequest) {
   try {
@@ -47,7 +47,7 @@ export async function GET(request: NextRequest) {
 
         return NextResponse.json({
           success: true,
-          media: paginatedMedia.map(m => ({
+        media: paginatedMedia.map(m => ({
             _id: m.id,
             title: m.title,
             description: m.description,
@@ -56,7 +56,8 @@ export async function GET(request: NextRequest) {
             category: m.category,
             tags: m.tags,
             date: m.created_at,
-            uploadedAt: m.created_at
+            uploadedAt: m.created_at,
+            isFeatured: m.is_featured
           })),
           pagination: {
             page,
@@ -142,7 +143,8 @@ export async function POST(request: NextRequest) {
         url,
         type,
         category,
-        tags: []
+        tags: [],
+        is_featured: true
       })
 
       return NextResponse.json({
@@ -176,6 +178,12 @@ export async function POST(request: NextRequest) {
     const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
     const filePath = `${type}s/${uuidv4()}-${safeName}`
 
+    // Check bucket is public before upload
+    const bucketPublic = await isBucketPublic(BUCKETS.MEDIA)
+    if (!bucketPublic) {
+      console.warn(`[Media API] Bucket "${BUCKETS.MEDIA}" is NOT PUBLIC. Images will not display on the website.`)
+    }
+
     // Upload to Supabase Storage
     const publicUrl = await uploadToBucket(file, BUCKETS.MEDIA, filePath)
     console.log(`[Media API] Generated public URL: ${publicUrl}`)
@@ -190,7 +198,8 @@ export async function POST(request: NextRequest) {
           url: publicUrl,
           type,
           category,
-          tags: []
+          tags: [],
+          is_featured: true
         })
 
         return NextResponse.json({
@@ -277,12 +286,14 @@ export async function PUT(request: NextRequest) {
           description?: string | null
           type?: string
           category?: string
+          is_featured?: boolean
         } = {}
         
         if (body.title !== undefined) updateData.title = body.title
         if (body.description !== undefined) updateData.description = body.description
         if (body.type !== undefined) updateData.type = body.type
         if (body.category !== undefined) updateData.category = body.category
+        if (body.isFeatured !== undefined) updateData.is_featured = body.isFeatured
         
         const updatedMedia = await mediaDb.update(mediaId, updateData)
 
@@ -296,7 +307,8 @@ export async function PUT(request: NextRequest) {
             type: updatedMedia.type,
             category: updatedMedia.category,
             date: updatedMedia.created_at,
-            uploadedAt: updatedMedia.created_at
+            uploadedAt: updatedMedia.created_at,
+            isFeatured: updatedMedia.is_featured
           },
           message: 'Media updated successfully',
           isSupabaseMode: true

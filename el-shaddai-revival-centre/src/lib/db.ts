@@ -96,6 +96,7 @@ export interface DbMedia {
   type: string
   category?: string
   tags?: string[]
+  is_featured?: boolean
   created_at: string
 }
 

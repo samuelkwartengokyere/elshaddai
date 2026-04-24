@@ -7,6 +7,7 @@ export interface Media {
   category: 'service' | 'event' | 'ministry' | 'other';
   date: Date;
   uploadedAt: Date;
+  isFeatured?: boolean;
 }
 
 export type MediaType = 'image' | 'video' | 'document';

@@ -20,6 +20,7 @@ export default function GalleryPage() {
   const [search, setSearch] = useState('')
   const [selectedCategory, setSelectedCategory] = useState('')
   const [lightboxItem, setLightboxItem] = useState<GalleryItem | null>(null)
+  const [brokenMedia, setBrokenMedia] = useState<Set<string>>(new Set())
 
   const categories = [
     'All',
@@ -126,16 +127,13 @@ export default function GalleryPage() {
                   onClick={() => setLightboxItem(item)}
                 >
                   <div className="aspect-video relative">
-                    {isVideo(item) ? (
+                    {isVideo(item) && !brokenMedia.has(item._id) ? (
                       <>
                         <video
                           src={item.url}
                           className="w-full h-full object-cover transition duration-300 group-hover:scale-110"
                           poster="/file.svg"
-                          onError={(e) => {
-                            const target = e.target as HTMLVideoElement
-                            target.poster = '/file.svg'
-                          }}
+                          onError={() => setBrokenMedia(prev => new Set(prev).add(item._id))}
                         />
                         <div className="absolute inset-0 flex items-center justify-center">
                           <div className="bg-black/50 rounded-full p-3">
@@ -143,16 +141,27 @@ export default function GalleryPage() {
                           </div>
                         </div>
                       </>
-                    ) : (
+                    ) : !isVideo(item) && !brokenMedia.has(item._id) ? (
                       <img
                         src={item.url}
                         alt={item.caption || item.title || 'Gallery image'}
                         className="w-full h-full object-cover transition duration-300 group-hover:scale-110"
-                        onError={(e) => {
-                          const target = e.target as HTMLImageElement
-                          target.src = '/file.svg'
-                        }}
+                        onError={() => setBrokenMedia(prev => new Set(prev).add(item._id))}
                       />
+                    ) : (
+                      <div className="w-full h-full bg-gradient-to-br from-gray-100 to-gray-200 flex flex-col items-center justify-center">
+                        {isVideo(item) ? (
+                          <>
+                            <Play className="h-12 w-12 text-gray-400 mb-2" />
+                            <span className="text-xs text-gray-500">Video unavailable</span>
+                          </>
+                        ) : (
+                          <>
+                            <ImageIcon className="h-12 w-12 text-gray-400 mb-2" />
+                            <span className="text-xs text-gray-500">Image unavailable</span>
+                          </>
+                        )}
+                      </div>
                     )}
                     <div className="absolute inset-0 bg-black bg-opacity-0 group-hover:bg-opacity-40 transition duration-300" />
                     <div className="absolute bottom-0 left-0 right-0 p-4 bg-gradient-to-t from-black/70 to-transparent transform translate-y-full group-hover:translate-y-0 transition duration-300">
@@ -195,29 +204,38 @@ export default function GalleryPage() {
             onClick={() => setLightboxItem(null)}
           >
             <div className="max-w-5xl w-full max-h-screen">
-              {isVideo(lightboxItem) ? (
+              {isVideo(lightboxItem) && !brokenMedia.has(lightboxItem._id) ? (
                 <video
                   src={lightboxItem.url}
                   controls
                   autoPlay
                   className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
-                  onError={(e) => {
-                    const target = e.target as HTMLVideoElement
-                    console.error('Video load error')
-                  }}
+                  onError={() => setBrokenMedia(prev => new Set(prev).add(lightboxItem._id))}
                 >
                   Your browser does not support video playback.
                 </video>
-              ) : (
+              ) : !isVideo(lightboxItem) && !brokenMedia.has(lightboxItem._id) ? (
                 <img
                   src={lightboxItem.url}
                   alt={lightboxItem.caption || lightboxItem.title || 'Gallery image'}
                   className="w-full h-auto max-h-[80vh] object-contain rounded-lg"
-                  onError={(e) => {
-                    const target = e.target as HTMLImageElement
-                    target.src = '/file.svg'
-                  }}
+                  onError={() => setBrokenMedia(prev => new Set(prev).add(lightboxItem._id))}
                 />
+              ) : (
+                <div className="w-full h-[60vh] flex flex-col items-center justify-center bg-gray-800 rounded-lg">
+                  {isVideo(lightboxItem) ? (
+                    <>
+                      <Play className="h-20 w-20 text-gray-500 mb-4" />
+                      <p className="text-white text-lg">Video unavailable</p>
+                    </>
+                  ) : (
+                    <>
+                      <ImageIcon className="h-20 w-20 text-gray-500 mb-4" />
+                      <p className="text-white text-lg">Image unavailable</p>
+                    </>
+                  )}
+                  <p className="text-gray-400 text-sm mt-2">Could not load media from storage</p>
+                </div>
               )}
               {(lightboxItem.caption || lightboxItem.title) && (
                 <p className="text-white text-center mt-4 text-lg">{lightboxItem.caption || lightboxItem.title}</p>

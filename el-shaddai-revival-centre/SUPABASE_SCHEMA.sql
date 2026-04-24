@@ -111,6 +111,7 @@ CREATE TABLE IF NOT EXISTS media (
   type TEXT NOT NULL,
   category TEXT,
   tags TEXT[],
+  is_featured BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
