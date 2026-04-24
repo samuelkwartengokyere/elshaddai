@@ -19,6 +19,7 @@ import {
   User,
   Heart
 } from 'lucide-react'
+import { DEFAULT_ADMIN_PROFILE_IMAGE } from '@/lib/auth'
 
 interface Settings {
   churchName: string
@@ -206,7 +207,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="p-4 border-t border-gray-700 flex-shrink-0 bg-primary mb-18">
             {user && (
             <div className={`flex items-center ${isSidebarOpen ? 'space-x-3' : 'justify-center'} mb-2`}>
-              {/* Check profileImage FIRST, then fallback to initial */}
               {user.profileImage ? (
                 <div className="w-8 h-8 rounded-full overflow-hidden">
                   <img
@@ -218,12 +218,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   />
                 </div>
               ) : (
-                <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center text-white">
-                  {user.name ? (
-                    <span className="text-sm font-bold">{user.name.charAt(0).toUpperCase()}</span>
-                  ) : (
-                    <User className="h-4 w-4" />
-                  )}
+                <div className="w-8 h-8 rounded-full overflow-hidden">
+                  <img
+                    src={DEFAULT_ADMIN_PROFILE_IMAGE}
+                    alt={user.name}
+                    width={32}
+                    height={32}
+                    className="object-cover w-full h-full"
+                  />
                 </div>
               )}
               {isSidebarOpen && (
@@ -261,7 +263,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
           <div className="flex items-center space-x-4">
               {user && (
               <div className="flex items-center space-x-3">
-                {/* Check profileImage FIRST, then fallback to initial */}
                 {user.profileImage ? (
                   <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 mb-1">
                     <img
@@ -273,12 +274,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     />
                   </div>
                 ) : (
-                  <div className="w-10 h-10 bg-accent rounded-full flex items-center justify-center text-white font-bold shrink-0 mb-1">
-                    {user.name ? (
-                      user.name.charAt(0).toUpperCase()
-                    ) : (
-                      <User className="h-5 w-5" />
-                    )}
+                  <div className="w-10 h-10 rounded-full overflow-hidden shrink-0 mb-1">
+                    <img
+                      src={DEFAULT_ADMIN_PROFILE_IMAGE}
+                      alt={user.name}
+                      width={40}
+                      height={40}
+                      className="object-cover w-full h-full"
+                    />
                   </div>
                 )}
                 <div className="hidden md:block">

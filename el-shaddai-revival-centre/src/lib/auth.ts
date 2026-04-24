@@ -285,3 +285,6 @@ export function getCurrentAdmin(request: Request): JWTPayload | null {
 
 export { JWT_SECRET, COOKIE_NAME }
 
+/** Default admin profile image (blue avatar SVG) */
+export const DEFAULT_ADMIN_PROFILE_IMAGE = 'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2235%22 r=%2225%22 fill=%22%234F46E5%22/%3E%3Cpath d=%22M10 90 Q50 50 90 90%22 fill=%22%234F46E5%22/%3E%3C/svg%3E'
+

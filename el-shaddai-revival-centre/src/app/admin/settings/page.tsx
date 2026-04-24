@@ -21,6 +21,7 @@ import {
   RefreshCw,
   Clock
 } from 'lucide-react'
+import { DEFAULT_ADMIN_PROFILE_IMAGE } from '@/lib/auth'
 
 interface Settings {
   churchName: string
@@ -33,7 +34,7 @@ interface Settings {
     channelName: string
     channelUrl: string
     apiKey: string
-    playlistId: string  // Specific playlist ID for sermon videos
+    playlistId: string
     autoSync: boolean
     syncInterval: number
     lastSync: Date | null
@@ -67,23 +68,22 @@ const defaultSettings: Settings = {
   logoUrl: 'https://pentecost.ca/wp-content/uploads/2025/03/The-Church-Pentecost-Logo-1.png'
 }
 
-// Pre-defined avatar options - using simple icons that always work
 const AVATAR_OPTIONS = [
-  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDEwYzg5LjMzMy0xMyA0NS0xMyA0NSAxMyA4OS4zMzMgMTMgNDUtMTMgNDUtMTMgMTMtNDUtMTMtNDUtMTN6bTAgMmM0LjQxOCAwIDgtMy41ODIgOC04czMtMy41ODIgOC04IDMuNTgyLTggOC0zLjU4MiA4LTggNHptMCA3NmMtNi42MjcgMC0xMi01LjM3My0xMi0xMnM1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMi01LjM3MyAxMi0xMnptLTggMTRjLTIuMjA5IDAtNC0xLjc5MS00LTRzMS43OTEtNCA0LTQgNCAxLjc5MSA0IDQtMS43OSA0LTR6Ii8+PC9zdmc+',
-  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDEwYzg5LjMzMy0xMyA0NS0xMyA0NSAxMyA4OS4zMzMgMTMgNDUtMTMgNDUtMTMgMTMtNDUtMTMtNDUtMTN6bTAgMmM0LjQxOCAwIDgtMy41ODIgOC04czMtMy41ODIgOC04IDMuNTgyLTggOC0zLjU4MiA4LTggNHptMCA3NmMtNi42MjcgMC0xMi01LjM3My0xMi0xMnM1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMi01LjM3MyAxMi0xMnptOCAxNGMtMi4yMDkgMC00LTEuNzkxLTQtNHMxLjc5MS00IDQtNCA0IDEuNzkyIDQtNHMtMS43OTItNC00LTR6Ii8+PC9zdmc+',
-  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDEwYzg5LjMzMy0xMyA0NS0xMyA0NSAxMyA4OS4zMzMgMTMgNDUtMTMgNDUtMTMgMTMtNDUtMTMtNDUtMTN6bTAgMmM0LjQxOCAwIDgtMy41ODIgOC04czMtMy41ODIgOC04IDMuNTgyLTggOC0zLjU4MiA4LTggNHptMCA3NmMtNi42MjcgMC0xMi01LjM3My0xMi0xMnM1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMi01LjM3MyAxMi0xMnptLTggMTRjLTIuMjA5IDAtNC0xLjc5MS00LTRzMS43OTEtNCA0LTQgNCAxLjc5MSA0IDQtMS43OSA0LTR6Ii8+PC9zdmc+',
-  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDEwYzg5LjMzMy0xMyA0NS0xMyA0NSAxMyA4OS4zMzMgMTMgNDUtMTMgNDUtMTMgMTMtNDUtMTMtNDUtMTN6bTAgMmM0LjQxOCAwIDgtMy41ODIgOC04czMtMy41ODIgOC04IDMuNTgyLTggOC0zLjU4MiA4LTggNHptMCA3NmMtNi42MjcgMC0xMi01LjM3My0xMi0xMnM1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMi01LjM3MyAxMi0xMnptOCAxNGMtMi4yMDkgMC00LTEuNzkxLTQtNHMxLjc5MS00IDQtNCA0IDEuNzkyIDQtNHMtMS43OTItNC00LTR6Ii8+PC9zdmc+',
-  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDEwYzg5LjMzMy0xMyA0NS0xMyA0NSAxMyA4OS4zMzMgMTMgNDUtMTMgNDUtMTMgMTMtNDUtMTMtNDUtMTN6bTAgMmM0LjQxOCAwIDgtMy41ODIgOC04czMtMy41ODIgOC04IDMuNTgyLTggOC0zLjU4MiA4LTggNHptMCA3NmMtNi42MjcgMC0xMi01LjM3My0xMi0xMnM1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMi01LjM3MyAxMi0xMnptLTggMTRjLTIuMjA5IDAtNC0xLjc5MS00LTRzMS43OTEtNCA0LTQgNCAxLjc5MSA0IDQtMS43OSA0LTR6Ii8+PC9zdmc+',
-  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDEwYzg5LjMzMy0xMyA0NS0xMyA0NSAxMyA4OS4zMzMgMTMgNDUtMTMgNDUtMTMgMTMtNDUtMTMtNDUtMTN6bTAgMmM0LjQxOCAwIDgtMy41ODIgOC04czMtMy41ODIgOC04IDMuNTgyLTggOC0zLjU4MiA4LTggNHptMCA3NmMtNi42MjcgMC0xMi01LjM3My0xMi0xMnM1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMi01LjM3MyAxMi0xMnptOCAxNGMtMi4yMDkgMC00LTEuNzkxLTQtNHMxLjc5MS00IDQtNCA0IDEuNzkyIDQtNHMtMS43OTItNC00LTR6Ii8+PC9zdmc+',
-  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDEwYzg5LjMzMy0xMyA0NS0xMyA0NSAxMyA4OS4zMzMgMTMgNDUtMTMgNDUtMTMgMTMtNDUtMTMtNDUtMTN6bTAgMmM0LjQxOCAwIDgtMy41ODIgOC04czMtMy41ODIgOC04IDMuNTgyLTggOC0zLjU4MiA4LTggNHptMCA3NmMtNi42MjcgMC0xMi01LjM3My0xMi0xMnM1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMi01LjM3MyAxMi0xMnptLTggMTRjLTIuMjA5IDAtNC0xLjc5MS00LTRzMS43OTEtNCA0LTQgNCAxLjc5MSA0IDQtMS43OSA0LTR6Ii8+PC9zdmc+',
-  'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCAyNCAyNCIgZmlsbD0iI2ZmZiI+PHBhdGggZD0iTTEyIDEwYzg5LjMzMy0xMyA0NS0xMyA0NSAxMyA4OS4zMzMgMTMgNDUtMTMgNDUtMTMgMTMtNDUtMTMtNDUtMTN6bTAgMmM0LjQxOCAwIDgtMy41ODIgOC04czMtMy41ODIgOC04IDMuNTgyLTggOC0zLjU4MiA4LTggNHptMCA3NmMtNi42MjcgMC0xMi01LjM3My0xMi0xMnM1LjM3My0xMiAxMi0xMiAxMiA1LjM3MyAxMiAxMi01LjM3MyAxMi0xMnptOCAxNGMtMi4yMDkgMC00LTEuNzkxLTQtNHMxLjc5MS00IDQtNCA0IDEuNzkyIDQtNHMtMS43OTItNC00LTR6Ii8+PC9zdmc+',
+  'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2235%22 r=%2225%22 fill=%22%234F46E5%22/%3E%3Cpath d=%22M10 90 Q50 50 90 90%22 fill=%22%234F46E5%22/%3E%3C/svg%3E',
+  'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2235%22 r=%2225%22 fill=%22%23DC2626%22/%3E%3Cpath d=%22M10 90 Q50 50 90 90%22 fill=%22%23DC2626%22/%3E%3C/svg%3E',
+  'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2235%22 r=%2225%22 fill=%22%23059669%22/%3E%3Cpath d=%22M10 90 Q50 50 90 90%22 fill=%22%23059669%22/%3E%3C/svg%3E',
+  'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2235%22 r=%2225%22 fill=%22%23D97706%22/%3E%3Cpath d=%22M10 90 Q50 50 90 90%22 fill=%22%23D97706%22/%3E%3C/svg%3E',
+  'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2235%22 r=%2225%22 fill=%22%237C3AED%22/%3E%3Cpath d=%22M10 90 Q50 50 90 90%22 fill=%22%237C3AED%22/%3E%3C/svg%3E',
+  'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2235%22 r=%2225%22 fill=%22%23DB2777%22/%3E%3Cpath d=%22M10 90 Q50 50 90 90%22 fill=%22%23DB2777%22/%3E%3C/svg%3E',
+  'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2235%22 r=%2225%22 fill=%22%230369A1%22/%3E%3Cpath d=%22M10 90 Q50 50 90 90%22 fill=%22%230369A1%22/%3E%3C/svg%3E',
+  'data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22%3E%3Ccircle cx=%2250%22 cy=%2235%22 r=%2225%22 fill=%22%23E11D48%22/%3E%3Cpath d=%22M10 90 Q50 50 90 90%22 fill=%22%23E11D48%22/%3E%3C/svg%3E',
 ]
 
-const AVATAR_NAMES = ['👤', '👨', '👱', '🧑', '👩', '👧', '👸', '👵']
+const AVATAR_NAMES = ['Blue', 'Red', 'Green', 'Amber', 'Purple', 'Pink', 'Teal', 'Rose']
 
 const AVATAR_COLORS = [
-  'bg-blue-100', 'bg-green-100', 'bg-yellow-100', 'bg-purple-100',
-  'bg-pink-100', 'bg-orange-100', 'bg-teal-100', 'bg-red-100'
+  'bg-blue-100', 'bg-red-100', 'bg-green-100', 'bg-yellow-100',
+  'bg-purple-100', 'bg-pink-100', 'bg-teal-100', 'bg-rose-100'
 ]
 
 type Tab = 'branding' | 'profile' | 'admins' | 'youtube' | 'maintenance'
@@ -98,7 +98,7 @@ export default function AdminSettings() {
   const [adminsLoading, setAdminsLoading] = useState(false)
   const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
   const [logoPreview, setLogoPreview] = useState<string>(defaultSettings.logoUrl)
-  
+
   const [youtubeSettings, setYoutubeSettings] = useState({
     channelId: '', channelName: '', channelUrl: '', apiKey: '', playlistId: '',
     autoSync: false, syncInterval: 6, lastSync: null as Date | null,
@@ -106,14 +106,14 @@ export default function AdminSettings() {
   })
   const [syncing, setSyncing] = useState(false)
   const [syncMessage, setSyncMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null)
-  
-  const [profileImage, setProfileImage] = useState<string>('')
-  const [selectedAvatarIndex, setSelectedAvatarIndex] = useState<number | null>(null)
+
+  const [profileImage, setProfileImage] = useState<string>(DEFAULT_ADMIN_PROFILE_IMAGE)
+  const [selectedAvatarIndex, setSelectedAvatarIndex] = useState<number>(0)
   const [profileSaving, setProfileSaving] = useState(false)
   const [profileName, setProfileName] = useState<string>('')
   const [customUrl, setCustomUrl] = useState('')
   const [uploadingImage, setUploadingImage] = useState(false)
-  
+
   const [showAdminModal, setShowAdminModal] = useState(false)
   const [editingAdmin, setEditingAdmin] = useState<AdminUser | null>(null)
   const [adminForm, setAdminForm] = useState({
@@ -121,7 +121,7 @@ export default function AdminSettings() {
   })
   const [modalLoading, setModalLoading] = useState(false)
   const [modalError, setModalError] = useState('')
-  const [deletingAdminId, setDeletingAdminId] = useState<string | null>(null) // Renamed for clarity
+  const [deletingAdminId, setDeletingAdminId] = useState<string | null>(null)
   const [maintenanceMode, setMaintenanceMode] = useState(false)
   const [maintenanceMessage, setMaintenanceMessage] = useState('')
   const [maintenanceSaving, setMaintenanceSaving] = useState(false)
@@ -172,7 +172,7 @@ export default function AdminSettings() {
       const data = await response.json()
       if (data.success && data.user) {
         setCurrentUser(data.user)
-        setProfileImage(data.user.profileImage || '')
+        setProfileImage(data.user.profileImage || DEFAULT_ADMIN_PROFILE_IMAGE)
         setProfileName(data.user.name || '')
       }
     } catch (error) { console.error('Error fetching current user:', error) }
@@ -197,7 +197,7 @@ export default function AdminSettings() {
         churchName: settings.churchName, churchTagline: settings.churchTagline, logoUrl: settings.logoUrl,
         youtube: { channelId: youtubeSettings.channelId || '', channelName: youtubeSettings.channelName || '',
           channelUrl: youtubeSettings.channelUrl || '', apiKey: youtubeSettings.apiKey || '',
-          playlistId: youtubeSettings.playlistId || '',  // Add playlistId
+          playlistId: youtubeSettings.playlistId || '',
           autoSync: youtubeSettings.autoSync || false, syncInterval: youtubeSettings.syncInterval || 6,
           lastSync: youtubeSettings.lastSync, syncStatus: youtubeSettings.syncStatus || 'idle', syncError: youtubeSettings.syncError || ''
         }
@@ -216,7 +216,7 @@ export default function AdminSettings() {
           if (data.settings.youtube) {
             setYoutubeSettings({ channelId: data.settings.youtube.channelId || '', channelName: data.settings.youtube.channelName || '',
               channelUrl: data.settings.youtube.channelUrl || '', apiKey: data.settings.youtube.apiKey || '',
-              playlistId: data.settings.youtube.playlistId || '',  // Add playlistId
+              playlistId: data.settings.youtube.playlistId || '',
               autoSync: data.settings.youtube.autoSync || false, syncInterval: data.settings.youtube.syncInterval || 6,
               lastSync: data.settings.youtube.lastSync, syncStatus: data.settings.youtube.syncStatus || 'idle',
               syncError: data.settings.youtube.syncError || ''
@@ -247,21 +247,15 @@ export default function AdminSettings() {
     finally { setSyncing(false) }
   }
 
-  // Extract playlist ID from various YouTube URL formats
   const extractPlaylistId = (url: string): string => {
     if (!url) return ''
-    
-    // Match: playlist?list=PLxxxxxxxxxxxxx
     const playlistMatch = url.match(/[?&]list=([a-zA-Z0-9_-]+)/)
     if (playlistMatch && playlistMatch[1]) {
       return playlistMatch[1]
     }
-    
-    // If it's already just a playlist ID (starts with PL, PLp, etc.)
     if (url.match(/^[a-zA-Z0-9_-]{20,40}$/)) {
       return url
     }
-    
     return ''
   }
 
@@ -292,7 +286,6 @@ export default function AdminSettings() {
         setMessage({ type: 'success', text: 'Profile updated successfully!' })
         setCurrentUser({ ...currentUser, name: profileName, profileImage })
         fetchSettings()
-        // Reload to refresh layout user state (sidebar/header profile image)
         window.location.reload()
       } else { setMessage({ type: 'error', text: data.error || 'Failed to update profile' }) }
     } catch (error) { console.error('Error saving profile:', error); setMessage({ type: 'error', text: 'Failed to update profile' }) }
@@ -302,8 +295,6 @@ export default function AdminSettings() {
   const handleSelectAvatar = (avatarUrl: string, index: number) => {
     setProfileImage(avatarUrl); setSelectedAvatarIndex(index); setCustomUrl('')
   }
-
-  // Removed unused handleCustomUrlSubmit function
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -328,7 +319,7 @@ export default function AdminSettings() {
 
   const handleDeleteAdmin = async (adminId: string) => {
     if (!confirm('Are you sure you want to delete this admin user?')) return
-    setDeletingAdminId(adminId) // Updated variable name
+    setDeletingAdminId(adminId)
     try {
       const response = await fetch(`/api/admins/${adminId}`, { method: 'DELETE' })
       const data = await response.json()
@@ -418,32 +409,30 @@ export default function AdminSettings() {
         )}
 
         {activeTab === 'branding' && (
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-8">
-            <div className="bg-white rounded-xl shadow-md p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center"><ImageIcon className="h-5 w-5 mr-2 text-accent" /> Church Logo</h2>
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Logo Preview</label>
-                <div className="bg-gray-100 rounded-lg p-4 flex items-center justify-center min-h-[150px]">
-                  {logoPreview ? (
-                    <Image src={logoPreview} alt="Church Logo Preview" width={200} height={100} className="max-w-[200px] max-h-[100px] object-contain" onError={() => setLogoPreview('')} />
-                  ) : (<div className="text-center text-gray-400"><ImageIcon className="h-12 w-12 mx-auto mb-2" /><p>No logo preview available</p></div>)}
-                </div>
-              </div>
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Logo URL</label>
-                <input type="url" value={settings.logoUrl} onChange={(e) => handleLogoUrlChange(e.target.value)} placeholder="https://example.com/logo.png" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent" />
+          <div className="bg-white rounded-xl shadow-md p-6">
+            <h2 className="text-xl font-bold text-gray-800 mb-4 flex items-center"><ImageIcon className="h-5 w-5 mr-2 text-accent" /> Church Logo</h2>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Logo Preview</label>
+              <div className="bg-gray-100 rounded-lg p-4 flex items-center justify-center min-h-[150px]">
+                {logoPreview ? (
+                  <Image src={logoPreview} alt="Church Logo Preview" width={200} height={100} className="max-w-[200px] max-h-[100px] object-contain" onError={() => setLogoPreview('')} />
+                ) : (
+                  <div className="text-center text-gray-400"><ImageIcon className="h-12 w-12 mx-auto mb-2" /><p>No logo preview available</p></div>
+                )}
               </div>
             </div>
-            <div className="bg-white rounded-xl shadow-md p-6">
-              <h2 className="text-xl font-bold text-gray-800 mb-4">Church Information</h2>
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Church Name</label>
-                <input type="text" value={settings.churchName} onChange={(e) => setSettings({ ...settings, churchName: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent" />
-              </div>
-              <div className="mb-6">
-                <label className="block text-sm font-medium text-gray-700 mb-2">Church Tagline</label>
-                <input type="text" value={settings.churchTagline} onChange={(e) => setSettings({ ...settings, churchTagline: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent" />
-              </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Logo URL</label>
+              <input type="url" value={settings.logoUrl} onChange={(e) => handleLogoUrlChange(e.target.value)} placeholder="https://example.com/logo.png" className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent" />
+            </div>
+            <h2 className="text-xl font-bold text-gray-800 mb-4">Church Information</h2>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Church Name</label>
+              <input type="text" value={settings.churchName} onChange={(e) => setSettings({ ...settings, churchName: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent" />
+            </div>
+            <div className="mb-6">
+              <label className="block text-sm font-medium text-gray-700 mb-2">Church Tagline</label>
+              <input type="text" value={settings.churchTagline} onChange={(e) => setSettings({ ...settings, churchTagline: e.target.value })} className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent" />
             </div>
           </div>
         )}
@@ -603,11 +592,7 @@ export default function AdminSettings() {
                   <div className="mb-6">
                     <label className="block text-sm font-medium text-gray-700 mb-2">Current Profile Image</label>
                     <div className="flex items-center justify-center bg-gray-100 rounded-lg p-6">
-                      {profileImage ? (
-                        <img src={profileImage} alt="Profile" width={120} height={120} className="rounded-full object-cover" onError={() => setProfileImage('')} />
-                      ) : (
-                        <div className="w-24 h-24 bg-accent rounded-full flex items-center justify-center text-white"><span className="text-3xl font-bold">{currentUser.name?.charAt(0).toUpperCase() || 'A'}</span></div>
-                      )}
+                      <img src={profileImage} alt="Profile" width={120} height={120} className="rounded-full object-cover" onError={() => setProfileImage(DEFAULT_ADMIN_PROFILE_IMAGE)} />
                     </div>
                   </div>
                   <div className="mb-6">
@@ -661,11 +646,7 @@ export default function AdminSettings() {
                   {admins.map(admin => (
                     <tr key={admin._id} className="border-b">
                       <td className="py-3 px-4 flex items-center">
-                        {admin.profileImage ? (
-                          <img src={admin.profileImage} alt={admin.name} className="w-8 h-8 rounded-full object-cover mr-3" />
-                        ) : (
-                          <div className="w-8 h-8 bg-accent rounded-full flex items-center justify-center text-white mr-3">{admin.name.charAt(0).toUpperCase()}</div>
-                        )}
+                        <img src={admin.profileImage || DEFAULT_ADMIN_PROFILE_IMAGE} alt={admin.name} className="w-8 h-8 rounded-full object-cover mr-3" />
                         {admin.name}
                       </td>
                       <td className="py-3 px-4">{admin.email}</td>
