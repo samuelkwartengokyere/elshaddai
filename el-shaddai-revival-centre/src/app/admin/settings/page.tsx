@@ -277,9 +277,11 @@ export default function AdminSettings() {
     if (!currentUser) return
     setProfileSaving(true); setMessage(null)
     try {
+      // Save empty string to DB when using default image, keeping DB clean
+      const imageToSave = profileImage === DEFAULT_ADMIN_PROFILE_IMAGE ? '' : profileImage
       const response = await fetch(`/api/admins/${currentUser.adminId}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: profileName, profile_image: profileImage })
+        body: JSON.stringify({ name: profileName, profile_image: imageToSave })
       })
       const data = await response.json()
       if (data.success) {
@@ -294,6 +296,14 @@ export default function AdminSettings() {
 
   const handleSelectAvatar = (avatarUrl: string, index: number) => {
     setProfileImage(avatarUrl); setSelectedAvatarIndex(index); setCustomUrl('')
+  }
+
+  const handleDeleteProfileImage = () => {
+    setProfileImage(DEFAULT_ADMIN_PROFILE_IMAGE)
+    setSelectedAvatarIndex(0)
+    if (fileInputRef.current) {
+      fileInputRef.current.value = ''
+    }
   }
 
   const handleFileUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -620,6 +630,15 @@ export default function AdminSettings() {
                       <label htmlFor="profile-upload" className={`flex items-center px-4 py-2 bg-gray-100 rounded-lg cursor-pointer ${uploadingImage ? 'opacity-50' : ''}`}>
                         {uploadingImage ? <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Uploading...</> : <><Upload className="h-4 w-4 mr-2" />Browse</>}
                       </label>
+                      {profileImage !== DEFAULT_ADMIN_PROFILE_IMAGE && (
+                        <button
+                          onClick={handleDeleteProfileImage}
+                          className="flex items-center px-4 py-2 bg-red-50 text-red-600 rounded-lg hover:bg-red-100 transition"
+                          title="Remove uploaded image and revert to default avatar"
+                        >
+                          <Trash2 className="h-4 w-4 mr-2" />Remove
+                        </button>
+                      )}
                     </div>
                   </div>
                 </div>
