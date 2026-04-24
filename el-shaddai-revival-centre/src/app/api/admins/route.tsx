@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import bcrypt from 'bcryptjs'
 import { adminsDb, isDbConfigured } from '@/lib/db'
 import { getCurrentAdmin } from '@/lib/auth'
 
@@ -121,6 +122,14 @@ export async function POST(request: NextRequest) {
     
     if (supabaseConfigured) {
       try {
+        // Explicit check for service role key to give a clear error message
+        if (!process.env.SUPABASE_SERVICE_ROLE_KEY) {
+          return NextResponse.json(
+            { success: false, error: 'Server misconfiguration: SUPABASE_SERVICE_ROLE_KEY is missing. Check your .env.local file.' },
+            { status: 500 }
+          )
+        }
+
         // Check if admin with this email already exists
         const existingAdmin = await adminsDb.getByEmail(email)
         if (existingAdmin) {
@@ -130,21 +139,31 @@ export async function POST(request: NextRequest) {
           )
         }
         
-        // Validate role
-        if (role && !['admin', 'editor', 'super_admin'].includes(role)) {
+        // Normalize and validate role
+        const normalizedRole = typeof role === 'string' ? role.trim().toLowerCase() : 'admin'
+        const allowedRoles = ['admin', 'editor', 'super_admin']
+        if (!allowedRoles.includes(normalizedRole)) {
           return NextResponse.json(
-            { success: false, error: 'Invalid role. Must be admin, editor, or super_admin' },
+            { success: false, error: `Invalid role "${normalizedRole}". Must be admin, editor, or super_admin` },
             { status: 400 }
           )
         }
         
+        // Hash password before storing
+        const hashedPassword = await bcrypt.hash(password, 10)
+
+        const insertData = {
+          email: email.toLowerCase().trim(),
+          name: name.trim(),
+          role: normalizedRole,
+          is_active: true,
+          password_hash: hashedPassword
+        }
+        
+        console.log('[Admins API] Creating admin with data:', insertData)
+        
         // Create new admin in Supabase
-        const newAdmin = await adminsDb.create({
-          email: email.toLowerCase(),
-          name,
-          role: role || 'admin',
-          password_hash: password // In production, hash this password!
-        })
+        const newAdmin = await adminsDb.create(insertData)
         
         return NextResponse.json({
           success: true,
@@ -159,10 +178,19 @@ export async function POST(request: NextRequest) {
           isSupabaseMode: true
         }, { status: 201 })
         
-      } catch (dbError) {
+      } catch (dbError: any) {
         console.error('[Admins API] Database error:', dbError)
+        let errorMessage: string
+        if (dbError instanceof Error) {
+          errorMessage = dbError.message
+        } else if (typeof dbError === 'object' && dbError !== null) {
+          // Supabase PostgREST errors are objects with message/code/details
+          errorMessage = dbError.message || dbError.error_description || dbError.error || JSON.stringify(dbError)
+        } else {
+          errorMessage = String(dbError)
+        }
         return NextResponse.json(
-          { success: false, error: 'Failed to create admin in database' },
+          { success: false, error: `Failed to create admin in database: ${errorMessage}` },
           { status: 500 }
         )
       }

@@ -88,8 +88,8 @@ const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route
   const isMaintenancePage = pathname === '/maintenance'
   const isAdminRoute = pathname.startsWith('/admin')
   
-  // Check if user is admin (super_admin or admin)
-  const isAdminUser = isValidToken && (decoded?.role === 'super_admin' || decoded?.role === 'admin')
+  // Check if user is admin (super_admin, admin, or editor)
+  const isAdminUser = isValidToken && (decoded?.role === 'super_admin' || decoded?.role === 'admin' || decoded?.role === 'editor')
   
   // Check maintenance mode
   const maintenance = getMaintenanceMode()

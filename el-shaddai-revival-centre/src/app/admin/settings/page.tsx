@@ -284,7 +284,7 @@ export default function AdminSettings() {
     try {
       const response = await fetch(`/api/admins/${currentUser.adminId}`, {
         method: 'PUT', headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: profileName, profileImage })
+        body: JSON.stringify({ name: profileName, profile_image: profileImage })
       })
       const data = await response.json()
       if (data.success) {

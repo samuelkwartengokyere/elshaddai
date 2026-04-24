@@ -27,7 +27,23 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ success: false, message: 'Invalid credentials' }, { status: 401 })
     }
 
-    const isValid = await bcrypt.compare(password, admin.password_hash)
+    let isValid = await bcrypt.compare(password, admin.password_hash)
+
+    // Fallback for legacy plain-text passwords
+    if (!isValid && password === admin.password_hash) {
+      isValid = true
+      // Auto-upgrade to hashed password
+      try {
+        const newHash = await bcrypt.hash(password, 10)
+        await supabase
+          .from('admins')
+          .update({ password_hash: newHash })
+          .eq('id', admin.id)
+      } catch (upgradeError) {
+        console.error('Failed to upgrade legacy password hash:', upgradeError)
+      }
+    }
+
     if (!isValid) {
       return NextResponse.json({ success: false, message: 'Invalid credentials' }, { status: 401 })
     }
