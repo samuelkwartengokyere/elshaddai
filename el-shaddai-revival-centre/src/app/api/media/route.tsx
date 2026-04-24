@@ -136,16 +136,33 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: 'Database required for metadata' }, { status: 503 })
       }
 
-      
-      const newMedia = await mediaDb.create({
-        title,
-        description: description || null,
-        url,
-        type,
-        category,
-        tags: [],
-        is_featured: true
-      })
+      let newMedia
+      try {
+        newMedia = await mediaDb.create({
+          title,
+          description: description || null,
+          url,
+          type,
+          category,
+          tags: [],
+          is_featured: true
+        })
+      } catch (err: any) {
+        // Retry without is_featured if column doesn't exist yet
+        if (err?.message?.includes('is_featured') || err?.code === '42703') {
+          console.warn('[Media API] is_featured column missing, retrying without it. Run: ALTER TABLE media ADD COLUMN is_featured BOOLEAN DEFAULT true;')
+          newMedia = await mediaDb.create({
+            title,
+            description: description || null,
+            url,
+            type,
+            category,
+            tags: []
+          })
+        } else {
+          throw err
+        }
+      }
 
       return NextResponse.json({
         success: true,
@@ -192,15 +209,33 @@ export async function POST(request: NextRequest) {
     if (supabaseConfigured) {
 
       try {
-        const newMedia = await mediaDb.create({
-          title,
-          description: description || null,
-          url: publicUrl,
-          type,
-          category,
-          tags: [],
-          is_featured: true
-        })
+        let newMedia
+        try {
+          newMedia = await mediaDb.create({
+            title,
+            description: description || null,
+            url: publicUrl,
+            type,
+            category,
+            tags: [],
+            is_featured: true
+          })
+        } catch (err: any) {
+          // Retry without is_featured if column doesn't exist yet
+          if (err?.message?.includes('is_featured') || err?.code === '42703') {
+            console.warn('[Media API] is_featured column missing, retrying without it. Run: ALTER TABLE media ADD COLUMN is_featured BOOLEAN DEFAULT true;')
+            newMedia = await mediaDb.create({
+              title,
+              description: description || null,
+              url: publicUrl,
+              type,
+              category,
+              tags: []
+            })
+          } else {
+            throw err
+          }
+        }
 
         return NextResponse.json({
           success: true,
