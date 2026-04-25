@@ -474,7 +474,7 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
           {/* Selected Counsellor Summary */}
           {selectedCounsellor && (
             <div className="bg-gray-50 rounded-lg p-4 flex items-center gap-4">
-              <img src={selectedCounsellor?.imageUrl || '/file.svg'} alt={selectedCounsellor?.name || ''} className="w-16 h-16 rounded-full object-cover" />
+              <img src={selectedCounsellor?.imageUrl || '/file.svg'} alt={selectedCounsellor?.name || ''} className="w-16 h-16 rounded-full object-cover object-top" />
               <div>
                 <h3 className="font-semibold text-gray-800">{selectedCounsellor.name}</h3>
                 <p className="text-sm text-gray-600">{selectedCounsellor.title}</p>
@@ -738,7 +738,7 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
 
             {/* Counsellor Info */}
             <div className="flex items-center gap-4">
-              <img src={selectedCounsellor?.imageUrl || '/file.svg'} alt={selectedCounsellor?.name || ''} className="w-16 h-16 rounded-full object-cover" />
+              <img src={selectedCounsellor?.imageUrl || '/file.svg'} alt={selectedCounsellor?.name || ''} className="w-16 h-16 rounded-full object-cover object-top" />
               <div>
                 <p className="font-semibold text-gray-800">{selectedCounsellor?.name}</p>
                 <p className="text-sm text-gray-600">{selectedCounsellor?.title}</p>

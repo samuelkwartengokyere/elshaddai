@@ -529,7 +529,7 @@ export default function CounsellingAdminPage() {
                           src={counsellor.imageUrl} 
                           alt={counsellor.name}
                           fill
-                          className="object-cover"
+                          className="object-cover object-[center_20%]"
                         />
                       ) : (
                         <Users className="h-16 w-16 text-gray-400" />

@@ -26,7 +26,7 @@ export default function CounsellorCard({ counsellor, onSelect, isSelected }: Cou
             src={counsellor.imageUrl}
             alt={counsellor.name}
             fill
-            className="object-cover"
+            className="object-cover object-[center_20%]"
             sizes="(max-width: 768px) 100vw, 192px"
           />
           {/* Badges */}

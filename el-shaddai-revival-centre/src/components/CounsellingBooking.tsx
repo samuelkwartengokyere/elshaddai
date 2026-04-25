@@ -479,7 +479,7 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
               <img 
                 src={selectedCounsellor.imageUrl || '/file.svg'} 
                 alt={selectedCounsellor.name} 
-                className="w-16 h-16 rounded-full object-cover"
+                className="w-16 h-16 rounded-full object-cover object-top"
               />
               <div>
                 <h3 className="font-semibold text-gray-800">{selectedCounsellor.name}</h3>
@@ -573,7 +573,7 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
                 <img 
                   src={selectedCounsellor?.imageUrl || '/file.svg'} 
                   alt={selectedCounsellor?.name || ''} 
-                  className="w-12 h-12 rounded-full object-cover"
+                className="w-12 h-12 rounded-full object-cover object-top"
                 />
                 <div>
                   <p className="font-semibold">{selectedCounsellor?.name}</p>
@@ -729,7 +729,7 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
               <img 
                 src={selectedCounsellor?.imageUrl || '/file.svg'} 
                 alt={selectedCounsellor?.name || ''} 
-                className="w-16 h-16 rounded-full object-cover"
+                className="w-16 h-16 rounded-full object-cover object-top"
               />
               <div>
                 <p className="font-semibold text-xl text-gray-800">{selectedCounsellor?.name}</p>
