@@ -389,7 +389,7 @@ export default function MediaAdmin() {
                     <img
                       src={item.url}
                       alt="Media preview"
-                      className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
+                      className="w-full h-full object-cover object-top group-hover:scale-110 transition-transform duration-500"
                       onError={() => setBrokenImages(prev => new Set(prev).add(item._id))}
                     />
                   ) : (

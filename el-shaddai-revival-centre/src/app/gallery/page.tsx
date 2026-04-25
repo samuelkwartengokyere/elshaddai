@@ -145,7 +145,7 @@ export default function GalleryPage() {
                       <img
                         src={item.url}
                         alt={displayTitle(item)}
-                        className="w-full h-full object-cover transition duration-300 group-hover:scale-110"
+                        className="w-full h-full object-cover object-top transition duration-300 group-hover:scale-110"
                         onError={() => setBrokenMedia(prev => new Set(prev).add(item._id))}
                       />
                     ) : (
