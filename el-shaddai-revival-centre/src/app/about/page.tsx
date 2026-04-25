@@ -45,12 +45,14 @@ interface ServiceTime {
 async function getLeadershipTeam(): Promise<TeamMember[]> {
   try {
     const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
-    const res = await fetch(`${baseUrl}/api/teams?limit=10&leadership=true`, {
+    const res = await fetch(`${baseUrl}/api/teams?limit=50&department=Senior+Leadership`, {
       cache: 'no-store'
     })
     if (!res.ok) return []
     const data = await res.json()
-    return data.teamMembers || []
+    // Double-check: only include members with Senior Leadership department
+    const members = data.teamMembers || []
+    return members.filter((m: TeamMember) => m.department === 'Senior Leadership')
   } catch {
     return []
   }
@@ -367,7 +369,7 @@ src="/images/elder.jpeg"
                         src={leader.image}
                         alt={leader.name}
                         fill
-                        className="object-cover"
+                        className="object-cover object-top"
                       />
                     ) : (
                       <Users className="h-16 w-16 text-gray-400" />

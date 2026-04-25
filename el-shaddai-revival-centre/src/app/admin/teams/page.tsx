@@ -310,14 +310,11 @@ export default function TeamsPage() {
             >
               <option value="">All Departments</option>
               <option value="Senior Leadership">Senior Leadership</option>
-              <option value="Discipleship & Outreach">Discipleship & Outreach</option>
-              <option value="Youth Ministry">Youth Ministry</option>
               <option value="Worship Team">Worship Team</option>
               <option value="Media & Technology">Media & Technology</option>
               <option value="Ushering Team">Ushering Team</option>
               <option value="Security Team">Security Team</option>
               <option value="Intercessory Prayer Team">Intercessory Prayer Team</option>
-              <option value="Greeters Team">Greeters Team</option>
             </select>
             <button
               type="submit"
@@ -375,13 +372,13 @@ export default function TeamsPage() {
             {teamMembers.map((member) => (
               <div key={member._id} className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition duration-300">
                 {/* Image */}
-                <div className="h-48 bg-gray-200 flex items-center justify-center relative">
+                <div className="h-48 bg-gray-200 flex items-center justify-center relative overflow-hidden">
                   {member.image ? (
                     <Image 
                       src={member.image} 
                       alt={member.name}
                       fill
-                      className="w-full h-full object-cover"
+                      className="object-cover object-top"
                     />
                   ) : (
                     <Users className="h-16 w-16 text-gray-400" />
@@ -665,10 +662,8 @@ export default function TeamsPage() {
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
                 >
                   <option value="">Select Department</option>
-                  <optgroup label="Senior Leadership">
+              <optgroup label="Senior Leadership">
                     <option value="Senior Leadership">Senior Leadership</option>
-                    <option value="Discipleship & Outreach">Discipleship & Outreach</option>
-                    <option value="Youth Ministry">Youth Ministry</option>
                   </optgroup>
                   <optgroup label="Ministry Teams">
                     <option value="Worship Team">Worship Team</option>
@@ -676,7 +671,6 @@ export default function TeamsPage() {
                     <option value="Ushering Team">Ushering Team</option>
                     <option value="Security Team">Security Team</option>
                     <option value="Intercessory Prayer Team">Intercessory Prayer Team</option>
-                    <option value="Greeters Team">Greeters Team</option>
                   </optgroup>
                 </select>
               </div>

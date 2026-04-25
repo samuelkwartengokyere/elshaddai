@@ -31,8 +31,7 @@ const ministryTeams = [
   { name: 'Media & Technology', slug: 'media-technology', description: 'Managing audio, video, and livestream for our services', icon: '🎥' },
   { name: 'Ushering Team', slug: 'ushering-team', description: 'Welcoming and guiding visitors and members during services', icon: '🚪' },
   { name: 'Security Team', slug: 'security-team', description: 'Ensuring a safe environment for all attendees', icon: '🛡️' },
-  { name: 'Intercessory Prayer Team', slug: 'intercessory-prayer-team', description: 'Praying for the church, community, and world', icon: '🙏' },
-  { name: 'Greeters Team', slug: 'greeters-team', description: 'Making everyone feel welcome as they arrive', icon: '👋' }
+  { name: 'Intercessory Prayer Team', slug: 'intercessory-prayer-team', description: 'Praying for the church, community, and world', icon: '🙏' }
 ]
 
 
@@ -148,13 +147,13 @@ export default function DepartmentTeamPage({ params }: { params: Promise<{ depar
                     key={member.id || index.toString()} 
                     className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition duration-300"
                   >
-                    <div className="bg-gray-200 h-64 flex items-center justify-center relative">
+                    <div className="bg-gray-200 h-64 flex items-center justify-center relative overflow-hidden">
                       {member.image ? (
                         <Image
                           src={member.image}
                           alt={member.name}
                           fill
-                          className="object-cover"
+                          className="object-cover object-top"
                         />
                       ) : (
                         <div className="text-center p-8">

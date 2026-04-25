@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { teamsDb, isDbConfigured } from '@/lib/db'
+import { teamsDb, isDbConfigured, DbTeam } from '@/lib/db'
 import { getCurrentAdmin } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
@@ -63,7 +63,7 @@ export async function GET(request: NextRequest) {
             role: t.role,
             department: t.department,
             bio: t.bio,
-            imageUrl: t.image,
+            image: t.image,
             email: t.email,
             phone: t.phone,
             isPublished: t.is_active,
@@ -137,7 +137,7 @@ export async function POST(request: NextRequest) {
           role: body.role,
           department: body.department || null,
           bio: body.bio || null,
-          image: body.imageUrl || null,
+          image: body.image || body.imageUrl || null,
           email: body.email || null,
           phone: body.phone || null,
           is_active: true,
@@ -152,7 +152,7 @@ export async function POST(request: NextRequest) {
             role: newTeamMember.role,
             department: newTeamMember.department,
             bio: newTeamMember.bio,
-            imageUrl: newTeamMember.image,
+            image: newTeamMember.image,
             email: newTeamMember.email,
             phone: newTeamMember.phone,
             isPublished: newTeamMember.is_active,
@@ -223,25 +223,16 @@ export async function PUT(request: NextRequest) {
           )
         }
         
-        const updateData: {
-          name?: string
-          role?: string
-          department?: string | null
-          bio?: string | null
-          image?: string | null
-          email?: string | null
-          phone?: string | null
-          is_active?: boolean
-          order_index?: number
-        } = {}
+        const updateData: Partial<DbTeam> = {}
         
         if (body.name !== undefined) updateData.name = body.name
         if (body.role !== undefined) updateData.role = body.role
-        if (body.department !== undefined) updateData.department = body.department
-        if (body.bio !== undefined) updateData.bio = body.bio
-        if (body.imageUrl !== undefined) updateData.image = body.imageUrl
-        if (body.email !== undefined) updateData.email = body.email
-        if (body.phone !== undefined) updateData.phone = body.phone
+        if (body.department !== undefined) updateData.department = body.department || undefined
+        if (body.bio !== undefined) updateData.bio = body.bio || undefined
+        if (body.image !== undefined) updateData.image = body.image || undefined
+        else if (body.imageUrl !== undefined) updateData.image = body.imageUrl || undefined
+        if (body.email !== undefined) updateData.email = body.email || undefined
+        if (body.phone !== undefined) updateData.phone = body.phone || undefined
         if (body.isPublished !== undefined) updateData.is_active = body.isPublished
         if (body.order !== undefined) updateData.order_index = body.order
         
@@ -255,7 +246,7 @@ export async function PUT(request: NextRequest) {
             role: updatedMember.role,
             department: updatedMember.department,
             bio: updatedMember.bio,
-            imageUrl: updatedMember.image,
+            image: updatedMember.image,
             email: updatedMember.email,
             phone: updatedMember.phone,
             isPublished: updatedMember.is_active,

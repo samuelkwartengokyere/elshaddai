@@ -63,13 +63,6 @@ const ministryTeams = [
     description: 'Praying for the church, community, and world',
     members: 6,
     icon: '🙏'
-  },
-  {
-    name: 'Greeters Team',
-    slug: 'greeters-team',
-    description: 'Making everyone feel welcome as they arrive',
-    members: 8,
-    icon: '👋'
   }
 ]
 
@@ -87,7 +80,7 @@ export default function TeamPage() {
   const fetchLeadershipTeam = async () => {
     try {
       const baseUrl = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3000'
-      const res = await fetch(`${baseUrl}/api/teams?limit=20&leadership=true`, {
+      const res = await fetch(`${baseUrl}/api/teams?limit=50&department=Senior+Leadership`, {
         cache: 'no-store'
       })
       
@@ -98,8 +91,9 @@ export default function TeamPage() {
       const data = await res.json()
       
       if (data.teamMembers && data.teamMembers.length > 0) {
-        // Sort by order
-        const sorted = [...data.teamMembers].sort((a, b) => a.order - b.order)
+        // Filter to only Senior Leadership and sort by order
+        const filtered = data.teamMembers.filter((m: TeamMember) => m.department === 'Senior Leadership')
+        const sorted = [...filtered].sort((a, b) => a.order - b.order)
         setLeadershipTeam(sorted)
       } else {
         setLeadershipTeam([])
@@ -164,13 +158,13 @@ export default function TeamPage() {
                     className="bg-white rounded-xl shadow-lg overflow-hidden hover:shadow-xl transition duration-300"
                   >
                     {/* Profile Image */}
-                    <div className="bg-gray-200 h-64 flex items-center justify-center relative">
+                    <div className="bg-gray-200 h-64 flex items-center justify-center relative overflow-hidden">
                       {leader.image && leader.image !== '/images/team/default.jpg' ? (
                         <Image
                           src={leader.image}
                           alt={leader.name}
                           fill
-                          className="object-cover"
+                          className="object-cover object-top"
                         />
                       ) : (
                         <div className="text-center p-8">
