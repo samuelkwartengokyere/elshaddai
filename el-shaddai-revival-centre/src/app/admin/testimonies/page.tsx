@@ -437,6 +437,18 @@ export default function TestimoniesPage() {
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
             {testimonies.map((testimony) => (
               <div key={testimony._id} className="bg-white rounded-lg shadow overflow-hidden hover:shadow-lg transition duration-300">
+                {/* Image */}
+                {testimony.image && (
+                  <div className="relative h-48 w-full">
+                    <Image
+                      src={testimony.image}
+                      alt={testimony.title}
+                      fill
+                      className="object-cover object-top"
+                    />
+                  </div>
+                )}
+                
                 {/* Header */}
                 <div className="p-4 border-b bg-gradient-to-r from-orange-50 to-white">
                   <div className="flex items-center justify-between mb-2">
