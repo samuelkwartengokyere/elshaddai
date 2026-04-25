@@ -210,6 +210,12 @@ CREATE TABLE IF NOT EXISTS counsellors (
   email TEXT,
   phone TEXT,
   specialization TEXT[],
+  availability JSONB DEFAULT '[]'::JSONB,
+  is_online BOOLEAN DEFAULT true,
+  is_in_person BOOLEAN DEFAULT true,
+  years_of_experience INTEGER DEFAULT 0,
+  rating NUMERIC(3,2) DEFAULT 0,
+  review_count INTEGER DEFAULT 0,
   is_available BOOLEAN DEFAULT true,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()

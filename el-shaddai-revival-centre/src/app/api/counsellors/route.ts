@@ -41,7 +41,15 @@ export async function GET(request: NextRequest) {
 
     const offset = (page - 1) * limit;
 
-    const { supabaseAdmin } = await import('@/lib/supabase');
+    const { getSupabaseAdmin } = await import('@/lib/supabase');
+    const supabaseAdmin = await getSupabaseAdmin();
+    
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Database not configured' },
+        { status: 503 }
+      );
+    }
     
     let query = supabaseAdmin
       .from('counsellors')
@@ -100,29 +108,77 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { supabaseAdmin } = await import('@/lib/supabase');
+    const { getSupabaseAdmin } = await import('@/lib/supabase');
+    const supabaseAdmin = await getSupabaseAdmin();
     
-    // Insert new counsellor
-    const { data, error } = await supabaseAdmin
-      .from('counsellors')
-      .insert({
-        name: body.name,
-        title: body.title,
-        bio: body.bio || '',
-        image: body.imageUrl || '',
-        email: body.email,
-        phone: body.phone || '',
-        specialization: body.specialization || [],
-        availability: body.availability || [],
-        is_online: body.isOnline !== false,
-        is_in_person: body.isInPerson !== false,
-        years_of_experience: body.yearsOfExperience || 0,
-        is_available: true, // New counsellors are active by default
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-      .select()
-      .single();
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Database not configured' },
+        { status: 503 }
+      );
+    }
+    
+    // Insert new counsellor - only columns guaranteed to exist in current schema
+    const insertData: any = {
+      name: body.name,
+      title: body.title,
+      bio: body.bio || '',
+      image: body.imageUrl || '',
+      email: body.email,
+      phone: body.phone || '',
+      specialization: body.specialization || [],
+      is_available: true,
+      created_at: new Date().toISOString(),
+      updated_at: new Date().toISOString()
+    };
+
+    // Log what the frontend sent (for debugging)
+    console.log('Creating counsellor with yearsOfExperience:', body.yearsOfExperience);
+
+    // Try insert with extended columns first
+    let data = null;
+    let error = null;
+
+    try {
+      const result = await supabaseAdmin
+        .from('counsellors')
+        .insert({
+          ...insertData,
+          years_of_experience: body.yearsOfExperience || 0,
+          is_online: body.isOnline !== false,
+          is_in_person: body.isInPerson !== false,
+          availability: body.availability || []
+        })
+        .select()
+        .single();
+      data = result.data;
+      error = result.error;
+    } catch (e: any) {
+      console.log('Extended insert threw exception:', e?.message || e);
+      error = e;
+    }
+
+    // If columns don't exist, fallback to basic insert (only existing columns)
+    const isMissingColumnError = error && (
+      (error.message && (
+        error.message.includes("Could not find") ||
+        error.message.includes("column") ||
+        error.message.includes("does not exist") ||
+        error.message.includes("schema cache")
+      )) ||
+      (error.code && error.code === "PGRST204")
+    );
+
+    if (isMissingColumnError) {
+      console.warn('Extended columns missing in DB, falling back to basic columns. Run SUPABASE_MIGRATION_COUNSELLORS.sql to add them.');
+      const basicResult = await supabaseAdmin
+        .from('counsellors')
+        .insert(insertData)
+        .select()
+        .single();
+      data = basicResult.data;
+      error = basicResult.error;
+    }
 
     if (error) {
       console.error('Error creating counsellor:', error);
@@ -165,10 +221,18 @@ export async function PUT(request: NextRequest) {
       );
     }
 
-    const { supabaseAdmin } = await import('@/lib/supabase');
+    const { getSupabaseAdmin } = await import('@/lib/supabase');
+    const supabaseAdmin = await getSupabaseAdmin();
     
-    // Prepare update data - handle isActive field correctly
-    const updateData: any = {
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Database not configured' },
+        { status: 503 }
+      );
+    }
+    
+    // Prepare basic update data (columns guaranteed to exist)
+    const basicUpdateData: any = {
       name: body.name,
       title: body.title,
       bio: body.bio,
@@ -176,26 +240,39 @@ export async function PUT(request: NextRequest) {
       email: body.email,
       phone: body.phone,
       specialization: body.specialization,
-      availability: body.availability,
-      is_online: body.isOnline !== false,
-      is_in_person: body.isInPerson !== false,
-      years_of_experience: body.yearsOfExperience || 0,
       updated_at: new Date().toISOString()
     };
     
     // Handle isActive field - map to is_available in database
-    // Check for isActive in body (from frontend) or fallback to existing value
     if (body.isActive !== undefined) {
-      updateData.is_available = body.isActive === true;
+      basicUpdateData.is_available = body.isActive === true;
     }
-    
-    // Update counsellor
-    const { data, error } = await supabaseAdmin
+
+    // Try update with extended columns first
+    let { data, error } = await supabaseAdmin
       .from('counsellors')
-      .update(updateData)
+      .update({
+        ...basicUpdateData,
+        availability: body.availability,
+        is_online: body.isOnline !== false,
+        is_in_person: body.isInPerson !== false,
+        years_of_experience: body.yearsOfExperience || 0
+      })
       .eq('id', id)
       .select()
       .single();
+
+    // If columns don't exist, fallback to basic update
+    if (error && error.message && error.message.includes("Could not find")) {
+      const basicResult = await supabaseAdmin
+        .from('counsellors')
+        .update(basicUpdateData)
+        .eq('id', id)
+        .select()
+        .single();
+      data = basicResult.data;
+      error = basicResult.error;
+    }
 
     if (error) {
       console.error('Error updating counsellor:', error);
@@ -244,7 +321,15 @@ export async function DELETE(request: NextRequest) {
       );
     }
 
-    const { supabaseAdmin } = await import('@/lib/supabase');
+    const { getSupabaseAdmin } = await import('@/lib/supabase');
+    const supabaseAdmin = await getSupabaseAdmin();
+    
+    if (!supabaseAdmin) {
+      return NextResponse.json(
+        { success: false, error: 'Database not configured' },
+        { status: 503 }
+      );
+    }
     
     // Delete counsellor
     const { error } = await supabaseAdmin
