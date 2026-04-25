@@ -12,7 +12,11 @@ import {
   Image as ImageIcon,
   Video,
   FileText,
-  Star
+  Star,
+  Upload,
+  CheckCircle,
+  AlertCircle,
+  FileArchive
 } from 'lucide-react';
 
 interface MediaFormData {
@@ -20,6 +24,13 @@ interface MediaFormData {
   description: string;
   type: MediaType;
   category: MediaCategory;
+}
+
+interface BulkResult {
+  fileName: string;
+  success: boolean;
+  url?: string;
+  error?: string;
 }
 
 export default function MediaAdmin() {
@@ -40,6 +51,15 @@ export default function MediaAdmin() {
   const [uploading, setUploading] = useState(false);
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+
+  // Bulk upload state
+  const [showBulkModal, setShowBulkModal] = useState(false);
+  const [bulkZipFile, setBulkZipFile] = useState<File | null>(null);
+  const [bulkCategory, setBulkCategory] = useState<MediaCategory>('ministry');
+  const [bulkDescription, setBulkDescription] = useState('');
+  const [bulkUploading, setBulkUploading] = useState(false);
+  const [bulkProgress, setBulkProgress] = useState('');
+  const [bulkResults, setBulkResults] = useState<BulkResult[] | null>(null);
 
   const fetchMedia = useCallback(async () => {
     setLoading(true);
@@ -86,6 +106,17 @@ export default function MediaAdmin() {
     setShowUploadModal(true);
   };
 
+  const openBulkModal = () => {
+    setBulkZipFile(null);
+    setBulkCategory('ministry');
+    setBulkDescription('');
+    setBulkResults(null);
+    setBulkProgress('');
+    setError('');
+    setSuccess('');
+    setShowBulkModal(true);
+  };
+
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
@@ -93,9 +124,21 @@ export default function MediaAdmin() {
     setPreviewUrl(URL.createObjectURL(file));
   };
 
+  const handleBulkZipChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setBulkZipFile(file);
+    setBulkResults(null);
+  };
+
   const handleRemoveFile = () => {
     setSelectedFile(null);
     setPreviewUrl('');
+  };
+
+  const handleRemoveBulkZip = () => {
+    setBulkZipFile(null);
+    setBulkResults(null);
   };
 
   const getMaxSizeMB = (t: MediaType) => {
@@ -164,6 +207,48 @@ export default function MediaAdmin() {
     }
   };
 
+  const handleBulkSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!bulkZipFile) {
+      setError('Please select a ZIP file to upload');
+      return;
+    }
+
+    setBulkUploading(true);
+    setError('');
+    setSuccess('');
+    setBulkProgress('Uploading ZIP file...');
+
+    try {
+      const formData = new FormData();
+      formData.append('zipFile', bulkZipFile);
+      formData.append('category', bulkCategory);
+      formData.append('description', bulkDescription);
+
+      setBulkProgress('Extracting and processing images...');
+
+      const response = await fetch('/api/media/bulk-upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const data = await response.json();
+
+      if (data.success) {
+        setBulkResults(data.results || []);
+        setSuccess(data.message || `Bulk upload complete! ${data.uploaded} uploaded, ${data.failed} failed.`);
+        fetchMedia();
+      } else {
+        setError(data.error || 'Failed to process bulk upload');
+      }
+    } catch (err: unknown) {
+      console.error('Bulk upload error:', err);
+      setError('Bulk upload failed. Please try again.');
+    } finally {
+      setBulkUploading(false);
+      setBulkProgress('');
+    }
+  };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Are you sure you want to delete this media item?')) return;
@@ -213,13 +298,22 @@ export default function MediaAdmin() {
           <h1 className="text-3xl font-bold text-gray-900">Media Library</h1>
           <p className="text-gray-600 mt-1">Manage church media assets</p>
         </div>
-        <button
-          onClick={openUploadModal}
-          className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg"
-        >
-          <Plus className="h-5 w-5" />
-          Upload Media
-        </button>
+        <div className="flex gap-3">
+          <button
+            onClick={openBulkModal}
+            className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white rounded-xl hover:bg-purple-700 transition-all shadow-lg"
+          >
+            <FileArchive className="h-5 w-5" />
+            Bulk Upload (ZIP)
+          </button>
+          <button
+            onClick={openUploadModal}
+            className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 transition-all shadow-lg"
+          >
+            <Plus className="h-5 w-5" />
+            Upload Media
+          </button>
+        </div>
       </div>
 
       {/* Filters */}
@@ -294,7 +388,7 @@ export default function MediaAdmin() {
         <>
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
             {mediaItems.map((item) => (
-            <div key={item._id} className="group bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all overflow-hidden">
+              <div key={item._id} className="group bg-white rounded-2xl shadow-sm border border-gray-100 hover:shadow-xl hover:-translate-y-1 transition-all overflow-hidden">
                 <div className="h-48 bg-gradient-to-br from-gray-50 to-gray-100 flex items-center justify-center overflow-hidden relative">
                   {item.isFeatured && (
                     <div className="absolute top-2 left-2 z-10 bg-yellow-400 text-yellow-900 px-2 py-1 rounded-full text-xs font-bold flex items-center gap-1">
@@ -358,19 +452,28 @@ export default function MediaAdmin() {
                   : 'Upload your first media item to get started'
                 }
               </p>
-              <button
-                onClick={openUploadModal}
-                className="inline-flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
-              >
-                <Plus className="h-5 w-5" />
-                Upload First Media
-              </button>
+              <div className="flex justify-center gap-4">
+                <button
+                  onClick={openBulkModal}
+                  className="inline-flex items-center gap-2 px-8 py-4 bg-purple-600 text-white rounded-2xl hover:bg-purple-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+                >
+                  <FileArchive className="h-5 w-5" />
+                  Bulk Upload (ZIP)
+                </button>
+                <button
+                  onClick={openUploadModal}
+                  className="inline-flex items-center gap-2 px-8 py-4 bg-blue-600 text-white rounded-2xl hover:bg-blue-700 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+                >
+                  <Plus className="h-5 w-5" />
+                  Upload First Media
+                </button>
+              </div>
             </div>
           )}
         </>
       )}
 
-      {/* Upload Modal */}
+      {/* Single Upload Modal */}
       {showUploadModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto border">
@@ -512,6 +615,173 @@ export default function MediaAdmin() {
                     'Upload Media'
                   )}
                 </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Bulk Upload Modal */}
+      {showBulkModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border">
+            <div className="flex justify-between items-center p-6 border-b sticky top-0 bg-white z-10">
+              <h2 className="text-2xl font-bold text-gray-900">Bulk Upload Images (ZIP)</h2>
+              <button
+                onClick={() => setShowBulkModal(false)}
+                className="text-gray-400 hover:text-gray-600 p-1 -m-1 rounded-lg hover:bg-gray-100"
+              >
+                <X className="h-6 w-6" />
+              </button>
+            </div>
+            
+            <form onSubmit={handleBulkSubmit} className="p-6">
+              <div className="space-y-4">
+                <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+                  <h4 className="font-semibold text-blue-900 mb-2 flex items-center gap-2">
+                    <Upload className="h-4 w-4" />
+                    How it works
+                  </h4>
+                  <ul className="text-sm text-blue-800 space-y-1 list-disc list-inside">
+                    <li>Select a ZIP file containing your images</li>
+                    <li>Supported formats: JPG, PNG, GIF, WebP</li>
+                    <li>Max 5MB per image</li>
+                    <li>All images will be assigned the same category</li>
+                    <li>File names will be used as titles (formatted)</li>
+                  </ul>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">Category *</label>
+                  <select
+                    required
+                    value={bulkCategory}
+                    onChange={(e) => setBulkCategory(e.target.value as MediaCategory)}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  >
+                    <option value="service">Services</option>
+                    <option value="event">Events</option>
+                    <option value="ministry">Ministry</option>
+                    <option value="other">Other</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-2">
+                    Description (applied to all images)
+                  </label>
+                  <textarea
+                    value={bulkDescription}
+                    onChange={(e) => setBulkDescription(e.target.value)}
+                    rows={2}
+                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                    placeholder="Optional description for all images..."
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-sm font-semibold text-gray-900 mb-4">
+                    ZIP File *
+                  </label>
+                  <input
+                    type="file"
+                    accept=".zip,application/zip,application/x-zip-compressed"
+                    onChange={handleBulkZipChange}
+                    className="block w-full text-sm text-gray-600 file:mr-4 file:py-2 file:px-4 file:rounded-xl file:border-0 file:text-sm file:font-semibold file:bg-purple-50 file:text-purple-700 hover:file:bg-purple-100"
+                  />
+                  {bulkZipFile && (
+                    <div className="mt-4 flex items-center gap-3 p-3 bg-purple-50 rounded-xl">
+                      <FileArchive className="h-8 w-8 text-purple-600" />
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-gray-900 truncate">{bulkZipFile.name}</p>
+                        <p className="text-sm text-gray-500">{(bulkZipFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={handleRemoveBulkZip}
+                        className="text-red-500 hover:text-red-700 p-1 rounded-lg hover:bg-red-50 transition-colors"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  )}
+                </div>
+
+                {/* Progress */}
+                {bulkUploading && (
+                  <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-xl">
+                    <Loader2 className="h-5 w-5 animate-spin text-purple-600" />
+                    <span className="text-gray-700">{bulkProgress}</span>
+                  </div>
+                )}
+
+                {/* Results */}
+                {bulkResults && (
+                  <div className="space-y-3">
+                    <div className="flex items-center gap-4">
+                      <div className="flex items-center gap-2 text-green-700">
+                        <CheckCircle className="h-5 w-5" />
+                        <span className="font-medium">
+                          {bulkResults.filter(r => r.success).length} uploaded
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-red-700">
+                        <AlertCircle className="h-5 w-5" />
+                        <span className="font-medium">
+                          {bulkResults.filter(r => !r.success).length} failed
+                        </span>
+                      </div>
+                    </div>
+                    
+                    <div className="max-h-48 overflow-y-auto border rounded-xl divide-y">
+                      {bulkResults.map((result, idx) => (
+                        <div key={idx} className="flex items-center gap-3 p-3">
+                          {result.success ? (
+                            <CheckCircle className="h-4 w-4 text-green-500 flex-shrink-0" />
+                          ) : (
+                            <AlertCircle className="h-4 w-4 text-red-500 flex-shrink-0" />
+                          )}
+                          <span className="text-sm truncate flex-1" title={result.fileName}>
+                            {result.fileName}
+                          </span>
+                          {!result.success && result.error && (
+                            <span className="text-xs text-red-600 flex-shrink-0">{result.error}</span>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="flex justify-end gap-3 mt-8 pt-6 border-t">
+                <button
+                  type="button"
+                  onClick={() => setShowBulkModal(false)}
+                  className="px-6 py-3 text-gray-700 font-medium rounded-xl hover:bg-gray-100 transition-colors"
+                  disabled={bulkUploading}
+                >
+                  {bulkResults ? 'Close' : 'Cancel'}
+                </button>
+                {!bulkResults && (
+                  <button
+                    type="submit"
+                    disabled={bulkUploading || !bulkZipFile}
+                    className="flex items-center gap-2 px-6 py-3 bg-purple-600 text-white font-medium rounded-xl hover:bg-purple-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all shadow-lg"
+                  >
+                    {bulkUploading ? (
+                      <>
+                        <Loader2 className="h-5 w-5 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <Upload className="h-5 w-5" />
+                        Upload ZIP
+                      </>
+                    )}
+                  </button>
+                )}
               </div>
             </form>
           </div>
