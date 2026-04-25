@@ -20,8 +20,6 @@ import {
 } from 'lucide-react';
 
 interface MediaFormData {
-  title: string;
-  description: string;
   type: MediaType;
   category: MediaCategory;
 }
@@ -41,8 +39,6 @@ export default function MediaAdmin() {
   const [categoryFilter, setCategoryFilter] = useState<MediaCategory | ''>('');
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [formData, setFormData] = useState<MediaFormData>({
-    title: '',
-    description: '',
     type: 'image',
     category: 'ministry'
   });
@@ -56,7 +52,6 @@ export default function MediaAdmin() {
   const [showBulkModal, setShowBulkModal] = useState(false);
   const [bulkZipFile, setBulkZipFile] = useState<File | null>(null);
   const [bulkCategory, setBulkCategory] = useState<MediaCategory>('ministry');
-  const [bulkDescription, setBulkDescription] = useState('');
   const [bulkUploading, setBulkUploading] = useState(false);
   const [bulkProgress, setBulkProgress] = useState('');
   const [bulkResults, setBulkResults] = useState<BulkResult[] | null>(null);
@@ -94,8 +89,6 @@ export default function MediaAdmin() {
 
   const openUploadModal = () => {
     setFormData({
-      title: '',
-      description: '',
       type: 'image',
       category: 'ministry'
     });
@@ -109,7 +102,6 @@ export default function MediaAdmin() {
   const openBulkModal = () => {
     setBulkZipFile(null);
     setBulkCategory('ministry');
-    setBulkDescription('');
     setBulkResults(null);
     setBulkProgress('');
     setError('');
@@ -177,8 +169,6 @@ export default function MediaAdmin() {
     try {
       const mediaData = new FormData();
       mediaData.append('file', selectedFile);
-      mediaData.append('title', formData.title);
-      mediaData.append('description', formData.description);
       mediaData.append('type', formData.type);
       mediaData.append('category', formData.category);
       mediaData.append('date', new Date().toISOString());
@@ -223,7 +213,6 @@ export default function MediaAdmin() {
       const formData = new FormData();
       formData.append('zipFile', bulkZipFile);
       formData.append('category', bulkCategory);
-      formData.append('description', bulkDescription);
 
       setBulkProgress('Extracting and processing images...');
 
@@ -322,7 +311,7 @@ export default function MediaAdmin() {
           <Search className="h-5 w-5 text-gray-400 flex-shrink-0" />
           <input
             type="text"
-            placeholder="Search media by title..."
+            placeholder="Search media..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             className="flex-1 px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
@@ -399,7 +388,7 @@ export default function MediaAdmin() {
                   {item.url && !brokenImages.has(item._id) ? (
                     <img
                       src={item.url}
-                      alt={item.title}
+                      alt="Media preview"
                       className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500"
                       onError={() => setBrokenImages(prev => new Set(prev).add(item._id))}
                     />
@@ -414,10 +403,6 @@ export default function MediaAdmin() {
                   <span className={`inline-block px-3 py-1 text-xs font-semibold rounded-full mb-3 ${getCategoryColor(item.category)}`}>
                     {item.category}
                   </span>
-                  <h3 className="font-bold text-lg mb-2 line-clamp-2 group-hover:text-blue-600 transition-colors">
-                    {item.title}
-                  </h3>
-                  <p className="text-sm text-gray-600 mb-4 line-clamp-2">{item.description}</p>
                   <div className="flex items-center justify-between text-xs text-gray-500">
                     <span>{new Date(item.uploadedAt).toLocaleDateString()}</span>
                     <a 
@@ -489,33 +474,6 @@ export default function MediaAdmin() {
             
             <form onSubmit={handleSubmit} className="p-6">
               <div className="space-y-4">
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Title *
-                  </label>
-                  <input
-                    required
-                    type="text"
-                    value={formData.title}
-                    onChange={(e) => setFormData(prev => ({ ...prev, title: e.target.value }))}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-                    placeholder="Enter media title"
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Description
-                  </label>
-                  <textarea
-                    value={formData.description}
-                    onChange={(e) => setFormData(prev => ({ ...prev, description: e.target.value }))}
-                    rows={3}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    placeholder="Optional description..."
-                  />
-                </div>
-
                 <div>
                   <label className="block text-sm font-semibold text-gray-900 mb-2">Type *</label>
                   <select
@@ -603,7 +561,7 @@ export default function MediaAdmin() {
                 </button>
                 <button
                   type="submit"
-                  disabled={uploading || !selectedFile || !formData.title}
+                  disabled={uploading || !selectedFile}
                   className="flex items-center gap-2 px-6 py-3 bg-blue-600 text-white font-medium rounded-xl hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-all shadow-lg"
                 >
                   {uploading ? (
@@ -664,19 +622,6 @@ export default function MediaAdmin() {
                     <option value="ministry">Ministry</option>
                     <option value="other">Other</option>
                   </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-semibold text-gray-900 mb-2">
-                    Description (applied to all images)
-                  </label>
-                  <textarea
-                    value={bulkDescription}
-                    onChange={(e) => setBulkDescription(e.target.value)}
-                    rows={2}
-                    className="w-full px-4 py-3 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    placeholder="Optional description for all images..."
-                  />
                 </div>
 
                 <div>

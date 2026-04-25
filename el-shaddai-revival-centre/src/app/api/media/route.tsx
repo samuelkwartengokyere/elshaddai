@@ -116,8 +116,6 @@ export async function POST(request: NextRequest) {
   try {
     const formData = await request.formData()
     const file = formData.get('file') as File
-    const title = formData.get('title') as string
-    const description = formData.get('description') as string
     const type = formData.get('type') as string
     const category = formData.get('category') as string
     const supabaseConfigured = isDbConfigured()
@@ -134,11 +132,18 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    if (!title || !type || !category || !date) {
+    if (!type || !category || !date) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
       )
+    }
+
+    // Auto-generate title from filename if not provided
+    let title = formData.get('title') as string || ''
+    const description = formData.get('description') as string || null
+    if (!title && file) {
+      title = file.name.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ').replace(/\b\w/g, l => l.toUpperCase())
     }
 
     if (isMetadataOnly) {

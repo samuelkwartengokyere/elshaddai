@@ -28,7 +28,6 @@ export async function POST(request: NextRequest) {
     const formData = await request.formData()
     const zipFile = formData.get('zipFile') as File
     const category = formData.get('category') as string
-    const description = formData.get('description') as string || ''
 
     if (!zipFile) {
       return NextResponse.json(
@@ -169,7 +168,7 @@ export async function POST(request: NextRequest) {
           try {
             newMedia = await mediaDb.create({
               title,
-              description: description || null,
+              description: null,
               url: publicUrl,
               type: 'image',
               category,
@@ -182,7 +181,7 @@ export async function POST(request: NextRequest) {
               console.warn('[Bulk Upload] is_featured column missing, retrying without it.')
               newMedia = await mediaDb.create({
                 title,
-                description: description || null,
+                description: null,
                 url: publicUrl,
                 type: 'image',
                 category,
