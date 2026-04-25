@@ -1,10 +1,10 @@
-
 import { NextRequest, NextResponse } from 'next/server'
 import path from 'path'
 import { v4 as uuidv4 } from 'uuid'
 import { getCurrentAdmin } from '@/lib/auth'
 import { uploadToBucket, BUCKETS } from '@/lib/storage'
 import { getSupabaseAdmin } from '@/lib/supabase'
+import { createOptimizedAvatarFile } from '@/lib/image-optimization'
 
 export async function POST(request: NextRequest) {
   try {
@@ -46,9 +46,19 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Optimize image before upload
+    let uploadFile = file
+    try {
+      uploadFile = await createOptimizedAvatarFile(file)
+      console.log(`[Profile Image] Image optimized: ${file.size} → ${uploadFile.size} bytes`)
+    } catch (optimizeError) {
+      console.warn('[Profile Image] Image optimization failed, using original:', optimizeError)
+      uploadFile = file
+    }
+
     // Generate unique path for avatars bucket
-    const extension = path.extname(file.name)
-    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+    const extension = path.extname(uploadFile.name)
+    const safeName = uploadFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')
     const filePath = `avatars/${uuidv4()}-${safeName}`
 
     // Ensure the avatars bucket exists before uploading
@@ -73,7 +83,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload to Supabase Storage
-    const publicUrl = await uploadToBucket(file, BUCKETS.AVATARS, filePath)
+    const publicUrl = await uploadToBucket(uploadFile, BUCKETS.AVATARS, filePath)
     
     return NextResponse.json({
       success: true,
@@ -90,4 +100,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

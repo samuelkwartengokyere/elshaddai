@@ -6,6 +6,7 @@ import { mediaDb, isDbConfigured } from '@/lib/db'
 import { getCurrentAdmin } from '@/lib/auth'
 import { uploadToBucket, deleteFromBucket, BUCKETS, SUPPORTED_MIME_TYPES, MAX_FILE_SIZES } from '@/lib/storage'
 import { getSupabaseAdmin } from '@/lib/supabase'
+import { createOptimizedGeneralFile } from '@/lib/image-optimization'
 
 interface UploadResult {
   fileName: string
@@ -149,10 +150,19 @@ export async function POST(request: NextRequest) {
         }
 
         // Create a File-like object for uploadToBucket
-        const uploadFile = new File([fileBuffer], path.basename(name), { type: mimeType })
+        let uploadFile = new File([fileBuffer], path.basename(name), { type: mimeType })
+
+        // Optimize image before upload
+        try {
+          const originalSize = uploadFile.size
+          uploadFile = await createOptimizedGeneralFile(uploadFile)
+          console.log(`[Bulk Upload] Image optimized: ${name} ${originalSize} → ${uploadFile.size} bytes`)
+        } catch (optimizeError) {
+          console.warn(`[Bulk Upload] Image optimization failed for ${name}, using original:`, optimizeError)
+        }
 
         // Generate unique path
-        const safeName = path.basename(name).replace(/[^a-zA-Z0-9.-]/g, '_')
+        const safeName = uploadFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')
         const filePath = `images/${uuidv4()}-${safeName}`
 
         // Upload to Supabase Storage
@@ -237,4 +247,3 @@ export async function POST(request: NextRequest) {
     )
   }
 }
-

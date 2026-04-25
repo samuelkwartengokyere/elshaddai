@@ -5,6 +5,7 @@ import { mediaDb, isDbConfigured } from '@/lib/db'
 import { getCurrentAdmin } from '@/lib/auth'
 import { uploadToBucket, deleteFromBucket, BUCKETS, SUPPORTED_MIME_TYPES, MAX_FILE_SIZES, isBucketPublic } from '@/lib/storage'
 import { getSupabaseAdmin } from '@/lib/supabase'
+import { createOptimizedGeneralFile } from '@/lib/image-optimization'
 
 export async function GET(request: NextRequest) {
   try {
@@ -206,9 +207,21 @@ export async function POST(request: NextRequest) {
       )
     }
 
+    // Optimize image before upload (only for image types)
+    let uploadFile = file
+    if (type === 'image') {
+      try {
+        uploadFile = await createOptimizedGeneralFile(file)
+        console.log(`[Media API] Image optimized: ${file.size} → ${uploadFile.size} bytes`)
+      } catch (optimizeError) {
+        console.warn('[Media API] Image optimization failed, using original:', optimizeError)
+        uploadFile = file
+      }
+    }
+
     // Generate unique path in media bucket
-    const extension = path.extname(file.name)
-    const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+    const extension = path.extname(uploadFile.name)
+    const safeName = uploadFile.name.replace(/[^a-zA-Z0-9.-]/g, '_')
     const filePath = `${type}s/${uuidv4()}-${safeName}`
 
     // Ensure the media bucket exists before uploading
@@ -239,7 +252,7 @@ export async function POST(request: NextRequest) {
     }
 
     // Upload to Supabase Storage
-    const publicUrl = await uploadToBucket(file, BUCKETS.MEDIA, filePath)
+    const publicUrl = await uploadToBucket(uploadFile, BUCKETS.MEDIA, filePath)
     console.log(`[Media API] Generated public URL: ${publicUrl}`)
     
     // Save metadata to DB
