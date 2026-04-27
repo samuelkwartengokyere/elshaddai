@@ -74,6 +74,7 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
 
   // Time slots
   const [timeSlots, setTimeSlots] = useState<TimeSlot[]>([]);
+  const [dailySlots, setDailySlots] = useState<Record<string, { max_slots: number; booked_slots: number; available_slots: number }>>({});
   const [loadingSlots, setLoadingSlots] = useState(false);
 
   // Booking result
@@ -143,6 +144,11 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
 
       if (data.success && data.data?.availableSlots) {
         setTimeSlots(data.data.availableSlots);
+        if (data.data.dailySlots) {
+          const ds: Record<string, { max_slots: number; booked_slots: number; available_slots: number }> = {};
+          data.data.dailySlots.forEach((s: any) => { ds[s.date] = s; });
+          setDailySlots(ds);
+        }
       } else if (data.success && data.data?.slots) {
         // Fallback for API that returns 'slots' instead of 'availableSlots'
         setTimeSlots(data.data.slots);
@@ -361,7 +367,7 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
         </div>
       )}
 
-      {/* Step Content */}
+      {/* Step: Select Counsellor */}
       {currentStep === 'counsellor' && (
         <div className="space-y-6">
           <div className="text-center mb-6">
@@ -439,7 +445,7 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
             <div className="text-red-500 text-sm text-center mt-4">{errors.counsellor}</div>
           )}
 
-          {/* Continue Button - Only shows when counsellor is selected */}
+          {/* Continue Button */}
           {formData.counsellorId && (
             <div className="flex justify-end mt-6">
               <button
@@ -454,6 +460,7 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
         </div>
       )}
 
+      {/* Step: Date & Time */}
       {currentStep === 'datetime' && (
         <div className="space-y-6">
           <div className="flex items-center gap-4 mb-6">
@@ -475,7 +482,11 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
           {/* Selected Counsellor Summary */}
           {selectedCounsellor && (
             <div className="bg-gray-50 rounded-lg p-4 flex items-center gap-4">
-              <img src={selectedCounsellor.imageUrl || '/file.svg'} alt={selectedCounsellor.name} className="w-16 h-16 rounded-full object-cover object-top" />
+              <img 
+                src={selectedCounsellor.imageUrl || '/file.svg'} 
+                alt={selectedCounsellor.name} 
+                className="w-16 h-16 rounded-full object-cover object-top"
+              />
               <div>
                 <h3 className="font-semibold text-gray-800">{selectedCounsellor.name}</h3>
                 <p className="text-sm text-gray-600">{selectedCounsellor.title}</p>
@@ -520,6 +531,7 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
               selectedTime={formData.preferredTime}
               onDateChange={(date) => handleFieldChange('preferredDate', date)}
               onTimeChange={(time) => handleFieldChange('preferredTime', time)}
+              dailySlots={dailySlots}
             />
           )}
 
@@ -528,7 +540,7 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
             <div className="text-red-500 text-sm">{errors.preferredDate || errors.preferredTime}</div>
           )}
 
-          {/* Continue Button - Only shows when date and time are selected */}
+          {/* Continue Button */}
           {formData.preferredDate && formData.preferredTime && (
             <div className="flex justify-end mt-6">
               <button
@@ -543,28 +555,315 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
         </div>
       )}
 
-      {/* ... rest of the component remains the same, with second img fixed similarly ... */}
+      {/* Step: Details */}
       {currentStep === 'details' && (
         <div className="space-y-6">
-          {/* ... details step content ... */}
-        </div>
-      )}
-
-      {currentStep === 'confirm' && (
-        <div className="space-y-6">
-          {/* ... confirm step with fixed img ... */}
-          <div className="flex items-center gap-4">
-            <img src={selectedCounsellor?.imageUrl || '/file.svg'} alt={selectedCounsellor?.name || ''} className="w-16 h-16 rounded-full object-cover object-top" />
+          <div className="flex items-center gap-4 mb-6">
+            <button
+              type="button"
+              onClick={() => goToStep('datetime')}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <ChevronLeft size={24} className="text-gray-600" />
+            </button>
             <div>
-              <p className="font-semibold text-gray-800">{selectedCounsellor?.name}</p>
-              <p className="text-sm text-gray-600">{selectedCounsellor?.title}</p>
+              <h2 className="text-2xl font-bold text-[#003399]">Your Details</h2>
+              <p className="text-gray-600">Enter your contact information</p>
             </div>
           </div>
-          {/* ... rest of confirm step ... */}
+
+          {/* Selected Counsellor & Time Summary */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="font-semibold mb-2">Counsellor</h4>
+              <div className="flex items-center gap-3">
+                <img 
+                  src={selectedCounsellor?.imageUrl || '/file.svg'} 
+                  alt={selectedCounsellor?.name || ''} 
+                className="w-12 h-12 rounded-full object-cover object-top"
+                />
+                <div>
+                  <p className="font-semibold">{selectedCounsellor?.name}</p>
+                  <p className="text-sm text-gray-500">{selectedCounsellor?.title}</p>
+                </div>
+              </div>
+            </div>
+            <div className="bg-gray-50 rounded-lg p-4">
+              <h4 className="font-semibold mb-2">Appointment</h4>
+              <p className="text-sm">{formatDateForDisplay(formData.preferredDate)} at {formatTimeForDisplay(formData.preferredTime)}</p>
+              <p className="text-sm text-gray-500">{formData.sessionDuration} minutes ({formData.bookingType})</p>
+            </div>
+          </div>
+
+          {/* Form Fields */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">First Name *</label>
+              <input
+                type="text"
+                value={formData.firstName}
+                onChange={(e) => handleFieldChange('firstName', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C8102E] focus:border-transparent"
+                placeholder="John"
+              />
+              {errors.firstName && <p className="mt-1 text-sm text-red-600">{errors.firstName}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Last Name *</label>
+              <input
+                type="text"
+                value={formData.lastName}
+                onChange={(e) => handleFieldChange('lastName', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C8102E] focus:border-transparent"
+                placeholder="Doe"
+              />
+              {errors.lastName && <p className="mt-1 text-sm text-red-600">{errors.lastName}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Email *</label>
+              <input
+                type="email"
+                value={formData.email}
+                onChange={(e) => handleFieldChange('email', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C8102E] focus:border-transparent"
+                placeholder="john@example.com"
+              />
+              {errors.email && <p className="mt-1 text-sm text-red-600">{errors.email}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Phone *</label>
+              <input
+                type="tel"
+                value={formData.phone}
+                onChange={(e) => handleFieldChange('phone', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C8102E] focus:border-transparent"
+                placeholder="+233 123 456 789"
+              />
+              {errors.phone && <p className="mt-1 text-sm text-red-600">{errors.phone}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">Country *</label>
+              <input
+                type="text"
+                value={formData.country}
+                onChange={(e) => handleFieldChange('country', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C8102E] focus:border-transparent"
+                placeholder="Ghana"
+              />
+              {errors.country && <p className="mt-1 text-sm text-red-600">{errors.country}</p>}
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-2">City</label>
+              <input
+                type="text"
+                value={formData.city}
+                onChange={(e) => handleFieldChange('city', e.target.value)}
+                className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C8102E] focus:border-transparent"
+                placeholder="Accra"
+              />
+            </div>
+          </div>
+
+          {/* Topic Selection */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-3">Counselling Topic *</label>
+            <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+              {TOPICS.map((topic) => (
+                <button
+                  key={topic}
+                  type="button"
+                  onClick={() => handleFieldChange('topic', topic)}
+                  className={`p-4 rounded-lg border-2 transition-all text-left ${
+                    formData.topic === topic
+                      ? 'border-[#C8102E] bg-red-50 text-[#C8102E]'
+                      : 'border-gray-200 hover:border-gray-300 hover:bg-gray-50'
+                  }`}
+                >
+                  {topic}
+                </button>
+              ))}
+            </div>
+            {errors.topic && <p className="mt-2 text-sm text-red-600">{errors.topic}</p>}
+          </div>
+
+          {/* Notes */}
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">Additional Notes (Optional)</label>
+            <textarea
+              rows={4}
+              value={formData.notes}
+              onChange={(e) => handleFieldChange('notes', e.target.value)}
+              className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-[#C8102E] focus:border-transparent resize-vertical"
+              placeholder="Any additional information or specific concerns..."
+            />
+          </div>
+
+          {/* Continue Button */}
+          {Object.keys(errors).length === 0 && (
+            <div className="flex justify-end mt-6">
+              <button
+                type="button"
+                onClick={() => goToStep('confirm')}
+                className="flex items-center gap-2 px-8 py-4 bg-[#C8102E] text-white rounded-xl hover:bg-[#A00D25] transition-all font-semibold shadow-lg"
+              >
+                Review & Confirm <ChevronRight size={20} />
+              </button>
+            </div>
+          )}
         </div>
       )}
 
-      {/* ... success step ... */}
+      {/* Step: Confirm */}
+      {currentStep === 'confirm' && (
+        <div className="space-y-6">
+          <div className="flex items-center gap-4 mb-6">
+            <button
+              type="button"
+              onClick={() => goToStep('details')}
+              className="p-2 hover:bg-gray-100 rounded-full transition-colors"
+            >
+              <ChevronLeft size={24} className="text-gray-600" />
+            </button>
+            <div>
+              <h2 className="text-2xl font-bold text-[#003399]">Confirm Booking</h2>
+              <p className="text-gray-600">Please review your booking details</p>
+            </div>
+          </div>
+
+          <div className="bg-gradient-to-r from-gray-50 to-blue-50 rounded-2xl p-8 border-2 border-dashed border-gray-200">
+            {/* Counsellor Info */}
+            <div className="flex items-center gap-4 mb-6">
+              <img 
+                src={selectedCounsellor?.imageUrl || '/file.svg'} 
+                alt={selectedCounsellor?.name || ''} 
+                className="w-16 h-16 rounded-full object-cover object-top"
+              />
+              <div>
+                <p className="font-semibold text-xl text-gray-800">{selectedCounsellor?.name}</p>
+                <p className="text-lg text-gray-600">{selectedCounsellor?.title}</p>
+              </div>
+            </div>
+
+            {/* Appointment Details */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+              <div>
+                <h4 className="font-semibold text-gray-800 mb-3">Appointment Details</h4>
+                <div className="space-y-2 text-lg">
+                  <div className="flex items-center gap-3">
+                    <Clock size={20} className="text-[#C8102E]" />
+                    <span>{formatDateForDisplay(formData.preferredDate)} at {formatTimeForDisplay(formData.preferredTime)}</span>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    {formData.bookingType === 'online' ? <Video size={20} className="text-[#C8102E]" /> : <MapPin size={20} className="text-[#C8102E]" />}
+                    <span>{formData.sessionDuration} min {formData.bookingType} session</span>
+                  </div>
+                </div>
+              </div>
+              <div>
+                <h4 className="font-semibold text-gray-800 mb-3">Topic</h4>
+                <div className="bg-white rounded-lg p-4 shadow-sm">
+                  <p className="text-lg font-medium">{formData.topic}</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Contact Info */}
+            <div className="bg-white rounded-xl p-6 shadow-sm mb-6">
+              <h4 className="font-semibold text-gray-800 mb-4">Contact Information</h4>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                <div><span className="font-medium">Name:</span> {formData.firstName} {formData.lastName}</div>
+                <div><span className="font-medium">Email:</span> {formData.email}</div>
+                <div><span className="font-medium">Phone:</span> {formData.phone}</div>
+                <div><span className="font-medium">Location:</span> {formData.country}, {formData.city}</div>
+              </div>
+            </div>
+
+            {/* Notes */}
+            {formData.notes && (
+              <div className="bg-white rounded-xl p-6 shadow-sm">
+                <h4 className="font-semibold text-gray-800 mb-3">Notes</h4>
+                <p className="text-gray-700 whitespace-pre-wrap">{formData.notes}</p>
+              </div>
+            )}
+
+            <div className="pt-6 border-t flex justify-end gap-4">
+              <button
+                type="button"
+                onClick={handleSubmit}
+                disabled={isSubmitting}
+                className="px-8 py-4 bg-[#C8102E] text-white rounded-xl hover:bg-[#A00D25] transition-all font-semibold shadow-xl flex items-center gap-3 disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="animate-spin" size={24} />
+                    Creating Booking...
+                  </>
+                ) : (
+                  <>
+                    Confirm & Book Now
+                    <Check size={20} />
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Step: Success */}
+      {currentStep === 'success' && bookingResult && (
+        <div className="text-center space-y-8 py-12">
+          <div className="w-24 h-24 bg-green-100 rounded-full flex items-center justify-center mx-auto mb-6">
+            <Check className="w-12 h-12 text-green-500" />
+          </div>
+          <div>
+            <h2 className="text-3xl font-bold text-green-600 mb-4">Booking Confirmed!</h2>
+            <p className="text-xl text-gray-600 mb-8 max-w-2xl mx-auto">
+              Your counselling session has been successfully booked. You will receive a confirmation email shortly.
+            </p>
+            <div className="bg-green-50 border-2 border-green-200 rounded-2xl p-8 max-w-2xl mx-auto">
+              <h3 className="font-bold text-2xl text-green-800 mb-4">Confirmation #{bookingResult.confirmationNumber}</h3>
+              <div className="grid md:grid-cols-2 gap-6 text-lg">
+                <div>
+                  <p className="font-semibold text-gray-800">Counsellor</p>
+                  <p>{bookingResult.booking.counsellor.name}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-800">Date & Time</p>
+                  <p>{formatDateForDisplay(bookingResult.booking.preferredDate)} at {formatTimeForDisplay(bookingResult.booking.preferredTime)}</p>
+                </div>
+                <div>
+                  <p className="font-semibold text-gray-800">Topic</p>
+                  <p>{bookingResult.booking.topic}</p>
+                </div>
+                {bookingResult.booking.teamsMeetingUrl && (
+                  <div>
+                    <p className="font-semibold text-gray-800">Meeting Link</p>
+                    <a href={bookingResult.booking.teamsMeetingUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
+                      Join Meeting
+                    </a>
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+          <div className="flex flex-col sm:flex-row gap-4 justify-center">
+            <button
+              onClick={resetBooking}
+              className="px-8 py-3 bg-[#C8102E] text-white rounded-xl hover:bg-[#A00D25] transition-all font-semibold"
+            >
+              Book Another Session
+            </button>
+            <a
+              href="/counselling"
+              className="px-8 py-3 border-2 border-gray-300 text-gray-700 rounded-xl hover:bg-gray-50 transition-all font-semibold"
+            >
+              Back to Counselling
+            </a>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
+

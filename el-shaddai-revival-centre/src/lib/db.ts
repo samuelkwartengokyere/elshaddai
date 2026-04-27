@@ -695,6 +695,11 @@ export const counsellingSlotsDb = {
     if (!isSupabaseConfigured()) return []
     
     const supabaseAdmin = await getSupabaseAdmin()
+    if (!supabaseAdmin) {
+      console.warn('[DB] Supabase admin client not available - service role key may be missing')
+      return []
+    }
+    
     const endDate = new Date()
     endDate.setDate(endDate.getDate() + days)
     
@@ -713,13 +718,30 @@ export const counsellingSlotsDb = {
     if (!isSupabaseConfigured()) return null
     
     const supabaseAdmin = await getSupabaseAdmin()
+    if (!supabaseAdmin) {
+      console.warn('[DB] Supabase admin client not available - service role key may be missing')
+      return null
+    }
+    
     // Call Supabase function to ensure slot exists
     const { data, error } = await supabaseAdmin.rpc('ensure_counselling_slot', { date_param: date })
     
     if (error) {
       console.error('ensure_counselling_slot error:', error)
-      // Fallback query
-      return getById<DbCounsellingSlot>('counselling_slots', date) as any
+      // Fallback query by date column (not id, since id is UUID)
+      const { data: slotData, error: slotError } = await supabaseAdmin
+        .from('counselling_slots')
+        .select('*')
+        .eq('date', date)
+        .limit(1)
+        .maybeSingle()
+      
+      if (slotError) {
+        console.error('Fallback slot query error:', slotError)
+        throw slotError
+      }
+      
+      return slotData as DbCounsellingSlot | null
     }
     
     return data as DbCounsellingSlot
@@ -760,12 +782,51 @@ export const counsellingSlotsDb = {
   },
   
   async setMaxSlots(date: string, max_slots: number): Promise<DbCounsellingSlot> {
-    const slot = await this.getByDate(date)
-    if (!slot) throw new Error(`No slot for date ${date}`)
+    if (!Number.isFinite(max_slots) || Number.isNaN(max_slots)) {
+      throw new Error('max_slots must be a valid number')
+    }
+    if (max_slots < 0 || max_slots > 100) {
+      throw new Error('max_slots must be between 0 and 100')
+    }
+
+    let slot = await this.getByDate(date)
+    
+    // If slot doesn't exist, create it
+    if (!slot) {
+      slot = await insert<DbCounsellingSlot>('counselling_slots', {
+        date,
+        max_slots,
+        booked_slots: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+      return slot
+    }
     
     return update<DbCounsellingSlot>(`counselling_slots`, slot.id, {
       max_slots
     })
+  },
+  
+  async delete(date: string): Promise<void> {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase not configured')
+    }
+    
+    const supabaseAdmin = await getSupabaseAdmin()
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client not available - service role key may be missing')
+    }
+    
+    const { error } = await supabaseAdmin
+      .from('counselling_slots')
+      .delete()
+      .eq('date', date)
+    
+    if (error) {
+      console.error('Error deleting slot:', error)
+      throw error
+    }
   }
 }
 

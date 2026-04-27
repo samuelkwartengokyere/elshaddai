@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { 
   Plus, 
   Search, 
@@ -15,7 +15,14 @@ import {
   Globe,
   MapPin,
   Calendar,
-  RefreshCw
+  RefreshCw,
+  CalendarDays,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  BarChart3,
+  CheckCircle2,
+  Clock
 } from 'lucide-react';
 import Image from 'next/image'
 import ImageUpload from '@/components/ImageUpload';
@@ -97,6 +104,56 @@ export default function CounsellingAdminPage() {
   const [slotForm, setSlotForm] = useState<UpsertSlotData>({ date: '', max_slots: 10 });
   const [bulkDates, setBulkDates] = useState<string[]>([]);
   const [bulkMaxSlots, setBulkMaxSlots] = useState(10);
+
+  // Computed stats for overall slots
+  const overallStats = useMemo(() => {
+    const totalDays = slots.length;
+    const totalCapacity = slots.reduce((sum, s) => sum + s.max_slots, 0);
+    const totalBooked = slots.reduce((sum, s) => sum + s.booked_slots, 0);
+    const totalAvailable = slots.reduce((sum, s) => sum + s.available_slots, 0);
+    const fillRate = totalCapacity > 0 ? Math.round((totalBooked / totalCapacity) * 100) : 0;
+    const fullyBookedDays = slots.filter(s => s.available_slots === 0 && s.max_slots > 0).length;
+    const availableDays = slots.filter(s => s.available_slots > 0).length;
+    const emptyDays = slots.filter(s => s.max_slots === 0).length;
+    return { totalDays, totalCapacity, totalBooked, totalAvailable, fillRate, fullyBookedDays, availableDays, emptyDays };
+  }, [slots]);
+
+  // Computed stats for single date selection
+  const singleDateStats = useMemo(() => {
+    if (!slotForm.date) return null;
+    const existingSlot = slots.find(s => s.date === slotForm.date);
+    const currentMax = existingSlot?.max_slots ?? 0;
+    const newMax = slotForm.max_slots;
+    const existingBookings = existingSlot?.booked_slots ?? 0;
+    const change = newMax - currentMax;
+    const wouldBeOverbooked = newMax < existingBookings;
+    const newAvailable = Math.max(0, newMax - existingBookings);
+    return { date: slotForm.date, currentMax, newMax, existingBookings, change, wouldBeOverbooked, newAvailable, hasExisting: !!existingSlot };
+  }, [slotForm, slots]);
+
+  // Computed stats for bulk date selection
+  const bulkStats = useMemo(() => {
+    if (bulkDates.length === 0) return null;
+    const totalNewSlots = bulkDates.length * bulkMaxSlots;
+    let existingBookings = 0;
+    let existingCapacity = 0;
+    let daysWithExisting = 0;
+    let wouldBeOverbooked = 0;
+    bulkDates.forEach(date => {
+      const existing = slots.find(s => s.date === date);
+      if (existing) {
+        existingBookings += existing.booked_slots;
+        existingCapacity += existing.max_slots;
+        daysWithExisting++;
+        if (bulkMaxSlots < existing.booked_slots) wouldBeOverbooked++;
+      }
+    });
+    const netChange = totalNewSlots - existingCapacity;
+    const dateRange = bulkDates.length > 1
+      ? `${new Date(bulkDates[0] + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} - ${new Date(bulkDates[bulkDates.length - 1] + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}`
+      : new Date(bulkDates[0] + 'T00:00:00').toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    return { daysCount: bulkDates.length, totalNewSlots, existingBookings, existingCapacity, daysWithExisting, netChange, wouldBeOverbooked, dateRange };
+  }, [bulkDates, bulkMaxSlots, slots]);
 
   // Slot management handlers
   const handleSetSlot = async () => {
@@ -652,21 +709,156 @@ export default function CounsellingAdminPage() {
       {/* Slots Tab */}
       {activeTab === 'slots' && (
         <div>
-          {/* Slots Stats */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div className="bg-gradient-to-r from-green-400 to-green-500 p-4 rounded-lg text-white shadow-lg">
-              <p className="text-green-100">Today's Slots</p>
-              <p className="text-2xl font-bold">{slots.find(s => s.date === new Date().toISOString().split('T')[0])?.available_slots || 0}</p>
-            </div>
-            <div className="bg-gradient-to-r from-blue-400 to-blue-500 p-4 rounded-lg text-white shadow-lg">
-              <p className="text-blue-100">Total Booked</p>
-              <p className="text-2xl font-bold">{slots.reduce((sum, s) => sum + s.booked_slots, 0)}</p>
-            </div>
-            <div className="bg-gradient-to-r from-orange-400 to-orange-500 p-4 rounded-lg text-white shadow-lg">
-              <p className="text-orange-100">Avg Available</p>
-              <p className="text-2xl font-bold">{Math.round(slots.reduce((sum, s) => sum + s.available_slots, 0) / slots.length) || 0}</p>
+          {/* Overall Stats */}
+          <div className="mb-6">
+            <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+              <BarChart3 className="h-4 w-4" />
+              Overall Statistics
+            </h3>
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-500 text-xs uppercase font-medium">Total Days</p>
+                    <p className="text-2xl font-bold text-gray-800">{overallStats.totalDays}</p>
+                  </div>
+                  <CalendarDays className="h-8 w-8 text-blue-200" />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">{overallStats.availableDays} available, {overallStats.fullyBookedDays} full</p>
+              </div>
+
+              <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-500 text-xs uppercase font-medium">Total Capacity</p>
+                    <p className="text-2xl font-bold text-gray-800">{overallStats.totalCapacity}</p>
+                  </div>
+                  <CheckCircle2 className="h-8 w-8 text-green-200" />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">{overallStats.emptyDays} days with 0 slots</p>
+              </div>
+
+              <div className="bg-white p-4 rounded-lg shadow border-l-4 border-purple-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-500 text-xs uppercase font-medium">Total Booked</p>
+                    <p className="text-2xl font-bold text-gray-800">{overallStats.totalBooked}</p>
+                  </div>
+                  <Users className="h-8 w-8 text-purple-200" />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">{overallStats.fillRate}% fill rate</p>
+              </div>
+
+              <div className="bg-white p-4 rounded-lg shadow border-l-4 border-orange-500">
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="text-gray-500 text-xs uppercase font-medium">Available</p>
+                    <p className="text-2xl font-bold text-gray-800">{overallStats.totalAvailable}</p>
+                  </div>
+                  <Clock className="h-8 w-8 text-orange-200" />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">{Math.round(overallStats.totalAvailable / Math.max(overallStats.totalDays, 1))} avg per day</p>
+              </div>
             </div>
           </div>
+
+          {/* Selected Days Preview */}
+          {(singleDateStats || bulkStats) && (
+            <div className="mb-6">
+              <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+                <Calendar className="h-4 w-4" />
+                Selection Preview
+              </h3>
+              <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg p-4 border border-indigo-200">
+                {singleDateStats && (
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div className="bg-white p-3 rounded-lg shadow-sm">
+                      <p className="text-xs text-gray-500 uppercase font-medium">Selected Date</p>
+                      <p className="text-lg font-bold text-indigo-700">{new Date(singleDateStats.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {singleDateStats.hasExisting ? 'Existing slot will be updated' : 'New slot will be created'}
+                      </p>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-lg shadow-sm">
+                      <p className="text-xs text-gray-500 uppercase font-medium">Slot Change</p>
+                      <div className="flex items-center gap-2">
+                        <span className="text-lg font-bold text-gray-800">{singleDateStats.currentMax}</span>
+                        {singleDateStats.change >= 0 ? <TrendingUp className="h-4 w-4 text-green-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />}
+                        <span className="text-lg font-bold text-gray-800">{singleDateStats.newMax}</span>
+                      </div>
+                      <p className="text-xs text-gray-400 mt-1">
+                        {singleDateStats.change > 0 ? `+${singleDateStats.change} slots` : singleDateStats.change < 0 ? `${singleDateStats.change} slots` : 'No change'}
+                      </p>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-lg shadow-sm">
+                      <p className="text-xs text-gray-500 uppercase font-medium">After Update</p>
+                      <p className="text-lg font-bold text-gray-800">{singleDateStats.newAvailable} available</p>
+                      {singleDateStats.wouldBeOverbooked ? (
+                        <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                          <AlertTriangle className="h-3 w-3" />
+                          Would exceed existing {singleDateStats.existingBookings} bookings
+                        </p>
+                      ) : singleDateStats.existingBookings > 0 ? (
+                        <p className="text-xs text-gray-400 mt-1">{singleDateStats.existingBookings} existing bookings preserved</p>
+                      ) : (
+                        <p className="text-xs text-gray-400 mt-1">No existing bookings</p>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {bulkStats && (
+                  <div className="space-y-3">
+                    <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                      <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <p className="text-xs text-gray-500 uppercase font-medium">Days Selected</p>
+                        <p className="text-xl font-bold text-indigo-700">{bulkStats.daysCount}</p>
+                        <p className="text-xs text-gray-400 mt-1">{bulkStats.dateRange}</p>
+                      </div>
+
+                      <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <p className="text-xs text-gray-500 uppercase font-medium">Total New Slots</p>
+                        <p className="text-xl font-bold text-gray-800">{bulkStats.totalNewSlots}</p>
+                        <p className="text-xs text-gray-400 mt-1">{bulkMaxSlots} per day</p>
+                      </div>
+
+                      <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <p className="text-xs text-gray-500 uppercase font-medium">Net Change</p>
+                        <div className="flex items-center gap-1">
+                          <p className={`text-xl font-bold ${bulkStats.netChange >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                            {bulkStats.netChange > 0 ? '+' : ''}{bulkStats.netChange}
+                          </p>
+                          {bulkStats.netChange !== 0 && (
+                            bulkStats.netChange > 0
+                              ? <TrendingUp className="h-5 w-5 text-green-500" />
+                              : <TrendingDown className="h-5 w-5 text-red-500" />
+                          )}
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">from {bulkStats.existingCapacity} current</p>
+                      </div>
+
+                      <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <p className="text-xs text-gray-500 uppercase font-medium">Existing Bookings</p>
+                        <p className="text-xl font-bold text-gray-800">{bulkStats.existingBookings}</p>
+                        <p className="text-xs text-gray-400 mt-1">across {bulkStats.daysWithExisting} day(s)</p>
+                      </div>
+                    </div>
+
+                    {bulkStats.wouldBeOverbooked > 0 && (
+                      <div className="bg-red-50 border border-red-200 rounded-lg p-3 flex items-center gap-2">
+                        <AlertTriangle className="h-5 w-5 text-red-500 flex-shrink-0" />
+                        <p className="text-sm text-red-700">
+                          <span className="font-semibold">Warning:</span> {bulkStats.wouldBeOverbooked} day(s) have more existing bookings than the new slot limit. Those days will show negative availability.
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </div>
+          )}
 
           {/* Slots Controls */}
           <div className="bg-white p-6 rounded-lg shadow mb-6">

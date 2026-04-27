@@ -71,12 +71,20 @@ export async function GET(request: NextRequest) {
       }
     }
     
+
+    
     return NextResponse.json({
       success: true,
       data: {
         counsellors: availableCounsellors,
         availableSlots,
-        total_slots: slots.length
+        total_slots: slots.length,
+        dailySlots: slots.map(s => ({
+          date: s.date,
+          max_slots: s.max_slots,
+          booked_slots: s.booked_slots,
+          available_slots: s.max_slots - s.booked_slots
+        }))
       }
     });
   } catch (error) {

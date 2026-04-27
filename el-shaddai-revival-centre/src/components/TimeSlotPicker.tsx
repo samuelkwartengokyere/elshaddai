@@ -5,6 +5,12 @@ import { ChevronLeft, ChevronRight, Clock, Check } from 'lucide-react';
 import { TimeSlot } from '@/types/counselling';
 import { formatTimeForDisplay } from '@/types/counselling';
 
+interface DailySlotInfo {
+  max_slots: number;
+  booked_slots: number;
+  available_slots: number;
+}
+
 interface TimeSlotPickerProps {
   slots: TimeSlot[];
   selectedDate: string;
@@ -12,6 +18,7 @@ interface TimeSlotPickerProps {
   onDateChange: (date: string) => void;
   onTimeChange: (time: string) => void;
   disabled?: boolean;
+  dailySlots?: Record<string, DailySlotInfo>;
 }
 
 export default function TimeSlotPicker({
@@ -21,6 +28,7 @@ export default function TimeSlotPicker({
   onDateChange,
   onTimeChange,
   disabled = false,
+  dailySlots = {},
 }: TimeSlotPickerProps) {
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     const today = new Date();
@@ -144,20 +152,26 @@ export default function TimeSlotPicker({
           const hasSlots = slotsByDate[dateStr] && slotsByDate[dateStr].length > 0;
           const isPast = new Date(dateStr) < new Date(new Date().toISOString().split('T')[0]);
 
+          const ds = dailySlots[dateStr];
+          const remaining = ds ? ds.available_slots : (hasSlots ? slotsByDate[dateStr].length : 0);
+          const isFull = remaining === 0 && ds !== undefined;
+
           return (
             <button
               key={dateStr}
               type="button"
               onClick={() => {
-                if (hasSlots && !isPast) {
+                if (hasSlots && !isPast && !isFull) {
                   onDateChange(dateStr);
                 }
               }}
-              disabled={!hasSlots || isPast || disabled}
+              disabled={!hasSlots || isPast || isFull || disabled}
               className={`p-3 rounded-lg border-2 transition-all ${
                 isSelected
                   ? 'border-[#C8102E] bg-[#C8102E] text-white'
-                  : hasSlots && !isPast
+                  : isFull || isPast
+                  ? 'border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed'
+                  : hasSlots
                   ? 'border-gray-200 hover:border-[#C8102E] bg-white text-gray-800'
                   : 'border-gray-100 bg-gray-50 text-gray-400 cursor-not-allowed'
               }`}
@@ -166,10 +180,13 @@ export default function TimeSlotPicker({
                 {date.toLocaleDateString('en-US', { weekday: 'short' })}
               </div>
               <div className="text-lg font-bold">{date.getDate()}</div>
-              {hasSlots && !isPast && !isSelected && (
+              {hasSlots && !isPast && !isFull && (
                 <div className="text-xs text-green-600 mt-1">
-                  {slotsByDate[dateStr].length} slots
+                  {remaining} left
                 </div>
+              )}
+              {isFull && (
+                <div className="text-xs text-red-500 mt-1">Full</div>
               )}
             </button>
           );
