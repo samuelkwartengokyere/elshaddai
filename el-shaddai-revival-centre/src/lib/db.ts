@@ -723,28 +723,21 @@ export const counsellingSlotsDb = {
       return null
     }
     
-    // Call Supabase function to ensure slot exists
-    const { data, error } = await supabaseAdmin.rpc('ensure_counselling_slot', { date_param: date })
-    
+    // Read-only lookup by date. We intentionally do not auto-create a slot
+    // here so only admin-configured dates are available for booking.
+    const { data, error } = await supabaseAdmin
+      .from('counselling_slots')
+      .select('*')
+      .eq('date', date)
+      .limit(1)
+      .maybeSingle()
+
     if (error) {
-      console.error('ensure_counselling_slot error:', error)
-      // Fallback query by date column (not id, since id is UUID)
-      const { data: slotData, error: slotError } = await supabaseAdmin
-        .from('counselling_slots')
-        .select('*')
-        .eq('date', date)
-        .limit(1)
-        .maybeSingle()
-      
-      if (slotError) {
-        console.error('Fallback slot query error:', slotError)
-        throw slotError
-      }
-      
-      return slotData as DbCounsellingSlot | null
+      console.error('getByDate slot query error:', error)
+      throw error
     }
-    
-    return data as DbCounsellingSlot
+
+    return data as DbCounsellingSlot | null
   },
   
   async create(data: Partial<DbCounsellingSlot>): Promise<DbCounsellingSlot> {

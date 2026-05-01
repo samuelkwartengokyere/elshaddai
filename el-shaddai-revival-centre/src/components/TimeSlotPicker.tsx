@@ -33,29 +33,10 @@ export default function TimeSlotPicker({
   const [currentWeekStart, setCurrentWeekStart] = useState(() => {
     const today = new Date();
     const dayOfWeek = today.getDay();
-    // Start from today or the previous Monday
     const start = new Date(today);
     start.setDate(today.getDate() - dayOfWeek + 1);
     return start;
   });
-
-  // Generate dates for the next 2 weeks (weekdays only)
-  const availableDates = useMemo(() => {
-    const dates: Date[] = [];
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-
-    for (let i = 1; i <= 14; i++) {
-      const date = new Date(today);
-      date.setDate(today.getDate() + i);
-      const dayOfWeek = date.getDay();
-      // Skip weekends (0 = Sunday, 6 = Saturday)
-      if (dayOfWeek !== 0 && dayOfWeek !== 6) {
-        dates.push(date);
-      }
-    }
-    return dates;
-  }, []);
 
   // Group slots by date
   const slotsByDate = useMemo(() => {
@@ -92,7 +73,6 @@ export default function TimeSlotPicker({
     });
   };
 
-  // Navigate weeks
   const goToPreviousWeek = () => {
     const newStart = new Date(currentWeekStart);
     newStart.setDate(currentWeekStart.getDate() - 7);
@@ -105,19 +85,23 @@ export default function TimeSlotPicker({
     setCurrentWeekStart(newStart);
   };
 
-  // Get dates for current week view
+  // Calendar-style week view (Mon-Fri), as before.
   const currentWeekDates = useMemo(() => {
     const dates: Date[] = [];
     for (let i = 0; i < 5; i++) {
       const date = new Date(currentWeekStart);
       date.setDate(currentWeekStart.getDate() + i);
-      // Check if it's a weekday
       if (date.getDay() !== 0 && date.getDay() !== 6) {
         dates.push(date);
       }
     }
     return dates;
   }, [currentWeekStart]);
+
+  const anyAdminConfiguredDates = useMemo(
+    () => Object.keys(slotsByDate).length > 0,
+    [slotsByDate]
+  );
 
   return (
     <div className="space-y-4">
@@ -192,6 +176,13 @@ export default function TimeSlotPicker({
           );
         })}
       </div>
+
+      {!anyAdminConfiguredDates && (
+        <div className="text-center py-8 bg-gray-50 rounded-lg">
+          <p className="text-gray-500">No slots available right now</p>
+          <p className="text-sm text-gray-400">Please check back after admin configures new dates</p>
+        </div>
+      )}
 
       {/* Time Slots */}
       {selectedDate && (

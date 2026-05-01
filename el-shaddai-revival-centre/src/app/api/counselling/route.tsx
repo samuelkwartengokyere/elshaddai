@@ -3,7 +3,7 @@ import { v4 as uuidv4 } from 'uuid'
 import { counsellingBookingsDb, counsellingSlotsDb, isDbConfigured } from '@/lib/db'
 import { createTeamsMeeting } from '@/lib/teams';
 import { sendBookingConfirmation, sendCounsellorNotification, sendCancellationEmail } from '@/lib/email';
-import { BookingFormData, generateBookingNumber, CounsellingBooking } from '@/types/counselling';
+import { BookingFormData, generateBookingNumber, TimeSlot, CounsellingBooking } from '@/types/counselling';
 
 // In-memory storage for bookings (replaces MongoDB)
 interface BookingData {
@@ -63,14 +63,55 @@ export async function GET(request: NextRequest) {
       });
     }
     
-    // Return available time slots for the next 14 days
-    const availableSlots = generateAvailableSlots(availableCounsellors);
+    // Query real daily slots from DB (next 14 days).
+    // Only dates explicitly configured in admin should appear.
+    const slots = await counsellingSlotsDb.getFuture(14);
+    const availableSlots: TimeSlot[] = [];
+
+    for (const slot of slots) {
+      if (slot.max_slots - slot.booked_slots > 0) {
+        const date = new Date(slot.date);
+        const dayOfWeek = date.getDay();
+
+        // Skip weekends
+        if (dayOfWeek === 0 || dayOfWeek === 6) continue;
+
+        // Generate 30min slots 9AM-5PM
+        const startMinutes = 9 * 60;
+        const endMinutes = 17 * 60;
+
+        for (let minute = startMinutes; minute < endMinutes - 30; minute += 30) {
+          const hour = Math.floor(minute / 60);
+          const mins = minute % 60;
+          const startTime = `${hour.toString().padStart(2, '0')}:${mins.toString().padStart(2, '0')}`;
+          const endMinute = (minute + 30) % 60;
+          const endHour = Math.floor((minute + 30) / 60);
+          const endTime = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
+
+          availableSlots.push({
+            id: `${slot.date}-${startTime}`,
+            counsellorId: counsellorId || 'global',
+            date: slot.date,
+            startTime,
+            endTime,
+            isAvailable: true,
+          });
+        }
+      }
+    }
     
     return NextResponse.json({
       success: true,
       data: {
         counsellors: availableCounsellors,
         availableSlots,
+        total_slots: slots.length,
+        dailySlots: slots.map(s => ({
+          date: s.date,
+          max_slots: s.max_slots,
+          booked_slots: s.booked_slots,
+          available_slots: s.max_slots - s.booked_slots
+        }))
       },
       isSupabaseMode: isDbConfigured(),
       isInMemoryMode: !isDbConfigured()
@@ -585,65 +626,3 @@ function validateFormData(data: BookingFormData): string[] {
   return errors;
 }
 
-interface AvailableSlot {
-  id: string;
-  counsellorId: string;
-  date: string;
-  startTime: string;
-  endTime: string;
-  isAvailable: boolean;
-}
-
-function generateAvailableSlots(counsellors: Array<{id: string; availability: Array<{dayOfWeek: number; startTime: string; endTime: string}>}>): AvailableSlot[] {
-  const slots: AvailableSlot[] = [];
-  const today = new Date();
-  
-  // Generate slots for the next 14 days
-  for (let dayOffset = 1; dayOffset <= 14; dayOffset++) {
-    const date = new Date(today);
-    date.setDate(today.getDate() + dayOffset);
-    const dateStr = date.toISOString().split('T')[0];
-    
-    // Only show weekdays (Monday to Friday)
-    const dayOfWeek = date.getDay();
-    if (dayOfWeek === 0 || dayOfWeek === 6) {
-      continue;
-    }
-    
-    for (const counsellor of counsellors) {
-      const availability = counsellor.availability.find((a: { dayOfWeek: number }) => a.dayOfWeek === dayOfWeek);
-      if (!availability) {
-        continue;
-      }
-      
-      const [startHour, startMin] = availability.startTime.split(':').map(Number);
-      const [endHour, endMin] = availability.endTime.split(':').map(Number);
-      
-      const startMinutes = startHour * 60 + startMin;
-      const endMinutes = endHour * 60 + endMin;
-      
-      for (let time = startMinutes; time < endMinutes; time += 30) {
-        const hour = Math.floor(time / 60);
-        const minute = time % 60;
-        
-        const startTime = `${hour.toString().padStart(2, '0')}:${minute.toString().padStart(2, '0')}`;
-        const endHour = Math.floor((time + 30) / 60);
-        const endMinute = (time + 30) % 60;
-        const endTime = `${endHour.toString().padStart(2, '0')}:${endMinute.toString().padStart(2, '0')}`;
-        
-        const isAvailable = Math.random() > 0.3;
-        
-        slots.push({
-          id: `${counsellor.id}-${dateStr}-${startTime}`,
-          counsellorId: counsellor.id,
-          date: dateStr,
-          startTime,
-          endTime,
-          isAvailable,
-        });
-      }
-    }
-  }
-  
-  return slots;
-}
