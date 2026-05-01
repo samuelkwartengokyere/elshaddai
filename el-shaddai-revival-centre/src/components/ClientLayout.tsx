@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from 'react'
 import SplashScreen from '@/components/SplashScreen'
+import AnalyticsTracker from '@/components/AnalyticsTracker'
 
 export default function ClientLayout({ children }: { children: React.ReactNode }) {
   const [showSplash, setShowSplash] = useState(true)
@@ -36,6 +37,7 @@ export default function ClientLayout({ children }: { children: React.ReactNode }
     <>
       {showSplash && <SplashScreen onComplete={handleSplashComplete} />}
       <div className={showSplash ? 'hidden' : ''}>
+        {!showSplash && <AnalyticsTracker />}
         {children}
       </div>
     </>

@@ -17,7 +17,8 @@ import {
   Settings,
   Loader2,
   User,
-  Heart
+  Heart,
+  BarChart2
 } from 'lucide-react'
 import { DEFAULT_ADMIN_PROFILE_IMAGE } from '@/lib/auth'
 
@@ -45,6 +46,7 @@ const DEFAULT_LOGO_URL = 'https://pentecost.ca/wp-content/uploads/2025/03/The-Ch
 
 const navItems = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
+  { name: 'Analytics', href: '/admin/analytics', icon: BarChart2 },
   { name: 'Financial Reports', href: '/admin/financial-report', icon: FileText },
   { name: 'Events', href: '/admin/events', icon: Calendar },
   { name: 'Calendar', href: '/admin/calendar', icon: Calendar },
@@ -55,6 +57,21 @@ const navItems = [
   { name: 'Counselling', href: '/admin/counselling', icon: Heart },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ]
+
+/** Longest-prefix match so /admin alone is Dashboard but /admin/analytics resolves to Analytics. */
+function matchNavItem(pathname: string | null) {
+  if (!pathname || pathname.startsWith('/admin/login')) return undefined
+  const sorted = [...navItems].sort((a, b) => b.href.length - a.href.length)
+  for (const item of sorted) {
+    if (item.href === '/admin') {
+      if (pathname === '/admin' || pathname === '/admin/') return item
+      continue
+    }
+    if (pathname === item.href) return item
+    if (pathname.startsWith(item.href + '/')) return item
+  }
+  return undefined
+}
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
   const [isSidebarOpen, setIsSidebarOpen] = useState(true) // Default to open
@@ -183,8 +200,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <nav className="flex-1 overflow-y-auto p-4">
           <ul className="space-y-2">
             {navItems.map((item) => {
-              const isActive = pathname === item.href || 
-                (item.href !== '/admin' && pathname.startsWith(item.href))
+              const activeNav = matchNavItem(pathname)
+              const isActive = activeNav?.href === item.href
               return (
                 <li key={item.name}>
                   <Link
@@ -258,7 +275,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       >
         <header className="bg-white shadow-md px-4 py-3 flex justify-between items-center sticky top-0 z-20">
           <h1 className="text-2xl font-bold text-gray-800">
-            {navItems.find(item => pathname.startsWith(item.href))?.name || 'Admin Panel'}
+            {matchNavItem(pathname)?.name || 'Admin Panel'}
           </h1>
           <div className="flex items-center space-x-4">
               {user && (

@@ -10,7 +10,8 @@ import {
   ArrowUpRight,
   ArrowDownRight,
   Plus,
-  AlertCircle
+  AlertCircle,
+  BarChart2
 } from 'lucide-react'
 
 interface Stats {
@@ -298,6 +299,26 @@ export default function AdminDashboard() {
           )
         })}
       </div>
+
+      <Link
+        href="/admin/analytics"
+        className="mb-8 flex flex-wrap items-center justify-between gap-3 p-4 bg-white rounded-xl shadow-md border border-indigo-100 hover:border-indigo-300 hover:shadow-lg transition duration-300 group"
+      >
+        <div className="flex items-center gap-3 min-w-0">
+          <div className="p-3 bg-indigo-500 rounded-lg shrink-0">
+            <BarChart2 className="h-6 w-6 text-white" aria-hidden />
+          </div>
+          <div className="min-w-0">
+            <p className="font-semibold text-gray-800">Website analytics</p>
+            <p className="text-sm text-gray-600">
+              Page views, daily trend, and top paths on the Analytics tab.
+            </p>
+          </div>
+        </div>
+        <span className="text-indigo-600 font-medium text-sm flex items-center shrink-0 group-hover:text-indigo-800">
+          Open <ArrowUpRight className="h-4 w-4 ml-0.5" />
+        </span>
+      </Link>
 
       {/* Quick Actions */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
