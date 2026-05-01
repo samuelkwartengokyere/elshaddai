@@ -31,6 +31,14 @@ interface BookingData {
 
 let inMemoryBookings: BookingData[] = []
 
+function buildStoredTimeSlot(startTime: string, sessionDuration: number): string {
+  return `${startTime}|${sessionDuration}`;
+}
+
+function extractStartTimeFromStoredSlot(storedTimeSlot: string): string {
+  return storedTimeSlot.split('|')[0] || storedTimeSlot;
+}
+
 function generateBookingId(): string {
   return `booking-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
 }
@@ -177,7 +185,7 @@ export async function POST(request: NextRequest) {
           phone: formData.phone,
           preferred_counsellor: formData.counsellorId,
           booking_date: formData.preferredDate,
-          time_slot: formData.preferredTime,
+          time_slot: buildStoredTimeSlot(formData.preferredTime, formData.sessionDuration),
           issue_type: formData.topic,
           notes: formData.notes || undefined,
           status: 'confirmed'
@@ -492,7 +500,7 @@ export async function DELETE(request: NextRequest) {
               counsellorId: booking.preferred_counsellor || '',
               bookingType: 'online',
               preferredDate: booking.booking_date,
-              preferredTime: booking.time_slot,
+              preferredTime: extractStartTimeFromStoredSlot(booking.time_slot),
               sessionDuration: 60,
               topic: booking.issue_type || '',
               notes: booking.notes || '',

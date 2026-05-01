@@ -16,12 +16,40 @@ export async function GET() {
 
   try {
     const bookings = await counsellingBookingsDb.getAll();
+    const now = new Date();
+
+    // Auto-complete sessions whose end time has passed.
+    const updatedBookings = await Promise.all(
+      bookings.map(async (booking) => {
+        const { startTime, durationMinutes } = parseStoredTimeSlot(booking.time_slot);
+        const sessionEnd = getSessionEndDateTime(booking.booking_date, startTime, durationMinutes);
+        const shouldAutoComplete =
+          sessionEnd !== null &&
+          sessionEnd.getTime() <= now.getTime() &&
+          (booking.status === 'confirmed' || booking.status === 'pending');
+
+        if (shouldAutoComplete) {
+          const completed = await counsellingBookingsDb.update(booking.id, { status: 'completed' });
+          return {
+            ...completed,
+            time_slot: startTime,
+            session_duration: durationMinutes,
+          };
+        }
+
+        return {
+          ...booking,
+          time_slot: startTime,
+          session_duration: durationMinutes,
+        };
+      })
+    );
 
     return NextResponse.json({
       success: true,
       data: {
-        bookings,
-        total: bookings.length
+        bookings: updatedBookings,
+        total: updatedBookings.length
       }
     });
   } catch (error: any) {
@@ -35,6 +63,39 @@ export async function GET() {
       { status: 500 }
     );
   }
+}
+
+function parseStoredTimeSlot(storedTimeSlot: string | undefined): { startTime: string; durationMinutes: number } {
+  if (!storedTimeSlot) {
+    return { startTime: '', durationMinutes: 60 };
+  }
+
+  const [startTime, durationRaw] = storedTimeSlot.split('|');
+  const parsedDuration = Number.parseInt(durationRaw || '', 10);
+
+  return {
+    startTime,
+    durationMinutes: Number.isFinite(parsedDuration) && parsedDuration > 0 ? parsedDuration : 60,
+  };
+}
+
+function getSessionEndDateTime(bookingDate: string | undefined, startTime: string, durationMinutes: number): Date | null {
+  if (!bookingDate || !startTime || !/^\d{2}:\d{2}$/.test(startTime)) {
+    return null;
+  }
+
+  const [hours, minutes] = startTime.split(':').map((value) => Number.parseInt(value, 10));
+  if (!Number.isFinite(hours) || !Number.isFinite(minutes)) {
+    return null;
+  }
+
+  const startDateTime = new Date(`${bookingDate}T${startTime}:00`);
+  if (Number.isNaN(startDateTime.getTime())) {
+    return null;
+  }
+
+  startDateTime.setMinutes(startDateTime.getMinutes() + durationMinutes);
+  return startDateTime;
 }
 
 // Admin-facing API for updating booking status

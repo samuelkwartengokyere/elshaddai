@@ -7,6 +7,10 @@ import { BookingFormData, generateBookingNumber, TimeSlot, CounsellingBooking } 
 
 // Main Counselling API Route - Handles fetching data and creating bookings
 
+function buildStoredTimeSlot(startTime: string, sessionDuration: number): string {
+  return `${startTime}|${sessionDuration}`;
+}
+
 // GET - Fetch available counsellors and time slots
 export async function GET(request: NextRequest) {
   try {
@@ -140,7 +144,7 @@ export async function POST(request: NextRequest) {
           phone: formData.phone,
           preferred_counsellor: formData.counsellorId,
           booking_date: formData.preferredDate,
-          time_slot: formData.preferredTime,
+          time_slot: buildStoredTimeSlot(formData.preferredTime, formData.sessionDuration),
           issue_type: formData.topic,
           notes: formData.notes || undefined,
           status: 'confirmed'

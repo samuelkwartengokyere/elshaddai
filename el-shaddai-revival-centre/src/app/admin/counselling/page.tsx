@@ -1321,6 +1321,8 @@ export default function CounsellingAdminPage() {
                         <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                           booking.status === 'confirmed'
                             ? 'bg-green-100 text-green-800'
+                            : booking.status === 'completed'
+                            ? 'bg-blue-100 text-blue-800'
                             : booking.status === 'cancelled'
                             ? 'bg-red-100 text-red-800'
                             : 'bg-yellow-100 text-yellow-800'
@@ -1330,7 +1332,7 @@ export default function CounsellingAdminPage() {
                       </td>
                       <td className="px-6 py-4 whitespace-nowrap text-sm">
                         <div className="flex items-center gap-2">
-                          {booking.status !== 'confirmed' && (
+                          {booking.status !== 'confirmed' && booking.status !== 'completed' && booking.status !== 'cancelled' && (
                             <button
                               onClick={() => handleUpdateBookingStatus(booking.id, 'confirmed')}
                               disabled={updatingBookingId === booking.id}
@@ -1339,7 +1341,7 @@ export default function CounsellingAdminPage() {
                               {updatingBookingId === booking.id ? 'Updating...' : 'Confirm'}
                             </button>
                           )}
-                          {booking.status !== 'cancelled' && (
+                          {booking.status !== 'cancelled' && booking.status !== 'completed' && (
                             <button
                               onClick={() => handleUpdateBookingStatus(booking.id, 'cancelled')}
                               disabled={updatingBookingId === booking.id}
