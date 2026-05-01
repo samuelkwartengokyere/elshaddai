@@ -53,6 +53,18 @@ interface Availability {
   endTime: string;
 }
 
+interface CounsellingBookingRecord {
+  id: string;
+  name: string;
+  email: string;
+  phone: string;
+  booking_date: string;
+  time_slot: string;
+  issue_type?: string;
+  status: string;
+  created_at: string;
+}
+
 const DAYS_OF_WEEK = [
   { value: 0, label: 'Sunday' },
   { value: 1, label: 'Monday' },
@@ -98,12 +110,14 @@ export default function CounsellingAdminPage() {
   const [showAll, setShowAll] = useState(false);
   
   // Slots tab state
-  const [activeTab, setActiveTab] = useState<'counsellors' | 'slots'>('counsellors');
+  const [activeTab, setActiveTab] = useState<'counsellors' | 'slots' | 'bookings'>('counsellors');
   const [slots, setSlots] = useState<CounsellingSlot[]>([]);
   const [loadingSlots, setLoadingSlots] = useState(false);
   const [slotForm, setSlotForm] = useState<UpsertSlotData>({ date: '', max_slots: 10 });
   const [bulkDates, setBulkDates] = useState<string[]>([]);
   const [bulkMaxSlots, setBulkMaxSlots] = useState(10);
+  const [bookings, setBookings] = useState<CounsellingBookingRecord[]>([]);
+  const [loadingBookings, setLoadingBookings] = useState(false);
 
   const calculateOverallStats = (slotList: CounsellingSlot[]) => {
     const totalDays = slotList.length;
@@ -321,7 +335,28 @@ export default function CounsellingAdminPage() {
     if (activeTab === 'slots') {
       fetchSlots();
     }
+    if (activeTab === 'bookings') {
+      fetchBookings();
+    }
   }, [activeTab]);
+
+  const fetchBookings = async () => {
+    setLoadingBookings(true);
+    try {
+      const response = await fetch('/api/counselling-bookings');
+      const data = await response.json();
+      if (data.success) {
+        setBookings(data.data.bookings || []);
+      } else {
+        setError(data.error || 'Failed to load bookings');
+      }
+    } catch (fetchError) {
+      console.error('Error fetching counselling bookings:', fetchError);
+      setError('Failed to load bookings');
+    } finally {
+      setLoadingBookings(false);
+    }
+  };
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault();
@@ -537,6 +572,16 @@ export default function CounsellingAdminPage() {
           }`}
         >
           Daily Slots
+        </button>
+        <button
+          onClick={() => setActiveTab('bookings')}
+          className={`ml-8 pb-4 px-1 border-b-2 font-medium ${
+            activeTab === 'bookings'
+              ? 'border-[#C8102E] text-[#C8102E]'
+              : 'border-transparent text-gray-500 hover:text-gray-700'
+          }`}
+        >
+          Bookings
         </button>
       </div>
 
@@ -1121,6 +1166,102 @@ export default function CounsellingAdminPage() {
                         >
                           Edit
                         </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Bookings Tab */}
+      {activeTab === 'bookings' && (
+        <div>
+          <div className="mb-6 grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="bg-white p-4 rounded-lg shadow">
+              <p className="text-gray-600 text-sm">Total Bookings</p>
+              <p className="text-2xl font-bold text-gray-900">{bookings.length}</p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <p className="text-gray-600 text-sm">Pending</p>
+              <p className="text-2xl font-bold text-yellow-600">
+                {bookings.filter(booking => booking.status === 'pending').length}
+              </p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <p className="text-gray-600 text-sm">Confirmed</p>
+              <p className="text-2xl font-bold text-green-600">
+                {bookings.filter(booking => booking.status === 'confirmed').length}
+              </p>
+            </div>
+            <div className="bg-white p-4 rounded-lg shadow">
+              <p className="text-gray-600 text-sm">Cancelled</p>
+              <p className="text-2xl font-bold text-red-600">
+                {bookings.filter(booking => booking.status === 'cancelled').length}
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-white p-4 rounded-lg shadow mb-4 flex justify-between items-center">
+            <h3 className="text-lg font-semibold text-gray-900">Counselling Bookings</h3>
+            <button
+              onClick={fetchBookings}
+              disabled={loadingBookings}
+              className="flex items-center gap-2 px-4 py-2 bg-gray-700 text-white rounded-lg hover:bg-gray-800 disabled:bg-gray-400"
+            >
+              {loadingBookings ? <Loader2 className="h-4 w-4 animate-spin" /> : <RefreshCw className="h-4 w-4" />}
+              Refresh
+            </button>
+          </div>
+
+          {loadingBookings ? (
+            <div className="flex items-center justify-center py-12 bg-white rounded-lg shadow">
+              <Loader2 className="animate-spin h-8 w-8 text-gray-400 mr-2" />
+              <span>Loading bookings...</span>
+            </div>
+          ) : bookings.length === 0 ? (
+            <div className="text-center py-12 bg-white rounded-lg shadow">
+              <Users className="mx-auto h-16 w-16 text-gray-300 mb-4" />
+              <h3 className="text-lg font-semibold text-gray-900 mb-2">No bookings yet</h3>
+              <p className="text-gray-500">Bookings will appear here once people book counselling sessions.</p>
+            </div>
+          ) : (
+            <div className="bg-white rounded-lg shadow overflow-hidden">
+              <table className="min-w-full divide-y divide-gray-200">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Name</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Contact</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Issue</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                  </tr>
+                </thead>
+                <tbody className="bg-white divide-y divide-gray-200">
+                  {bookings.map(booking => (
+                    <tr key={booking.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 text-sm text-gray-900 font-medium">{booking.name}</td>
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        <div>{booking.email}</div>
+                        <div className="text-xs text-gray-500">{booking.phone}</div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">
+                        <div>{new Date(booking.booking_date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</div>
+                        <div className="text-xs text-gray-500">{booking.time_slot}</div>
+                      </td>
+                      <td className="px-6 py-4 text-sm text-gray-700">{booking.issue_type || 'N/A'}</td>
+                      <td className="px-6 py-4">
+                        <span className={`px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
+                          booking.status === 'confirmed'
+                            ? 'bg-green-100 text-green-800'
+                            : booking.status === 'cancelled'
+                            ? 'bg-red-100 text-red-800'
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {booking.status}
+                        </span>
                       </td>
                     </tr>
                   ))}
