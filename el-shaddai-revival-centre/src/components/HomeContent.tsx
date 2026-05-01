@@ -3,24 +3,7 @@
 import Link from 'next/link'
 import { motion, Variants } from 'framer-motion'
 import { Calendar, Users, Heart, HeartHandshake, Quote } from 'lucide-react'
-import SermonCard from '@/components/SermonCard'
 import TestimonyCard from '@/components/TestimonyCard'
-
-interface Sermon {
-  _id?: string
-  id?: string
-  title: string
-  speaker: string
-  date: string
-  description?: string
-  thumbnail?: string
-  audioUrl?: string
-  videoUrl?: string
-  duration?: string
-  series?: string
-  biblePassage?: string
-  tags?: string[]
-}
 
 interface Event {
   title: string
@@ -78,52 +61,13 @@ const cardVariants: Variants = {
 }
 
 interface HomeContentProps {
-  sermons: Sermon[]
   events: Event[]
   testimonies: Testimony[]
 }
 
-export default function HomeContent({ sermons, events, testimonies }: HomeContentProps) {
+export default function HomeContent({ events, testimonies }: HomeContentProps) {
   return (
     <>
-      {/* Recent Sermons */}
-      <section className="py-16 bg-white">
-        <div className="container mx-auto px-4">
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true, amount: 0.3 }}
-            transition={{ duration: 0.6 }}
-            className="flex justify-between items-center mb-10"
-          >
-            <div>
-              <h2 className="text-4xl font-bold mb-2">Recent Sermons</h2>
-              <p className="text-gray-600">Messages to inspire and guide you</p>
-            </div>
-            <Link 
-              href="/sermons" 
-              className="text-accent hover:text-red-600 font-medium flex items-center"
-            >
-              View All Sermons →
-            </Link>
-          </motion.div>
-          
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.2 }}
-            className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-8"
-          >
-            {sermons.map((sermon, index) => (
-              <motion.div key={sermon._id || sermon.id || index} variants={cardVariants}>
-                <SermonCard sermon={sermon} />
-              </motion.div>
-            ))}
-          </motion.div>
-        </div>
-      </section>
-
       {/* Testimonies Section */}
       <section className="py-16 bg-gradient-to-br from-primary to-secondary text-white">
         <div className="container mx-auto px-4">
