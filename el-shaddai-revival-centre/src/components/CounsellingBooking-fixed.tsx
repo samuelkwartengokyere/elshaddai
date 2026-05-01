@@ -117,13 +117,35 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
     }
   }, [selectedCounsellor]);
 
+  // Keep slot availability in sync with admin updates.
+  // This provides near real-time reflection on the public page.
+  useEffect(() => {
+    if (!selectedCounsellor) return;
+
+    const interval = setInterval(() => {
+      fetchTimeSlots();
+    }, 10000);
+
+    const onWindowFocus = () => {
+      fetchTimeSlots();
+    };
+
+    window.addEventListener('focus', onWindowFocus);
+
+    return () => {
+      clearInterval(interval);
+      window.removeEventListener('focus', onWindowFocus);
+    };
+  }, [selectedCounsellor, formData.bookingType]);
+
   const fetchTimeSlots = async () => {
     if (!selectedCounsellor) return;
 
     setLoadingSlots(true);
     try {
       const response = await fetch(
-        `/api/counselling?counsellorId=${selectedCounsellor.id}&bookingType=${formData.bookingType}`
+        `/api/counselling?counsellorId=${selectedCounsellor.id}&bookingType=${formData.bookingType}&_ts=${Date.now()}`,
+        { cache: 'no-store' }
       );
       
       if (!response.ok) {
