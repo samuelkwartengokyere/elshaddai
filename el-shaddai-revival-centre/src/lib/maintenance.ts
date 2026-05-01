@@ -11,6 +11,23 @@ if (globalForMaintenance.maintenanceMode === undefined) {
   globalForMaintenance.maintenanceMessage = ''
 }
 
+/** Read persisted flags safely ( avoids Boolean("false") === true ). */
+export function parseMaintenanceEnabled(raw: unknown): boolean {
+  if (raw === true) return true
+  if (raw === false || raw === undefined || raw === null) return false
+  if (typeof raw === 'string') {
+    const s = raw.trim().toLowerCase()
+    if (s === 'true' || s === '1' || s === 'yes') return true
+    return false
+  }
+  if (typeof raw === 'number' && Number.isFinite(raw)) return raw === 1
+  return false
+}
+
+export function parseMaintenanceMessage(raw: unknown): string {
+  return typeof raw === 'string' ? raw : ''
+}
+
 export function getMaintenanceMode(): { enabled: boolean; message: string } {
   return {
     enabled: globalForMaintenance.maintenanceMode,

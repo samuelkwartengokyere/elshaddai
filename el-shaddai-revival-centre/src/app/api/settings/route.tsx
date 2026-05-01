@@ -8,7 +8,7 @@ import {
   setLastCacheUpdate
 } from '@/lib/youtubeStorage'
 import { fetchChannelDetails, fetchAllChannelVideos, youTubeVideoToSermon, extractChannelId, getChannelIdFromUsername, fetchChannelPlaylists, findSermonsPlaylist } from '@/lib/youtube'
-import { getMaintenanceMode, setMaintenanceMode } from '@/lib/maintenance'
+import { getMaintenanceMode, parseMaintenanceEnabled, parseMaintenanceMessage, setMaintenanceMode } from '@/lib/maintenance'
 
 // Auto-sync YouTube videos function
 async function syncYouTubeVideos(channelId: string, channelUrl: string, apiKey: string, playlistId: string = ''): Promise<{ success: boolean; videosCount: number; error?: string }> {
@@ -176,23 +176,26 @@ function setInMemorySettings(settings: Partial<{ churchName: string; churchTagli
 
 export async function GET() {
   try {
-    // Get maintenance mode from shared module
     const maintenanceState = getMaintenanceMode()
     
-    // Try Supabase first, fall back to in-memory
     const supabaseConfigured = isDbConfigured()
     
     if (supabaseConfigured) {
       try {
         const dbSettings = await settingsDb.get('site_settings')
         if (dbSettings && dbSettings.value) {
+          const value = dbSettings.value as Record<string, unknown>
+          const maintenanceMode = parseMaintenanceEnabled(value.maintenanceMode)
+          const maintenanceMessage = parseMaintenanceMessage(value.maintenanceMessage)
+          setMaintenanceMode(maintenanceMode, maintenanceMessage)
+
           return NextResponse.json({
             success: true,
             settings: {
               ...dbSettings.value,
               youtube: getInMemoryYouTubeSettings(),
-              maintenanceMode: maintenanceState.enabled,
-              maintenanceMessage: maintenanceState.message
+              maintenanceMode,
+              maintenanceMessage
             },
             isInMemoryMode: false,
             isSupabaseMode: true
@@ -253,7 +256,7 @@ export async function POST(request: NextRequest) {
           siteSettings.logoUrl = logoUrl || defaultSettings.logoUrl
         }
         if (maintenanceMode !== undefined) {
-          siteSettings.maintenanceMode = Boolean(maintenanceMode)
+          siteSettings.maintenanceMode = parseMaintenanceEnabled(maintenanceMode)
         }
         if (maintenanceMessage !== undefined) {
           siteSettings.maintenanceMessage = maintenanceMessage || ''
@@ -285,7 +288,7 @@ export async function POST(request: NextRequest) {
     
     // Update maintenance mode settings (keep in sync)
     if (maintenanceMode !== undefined) {
-      setInMemorySettings({ maintenanceMode: maintenanceMode })
+      setInMemorySettings({ maintenanceMode: parseMaintenanceEnabled(maintenanceMode) })
     }
     if (maintenanceMessage !== undefined) {
       setInMemorySettings({ maintenanceMessage: maintenanceMessage })

@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import type { NextRequest } from 'next/server'
-import { jwtVerify, createRemoteJWKSet } from 'jose'
-import { getMaintenanceMode } from '@/lib/maintenance'
+import { jwtVerify } from 'jose'
+import { parseMaintenanceEnabled, parseMaintenanceMessage } from '@/lib/maintenance'
 
 // Define protected and public routes
 const protectedRoutes = ['/admin', '/financial-report']
@@ -75,9 +75,64 @@ function getTokenFromCookies(request: NextRequest): string | null {
   }
 }
 
-async function getPersistentMaintenanceMode(request: NextRequest): Promise<MaintenanceState> {
+async function fetchMaintenanceViaSupabaseRest(): Promise<MaintenanceState | undefined> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL?.replace(/\/$/, '')
+  const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+  const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
+  const key = serviceKey || anonKey
+  if (!supabaseUrl || !key) {
+    return undefined
+  }
+
   try {
-    const response = await fetch(`${request.nextUrl.origin}/api/maintenance-status`, {
+    const res = await fetch(
+      `${supabaseUrl}/rest/v1/settings?key=eq.site_settings&select=value&limit=1`,
+      {
+        headers: {
+          apikey: key,
+          Authorization: `Bearer ${key}`,
+          Accept: 'application/json'
+        },
+        cache: 'no-store'
+      }
+    )
+
+    if (!res.ok) {
+      console.error('[Maintenance Mode] Supabase REST:', res.status, await res.text().catch(() => ''))
+      return undefined
+    }
+
+    const rows = (await res.json()) as { value?: unknown }[]
+    if (!Array.isArray(rows) || rows.length === 0) {
+      return { enabled: false, message: '' }
+    }
+
+    const raw = rows[0]?.value
+    if (raw == null || typeof raw !== 'object' || Array.isArray(raw)) {
+      return { enabled: false, message: '' }
+    }
+
+    const v = raw as Record<string, unknown>
+    return {
+      enabled: parseMaintenanceEnabled(v.maintenanceMode),
+      message: parseMaintenanceMessage(v.maintenanceMessage)
+    }
+  } catch (error) {
+    console.error('[Maintenance Mode] Supabase REST fetch failed:', error)
+    return undefined
+  }
+}
+
+async function getPersistentMaintenanceMode(request: NextRequest): Promise<MaintenanceState> {
+  const fromRest = await fetchMaintenanceViaSupabaseRest()
+  if (fromRest !== undefined) {
+    return fromRest
+  }
+
+  try {
+    const url = new URL('/api/maintenance-status', request.nextUrl.origin)
+    url.searchParams.set('_ts', `${Date.now()}`)
+    const response = await fetch(url.toString(), {
       headers: {
         'x-internal-maintenance-check': '1'
       },
@@ -85,18 +140,17 @@ async function getPersistentMaintenanceMode(request: NextRequest): Promise<Maint
     })
 
     if (!response.ok) {
-      return getMaintenanceMode()
+      return { enabled: false, message: '' }
     }
 
-    const data = await response.json() as { maintenanceMode?: boolean; maintenanceMessage?: string }
-
+    const data = (await response.json()) as { maintenanceMode?: unknown; maintenanceMessage?: unknown }
     return {
-      enabled: Boolean(data?.maintenanceMode),
-      message: data?.maintenanceMessage || ''
+      enabled: parseMaintenanceEnabled(data?.maintenanceMode),
+      message: parseMaintenanceMessage(data?.maintenanceMessage)
     }
   } catch (error) {
-    console.error('[Maintenance Mode] Failed to read persistent settings:', error)
-    return getMaintenanceMode()
+    console.error('[Maintenance Mode] Failed maintenance-status fallback:', error)
+    return { enabled: false, message: '' }
   }
 }
 
@@ -118,6 +172,7 @@ export async function middleware(request: NextRequest) {
   // Determine route types
   const isLoginPage = pathname === '/admin/login'
   const isAdminApiRoute = pathname.startsWith('/admin/api')
+  const isApiRoute = pathname.startsWith('/api')
   const isPublicApiRoute = publicRoutes.some(route => pathname.startsWith(route))
 const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route)) && !isPublicApiRoute
   const isMaintenancePage = pathname === '/maintenance'
@@ -131,6 +186,10 @@ const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route
   
   // Debug logging
   console.log(`[Auth Middleware] ${pathname} | Auth: ${isValidToken} | Token: ${token ? 'present' : 'missing'} | Maintenance: ${maintenance.enabled}`)
+
+  if (!maintenance.enabled && pathname === '/maintenance') {
+    return NextResponse.redirect(new URL('/', request.url))
+  }
   
   // === MAINTENANCE MODE CHECK ===
   // If maintenance mode is enabled:
@@ -143,9 +202,9 @@ const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route
       return NextResponse.next()
     }
 
-    // Authenticated admin users should keep access to manage the system,
-    // including non-/admin API routes such as /api/settings.
-    if (isAdminUser) {
+    // Authenticated admin users can access only admin/system routes while
+    // maintenance is active. Public pages should still show maintenance.
+    if (isAdminUser && (isAdminRoute || isApiRoute)) {
       return NextResponse.next()
     }
     
