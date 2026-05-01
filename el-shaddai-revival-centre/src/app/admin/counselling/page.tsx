@@ -155,6 +155,10 @@ export default function CounsellingAdminPage() {
   const hasPendingSlotChanges = !!slotForm.date || bulkDates.length > 0;
   const projectedOverallStats = useMemo(() => calculateOverallStats(projectedSlots), [projectedSlots]);
   const statsToDisplay = hasPendingSlotChanges ? projectedOverallStats : overallStats;
+  const projectedConfiguredDays = useMemo(
+    () => projectedSlots.filter(slot => slot.max_slots > 0),
+    [projectedSlots]
+  );
 
   // Computed stats for single date selection
   const singleDateStats = useMemo(() => {
@@ -200,6 +204,8 @@ export default function CounsellingAdminPage() {
       return;
     }
     try {
+      setError('');
+      setSuccess('');
       setLoadingSlots(true);
       const response = await fetch('/api/counselling-slots', {
         method: 'POST',
@@ -228,6 +234,8 @@ export default function CounsellingAdminPage() {
       return;
     }
     try {
+      setError('');
+      setSuccess('');
       setLoadingSlots(true);
       const updates = bulkDates.map(date => ({
         date,
@@ -293,13 +301,17 @@ export default function CounsellingAdminPage() {
   const fetchSlots = async () => {
     setLoadingSlots(true);
     try {
+      setError('');
       const response = await fetch('/api/counselling-slots?days=30');
       const data = await response.json();
       if (data.success) {
         setSlots(data.data.slots);
+      } else {
+        setError(data.error || 'Failed to load slots');
       }
     } catch (error) {
       console.error('Error fetching slots:', error);
+      setError('Failed to load slots');
     } finally {
       setLoadingSlots(false);
     }
@@ -747,6 +759,21 @@ export default function CounsellingAdminPage() {
       {/* Slots Tab */}
       {activeTab === 'slots' && (
         <div>
+          {(error || success) && (
+            <div className="mb-4 space-y-2">
+              {error && (
+                <div className="p-3 rounded-lg border border-red-200 bg-red-50 text-red-700 text-sm">
+                  {error}
+                </div>
+              )}
+              {success && (
+                <div className="p-3 rounded-lg border border-green-200 bg-green-50 text-green-700 text-sm">
+                  {success}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* Overall Stats */}
           <div className="mb-6">
             <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
@@ -814,39 +841,62 @@ export default function CounsellingAdminPage() {
               </h3>
               <div className="bg-gradient-to-r from-indigo-50 to-blue-50 rounded-lg p-4 border border-indigo-200">
                 {singleDateStats && (
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div className="bg-white p-3 rounded-lg shadow-sm">
-                      <p className="text-xs text-gray-500 uppercase font-medium">Selected Date</p>
-                      <p className="text-lg font-bold text-indigo-700">{new Date(singleDateStats.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {singleDateStats.hasExisting ? 'Existing slot will be updated' : 'New slot will be created'}
-                      </p>
-                    </div>
-
-                    <div className="bg-white p-3 rounded-lg shadow-sm">
-                      <p className="text-xs text-gray-500 uppercase font-medium">Slot Change</p>
-                      <div className="flex items-center gap-2">
-                        <span className="text-lg font-bold text-gray-800">{singleDateStats.currentMax}</span>
-                        {singleDateStats.change >= 0 ? <TrendingUp className="h-4 w-4 text-green-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />}
-                        <span className="text-lg font-bold text-gray-800">{singleDateStats.newMax}</span>
-                      </div>
-                      <p className="text-xs text-gray-400 mt-1">
-                        {singleDateStats.change > 0 ? `+${singleDateStats.change} slots` : singleDateStats.change < 0 ? `${singleDateStats.change} slots` : 'No change'}
-                      </p>
-                    </div>
-
-                    <div className="bg-white p-3 rounded-lg shadow-sm">
-                      <p className="text-xs text-gray-500 uppercase font-medium">After Update</p>
-                      <p className="text-lg font-bold text-gray-800">{singleDateStats.newAvailable} available</p>
-                      {singleDateStats.wouldBeOverbooked ? (
-                        <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
-                          <AlertTriangle className="h-3 w-3" />
-                          Would exceed existing {singleDateStats.existingBookings} bookings
+                  <div className="space-y-4">
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                      <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <p className="text-xs text-gray-500 uppercase font-medium">Selected Date</p>
+                        <p className="text-lg font-bold text-indigo-700">{new Date(singleDateStats.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}</p>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {singleDateStats.hasExisting ? 'Slots will be added to existing day' : 'New day will be appended'}
                         </p>
-                      ) : singleDateStats.existingBookings > 0 ? (
-                        <p className="text-xs text-gray-400 mt-1">{singleDateStats.existingBookings} existing bookings preserved</p>
+                      </div>
+
+                      <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <p className="text-xs text-gray-500 uppercase font-medium">Slot Change</p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-bold text-gray-800">{singleDateStats.currentMax}</span>
+                          {singleDateStats.change >= 0 ? <TrendingUp className="h-4 w-4 text-green-500" /> : <TrendingDown className="h-4 w-4 text-red-500" />}
+                          <span className="text-lg font-bold text-gray-800">{singleDateStats.newMax}</span>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-1">
+                          {singleDateStats.change > 0 ? `+${singleDateStats.change} slots` : singleDateStats.change < 0 ? `${singleDateStats.change} slots` : 'No change'}
+                        </p>
+                      </div>
+
+                      <div className="bg-white p-3 rounded-lg shadow-sm">
+                        <p className="text-xs text-gray-500 uppercase font-medium">After Update</p>
+                        <p className="text-lg font-bold text-gray-800">{singleDateStats.newAvailable} available</p>
+                        {singleDateStats.wouldBeOverbooked ? (
+                          <p className="text-xs text-red-500 mt-1 flex items-center gap-1">
+                            <AlertTriangle className="h-3 w-3" />
+                            Would exceed existing {singleDateStats.existingBookings} bookings
+                          </p>
+                        ) : singleDateStats.existingBookings > 0 ? (
+                          <p className="text-xs text-gray-400 mt-1">{singleDateStats.existingBookings} existing bookings preserved</p>
+                        ) : (
+                          <p className="text-xs text-gray-400 mt-1">No existing bookings</p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="bg-white p-3 rounded-lg shadow-sm">
+                      <div className="flex items-center justify-between mb-2">
+                        <p className="text-xs text-gray-500 uppercase font-medium">Configured Days (After This Change)</p>
+                        <p className="text-xs text-indigo-600 font-semibold">{projectedOverallStats.totalCapacity} total slots</p>
+                      </div>
+                      {projectedConfiguredDays.length > 0 ? (
+                        <div className="max-h-44 overflow-y-auto divide-y divide-gray-100">
+                          {projectedConfiguredDays.map(slot => (
+                            <div key={slot.date} className="py-2 flex items-center justify-between text-sm">
+                              <span className="text-gray-700">
+                                {new Date(slot.date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' })}
+                              </span>
+                              <span className="font-semibold text-gray-900">{slot.max_slots} slots</span>
+                            </div>
+                          ))}
+                        </div>
                       ) : (
-                        <p className="text-xs text-gray-400 mt-1">No existing bookings</p>
+                        <p className="text-xs text-gray-400">No configured days yet.</p>
                       )}
                     </div>
                   </div>

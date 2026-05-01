@@ -798,31 +798,25 @@ export const counsellingSlotsDb = {
       throw new Error('Supabase admin client not available - service role key may be missing')
     }
 
-    // Resolve by exact date so one day's update never overrides another day's record.
-    const { data: existingSlot, error: existingError } = await supabaseAdmin
+    // Persist by date with a single upsert so new/existing dates are both stored reliably.
+    const { data: upsertedSlot, error: upsertError } = await supabaseAdmin
       .from('counselling_slots')
+      .upsert(
+        {
+          date,
+          max_slots,
+          updated_at: new Date().toISOString()
+        },
+        { onConflict: 'date' }
+      )
       .select('*')
-      .eq('date', date)
-      .limit(1)
-      .maybeSingle()
+      .single()
 
-    if (existingError) {
-      throw existingError
+    if (upsertError) {
+      throw upsertError
     }
 
-    if (!existingSlot) {
-      return insert<DbCounsellingSlot>('counselling_slots', {
-        date,
-        max_slots,
-        booked_slots: 0,
-        created_at: new Date().toISOString(),
-        updated_at: new Date().toISOString()
-      })
-    }
-
-    return update<DbCounsellingSlot>('counselling_slots', existingSlot.id, {
-      max_slots
-    })
+    return upsertedSlot as DbCounsellingSlot
   },
 
   async addSlots(date: string, additional_slots: number): Promise<DbCounsellingSlot> {
