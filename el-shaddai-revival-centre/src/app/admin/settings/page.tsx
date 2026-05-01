@@ -64,6 +64,12 @@ interface CurrentUser {
   profileImage?: string
 }
 
+interface MaintenanceStatusResponse {
+  success?: boolean
+  maintenanceMode?: boolean
+  maintenanceMessage?: string
+}
+
 const defaultSettings: Settings = {
   churchName: 'El-Shaddai Revival Centre',
   churchTagline: 'The Church Of Pentecost',
@@ -128,6 +134,8 @@ export default function AdminSettings() {
   const [maintenanceMode, setMaintenanceMode] = useState(false)
   const [maintenanceMessage, setMaintenanceMessage] = useState('')
   const [maintenanceSaving, setMaintenanceSaving] = useState(false)
+  const [maintenanceStatus, setMaintenanceStatus] = useState<'LIVE' | 'MAINTENANCE'>('LIVE')
+  const [maintenanceStatusLoading, setMaintenanceStatusLoading] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => { fetchSettings(); fetchCurrentUser() }, [])
@@ -367,11 +375,32 @@ export default function AdminSettings() {
       const data = await response.json()
       if (data.success) {
         setMessage({ type: 'success', text: maintenanceMode ? 'Maintenance mode enabled!' : 'Maintenance mode disabled!' })
+        await fetchMaintenanceStatus()
         fetchSettings()
       } else { setMessage({ type: 'error', text: data.error || 'Failed to update maintenance settings' }) }
     } catch (error) { console.error('Error saving maintenance settings:', error); setMessage({ type: 'error', text: 'Failed to update maintenance settings' }) }
     finally { setMaintenanceSaving(false) }
   }
+
+  const fetchMaintenanceStatus = async () => {
+    setMaintenanceStatusLoading(true)
+    try {
+      const response = await fetch('/api/maintenance-status', { cache: 'no-store' })
+      const data = await response.json() as MaintenanceStatusResponse
+      setMaintenanceStatus(data.maintenanceMode ? 'MAINTENANCE' : 'LIVE')
+    } catch (error) {
+      console.error('Error fetching maintenance status:', error)
+      // Keep the current badge value on transient failures.
+    } finally {
+      setMaintenanceStatusLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (activeTab === 'maintenance') {
+      fetchMaintenanceStatus()
+    }
+  }, [activeTab])
 
   if (loading) {
     return (
@@ -689,7 +718,22 @@ export default function AdminSettings() {
 
         {activeTab === 'maintenance' && (
           <div className="bg-white rounded-xl shadow-md p-6">
-            <div className="flex items-center mb-6"><Wrench className="h-6 w-6 text-accent mr-3" /><h2 className="text-xl font-bold text-gray-800">Maintenance Mode</h2></div>
+            <div className="flex items-center justify-between mb-6">
+              <div className="flex items-center">
+                <Wrench className="h-6 w-6 text-accent mr-3" />
+                <h2 className="text-xl font-bold text-gray-800">Maintenance Mode</h2>
+              </div>
+              <div className="flex items-center gap-2">
+                <span className="text-sm text-gray-600">Public site:</span>
+                <span className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold ${
+                  maintenanceStatus === 'MAINTENANCE'
+                    ? 'bg-red-100 text-red-700 border border-red-200'
+                    : 'bg-green-100 text-green-700 border border-green-200'
+                }`}>
+                  {maintenanceStatusLoading ? 'Checking...' : maintenanceStatus}
+                </span>
+              </div>
+            </div>
             <div className="mb-6">
               <label className="flex items-center">
                 <input type="checkbox" checked={maintenanceMode} onChange={(e) => setMaintenanceMode(e.target.checked)} className="h-4 w-4 mr-2" />

@@ -75,37 +75,24 @@ function getTokenFromCookies(request: NextRequest): string | null {
   }
 }
 
-async function getPersistentMaintenanceMode(): Promise<MaintenanceState> {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    return getMaintenanceMode()
-  }
-
+async function getPersistentMaintenanceMode(request: NextRequest): Promise<MaintenanceState> {
   try {
-    const response = await fetch(
-      `${supabaseUrl}/rest/v1/settings?key=eq.site_settings&select=value&limit=1`,
-      {
-        headers: {
-          apikey: serviceRoleKey,
-          Authorization: `Bearer ${serviceRoleKey}`,
-          Accept: 'application/json'
-        },
-        cache: 'no-store'
-      }
-    )
+    const response = await fetch(`${request.nextUrl.origin}/api/maintenance-status`, {
+      headers: {
+        'x-internal-maintenance-check': '1'
+      },
+      cache: 'no-store'
+    })
 
     if (!response.ok) {
       return getMaintenanceMode()
     }
 
-    const data = await response.json() as Array<{ value?: { maintenanceMode?: boolean; maintenanceMessage?: string } }>
-    const value = data?.[0]?.value
+    const data = await response.json() as { maintenanceMode?: boolean; maintenanceMessage?: string }
 
     return {
-      enabled: Boolean(value?.maintenanceMode),
-      message: value?.maintenanceMessage || ''
+      enabled: Boolean(data?.maintenanceMode),
+      message: data?.maintenanceMessage || ''
     }
   } catch (error) {
     console.error('[Maintenance Mode] Failed to read persistent settings:', error)
@@ -115,6 +102,11 @@ async function getPersistentMaintenanceMode(): Promise<MaintenanceState> {
 
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
+
+  // Allow internal status checks without auth/maintenance redirects to avoid recursion.
+  if (request.headers.get('x-internal-maintenance-check') === '1' || pathname === '/api/maintenance-status') {
+    return NextResponse.next()
+  }
   
   // Get auth token from cookies - using header parsing for reliability
   const token = getTokenFromCookies(request)
@@ -135,7 +127,7 @@ const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route
   const isAdminUser = isValidToken && (decoded?.role === 'super_admin' || decoded?.role === 'admin' || decoded?.role === 'editor')
   
   // Check maintenance mode
-  const maintenance = await getPersistentMaintenanceMode()
+  const maintenance = await getPersistentMaintenanceMode(request)
   
   // Debug logging
   console.log(`[Auth Middleware] ${pathname} | Auth: ${isValidToken} | Token: ${token ? 'present' : 'missing'} | Maintenance: ${maintenance.enabled}`)
