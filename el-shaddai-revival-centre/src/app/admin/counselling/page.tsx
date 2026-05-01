@@ -118,6 +118,7 @@ export default function CounsellingAdminPage() {
   const [bulkMaxSlots, setBulkMaxSlots] = useState(10);
   const [bookings, setBookings] = useState<CounsellingBookingRecord[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(false);
+  const [updatingBookingId, setUpdatingBookingId] = useState<string | null>(null);
 
   const calculateOverallStats = (slotList: CounsellingSlot[]) => {
     const totalDays = slotList.length;
@@ -355,6 +356,33 @@ export default function CounsellingAdminPage() {
       setError('Failed to load bookings');
     } finally {
       setLoadingBookings(false);
+    }
+  };
+
+  const handleUpdateBookingStatus = async (bookingId: string, status: 'confirmed' | 'cancelled' | 'pending' | 'completed') => {
+    try {
+      setUpdatingBookingId(bookingId);
+      setError('');
+      setSuccess('');
+
+      const response = await fetch('/api/counselling-bookings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ id: bookingId, status })
+      });
+
+      const data = await response.json();
+      if (data.success) {
+        setSuccess(`Booking ${status} successfully`);
+        await fetchBookings();
+      } else {
+        setError(data.error || 'Failed to update booking status');
+      }
+    } catch (statusError) {
+      console.error('Error updating booking status:', statusError);
+      setError('Failed to update booking status');
+    } finally {
+      setUpdatingBookingId(null);
     }
   };
 
@@ -1237,6 +1265,7 @@ export default function CounsellingAdminPage() {
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date & Time</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Issue</th>
                     <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
                   </tr>
                 </thead>
                 <tbody className="bg-white divide-y divide-gray-200">
@@ -1262,6 +1291,28 @@ export default function CounsellingAdminPage() {
                         }`}>
                           {booking.status}
                         </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <div className="flex items-center gap-2">
+                          {booking.status !== 'confirmed' && (
+                            <button
+                              onClick={() => handleUpdateBookingStatus(booking.id, 'confirmed')}
+                              disabled={updatingBookingId === booking.id}
+                              className="px-3 py-1 rounded-md bg-green-600 text-white hover:bg-green-700 disabled:bg-gray-400"
+                            >
+                              {updatingBookingId === booking.id ? 'Updating...' : 'Confirm'}
+                            </button>
+                          )}
+                          {booking.status !== 'cancelled' && (
+                            <button
+                              onClick={() => handleUpdateBookingStatus(booking.id, 'cancelled')}
+                              disabled={updatingBookingId === booking.id}
+                              className="px-3 py-1 rounded-md bg-red-600 text-white hover:bg-red-700 disabled:bg-gray-400"
+                            >
+                              {updatingBookingId === booking.id ? 'Updating...' : 'Cancel'}
+                            </button>
+                          )}
+                        </div>
                       </td>
                     </tr>
                   ))}
