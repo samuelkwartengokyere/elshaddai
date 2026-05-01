@@ -19,7 +19,9 @@ import {
   Youtube,
   Wrench,
   RefreshCw,
-  Clock
+  Clock,
+  Eye,
+  EyeOff
 } from 'lucide-react'
 import { DEFAULT_ADMIN_PROFILE_IMAGE } from '@/lib/auth'
 
@@ -119,6 +121,7 @@ export default function AdminSettings() {
   const [adminForm, setAdminForm] = useState({
     name: '', email: '', password: '', role: 'admin' as 'super_admin' | 'admin' | 'editor', isActive: true
   })
+  const [showAdminPassword, setShowAdminPassword] = useState(false)
   const [modalLoading, setModalLoading] = useState(false)
   const [modalError, setModalError] = useState('')
   const [deletingAdminId, setDeletingAdminId] = useState<string | null>(null)
@@ -324,8 +327,8 @@ export default function AdminSettings() {
     finally { setUploadingImage(false) }
   }
 
-  const openAddAdminModal = () => { setEditingAdmin(null); setAdminForm({ name: '', email: '', password: '', role: 'admin', isActive: true }); setModalError(''); setShowAdminModal(true) }
-  const openEditAdminModal = (admin: AdminUser) => { setEditingAdmin(admin); setAdminForm({ name: admin.name, email: admin.email, password: '', role: admin.role, isActive: admin.isActive }); setModalError(''); setShowAdminModal(true) }
+  const openAddAdminModal = () => { setEditingAdmin(null); setAdminForm({ name: '', email: '', password: '', role: 'admin', isActive: true }); setShowAdminPassword(false); setModalError(''); setShowAdminModal(true) }
+  const openEditAdminModal = (admin: AdminUser) => { setEditingAdmin(admin); setAdminForm({ name: admin.name, email: admin.email, password: '', role: admin.role, isActive: admin.isActive }); setShowAdminPassword(false); setModalError(''); setShowAdminModal(true) }
 
   const handleDeleteAdmin = async (adminId: string) => {
     if (!confirm('Are you sure you want to delete this admin user?')) return
@@ -720,7 +723,7 @@ export default function AdminSettings() {
             <div className="space-y-4">
               <div><label className="block text-sm mb-1">Name</label><input type="text" value={adminForm.name} onChange={(e) => setAdminForm({ ...adminForm, name: e.target.value })} className="w-full px-4 py-2 border rounded-lg" /></div>
               <div><label className="block text-sm mb-1">Email</label><input type="email" value={adminForm.email} onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })} disabled={!!editingAdmin} className="w-full px-4 py-2 border rounded-lg" /></div>
-              {!editingAdmin && <div><label className="block text-sm mb-1">Password</label><input type={adminForm.password ? 'text' : 'password'} value={adminForm.password} onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })} className="w-full px-4 py-2 border rounded-lg" /></div>}
+              {!editingAdmin && <div><label className="block text-sm mb-1">Password</label><div className="relative"><input type={showAdminPassword ? 'text' : 'password'} value={adminForm.password} onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })} className="w-full px-4 py-2 pr-10 border rounded-lg" /><button type="button" onClick={() => setShowAdminPassword((prev) => !prev)} className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700" aria-label={showAdminPassword ? 'Hide password' : 'Show password'}>{showAdminPassword ? <EyeOff className="h-5 w-5" /> : <Eye className="h-5 w-5" />}</button></div></div>}
               <div><label className="block text-sm mb-1">Role</label><select value={adminForm.role} onChange={(e) => setAdminForm({ ...adminForm, role: e.target.value as 'super_admin' | 'admin' | 'editor' })} className="w-full px-4 py-2 border rounded-lg"><option value="admin">Admin</option><option value="editor">Editor</option></select></div>
             </div>
             <div className="mt-6 flex justify-end space-x-3">

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid'
-import { counsellingBookingsDb, isDbConfigured } from '@/lib/db'
+import { counsellingBookingsDb, counsellingSlotsDb, isDbConfigured } from '@/lib/db'
 import { createTeamsMeeting } from '@/lib/teams';
 import { sendBookingConfirmation, sendCounsellorNotification, sendCancellationEmail } from '@/lib/email';
 import { BookingFormData, generateBookingNumber, CounsellingBooking } from '@/types/counselling';
@@ -119,6 +119,17 @@ export async function POST(request: NextRequest) {
     // Try to store in Supabase first
     if (isDbConfigured()) {
       try {
+        // Reserve one slot for the selected date before writing booking.
+        const slot = await counsellingSlotsDb.getByDate(formData.preferredDate);
+        if (!slot || slot.booked_slots >= slot.max_slots) {
+          return NextResponse.json(
+            { success: false, error: `No slots available on ${formData.preferredDate}` },
+            { status: 400 }
+          );
+        }
+
+        await counsellingSlotsDb.incrementBooked(formData.preferredDate);
+
         const dbBooking = await counsellingBookingsDb.create({
           name: `${formData.firstName} ${formData.lastName}`,
           email: formData.email,
@@ -244,6 +255,8 @@ export async function POST(request: NextRequest) {
         });
       } catch (dbError) {
         console.error('[Counselling API] Database error:', dbError)
+        // Roll back slot reservation if booking creation failed after increment.
+        await counsellingSlotsDb.decrementBooked(formData.preferredDate).catch(console.error);
       }
     }
     
@@ -414,9 +427,15 @@ export async function DELETE(request: NextRequest) {
         )
         
         if (booking) {
+          const wasAlreadyCancelled = booking.status === 'cancelled'
+
           await counsellingBookingsDb.update(booking.id, {
             status: 'cancelled'
           })
+
+          if (!wasAlreadyCancelled && booking.booking_date) {
+            await counsellingSlotsDb.decrementBooked(booking.booking_date).catch(console.error);
+          }
           
           // Send cancellation email
           try {
