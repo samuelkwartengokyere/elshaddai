@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase'
 import { sanitizePathForAnalytics } from '@/lib/analytics'
+import { buildAnalyticsVisitMeta } from '@/lib/analytics-request-meta'
 
 export async function POST(request: NextRequest) {
   try {
@@ -29,32 +30,64 @@ export async function POST(request: NextRequest) {
       return new NextResponse(null, { status: 204 })
     }
 
-    const day = new Date().toISOString().slice(0, 10)
+    const meta = buildAnalyticsVisitMeta(request)
 
-    const { error } = await supabase.rpc('increment_analytics_page_view', {
-      p_day: day,
-      p_path: path,
+    const { error: insertError } = await supabase.from('analytics_page_view_events').insert({
+      path,
+      country: meta.country.slice(0, 64),
+      device_type: meta.deviceType.slice(0, 64),
+      os_name: meta.osName.slice(0, 128),
     })
 
-    if (error) {
-      if (
-        error.message?.includes('increment_analytics_page_view') ||
-        error.code === '42883' ||
-        error.message?.includes('schema cache')
-      ) {
-        console.warn(
-          '[analytics/track] RPC or table missing. Run SUPABASE_MIGRATION-ANALYTICS.sql:',
-          error.message
-        )
+    if (!insertError) {
+      const day = new Date().toISOString().slice(0, 10)
+      void supabase.rpc('increment_analytics_page_view', {
+        p_day: day,
+        p_path: path,
+      }).catch(() => {})
+
+      return NextResponse.json({ ok: true }, { status: 200 })
+    }
+
+    const missingRelation =
+      insertError.code === 'PGRST205' ||
+      insertError.code === '42P01' ||
+      insertError.message?.includes('does not exist') ||
+      insertError.message?.includes('schema cache')
+
+    if (missingRelation) {
+      console.warn(
+        '[analytics/track] Events table missing. Run SUPABASE_MIGRATION-ANALYTICS-EVENTS.sql — falling back to daily rollup:',
+        insertError.message
+      )
+      const day = new Date().toISOString().slice(0, 10)
+      const { error: rpcError } = await supabase.rpc('increment_analytics_page_view', {
+        p_day: day,
+        p_path: path,
+      })
+      if (!rpcError) {
+        return NextResponse.json({ ok: true }, { status: 200 })
+      }
+      if (missingRelationRpc(rpcError)) {
+        console.warn('[analytics/track] Legacy daily rollup unavailable:', rpcError.message)
         return new NextResponse(null, { status: 204 })
       }
-      console.error('[analytics/track]', error)
+      console.error('[analytics/track] legacy RPC:', rpcError)
       return NextResponse.json({ ok: false }, { status: 500 })
     }
 
-    return NextResponse.json({ ok: true }, { status: 200 })
+    console.error('[analytics/track] insert:', insertError)
+    return NextResponse.json({ ok: false }, { status: 500 })
   } catch (e) {
     console.error('[analytics/track] unexpected', e)
     return NextResponse.json({ ok: false }, { status: 500 })
   }
+}
+
+function missingRelationRpc(err: { code?: string; message?: string }): boolean {
+  return (
+    err.code === '42883' ||
+    !!err.message?.includes('increment_analytics_page_view') ||
+    !!err.message?.includes('schema cache')
+  )
 }

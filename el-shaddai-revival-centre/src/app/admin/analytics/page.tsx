@@ -8,7 +8,7 @@ export default function AdminAnalyticsPage() {
       <div className="mb-8">
         <h1 className="text-3xl font-bold text-gray-800">Analytics</h1>
         <p className="text-gray-600 mt-1">
-          First-party website traffic: page views by day and popular paths (UTC).
+          Page views, location hints, device and OS (from User-Agent), and visit times—stored in UTC.
         </p>
       </div>
 

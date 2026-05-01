@@ -46,8 +46,6 @@ const DEFAULT_LOGO_URL = 'https://pentecost.ca/wp-content/uploads/2025/03/The-Ch
 
 const navItems = [
   { name: 'Dashboard', href: '/admin', icon: LayoutDashboard },
-  { name: 'Analytics', href: '/admin/analytics', icon: BarChart2 },
-  { name: 'Financial Reports', href: '/admin/financial-report', icon: FileText },
   { name: 'Events', href: '/admin/events', icon: Calendar },
   { name: 'Calendar', href: '/admin/calendar', icon: Calendar },
   { name: 'Testimonies', href: '/admin/testimonies', icon: MessageSquare },
@@ -55,6 +53,8 @@ const navItems = [
   { name: 'Media Library', href: '/admin/media', icon: ImageIcon },
   { name: 'Sermons', href: '/admin/sermons', icon: FileAudio },
   { name: 'Counselling', href: '/admin/counselling', icon: Heart },
+  { name: 'Financial Reports', href: '/admin/financial-report', icon: FileText },
+  { name: 'Analytics', href: '/admin/analytics', icon: BarChart2 },
   { name: 'Settings', href: '/admin/settings', icon: Settings },
 ]
 
