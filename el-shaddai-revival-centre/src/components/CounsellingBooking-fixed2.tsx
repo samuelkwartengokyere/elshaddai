@@ -762,7 +762,7 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
               <div>
                 <p className="text-sm text-gray-500">Type</p>
                 <p className="font-medium capitalize">
-                  {formData.bookingType === 'online' ? 'Online (Teams)' : 'In-Person'}
+                  {formData.bookingType === 'online' ? 'Online (Google Meet)' : 'In-Person'}
                 </p>
               </div>
               <div className="col-span-2">
@@ -893,7 +893,7 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
                     className="flex items-center justify-center gap-2 w-full py-3 bg-[#003399] text-white rounded-lg hover:bg-[#002266] transition-colors"
                   >
                     <Video size={18} />
-                    Join Teams Meeting
+                    Join Google Meet
                   </a>
                 </div>
               )}

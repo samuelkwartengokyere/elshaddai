@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid'
 import { counsellingBookingsDb, counsellingSlotsDb, isDbConfigured } from '@/lib/db'
-import { createTeamsMeeting } from '@/lib/teams';
+import { createGoogleMeetSession, type CounsellingVideoMeeting } from '@/lib/google-meet';
 import { sendBookingConfirmation, sendCounsellorNotification, sendCancellationEmail } from '@/lib/email';
 import { BookingFormData, generateBookingNumber, TimeSlot, CounsellingBooking } from '@/types/counselling';
 
@@ -191,91 +191,79 @@ export async function POST(request: NextRequest) {
           status: 'confirmed'
         })
         
-        // If online booking, create Teams meeting
+        // If online booking, create Google Meet link
         let teamsMeetingUrl: string | undefined;
         let teamsJoinUrl: string | undefined;
-        
+        let videoMeeting: CounsellingVideoMeeting | undefined;
+
         if (formData.bookingType === 'online') {
           try {
-            const teamsMeeting = await createTeamsMeeting({
-              id: dbBooking.id,
-              createdAt: now.toISOString(),
-              firstName: formData.firstName,
-              lastName: formData.lastName,
-              email: formData.email,
-              phone: formData.phone,
-              country: formData.country,
-              city: formData.city,
-              counsellorId: formData.counsellorId,
-              bookingType: formData.bookingType,
-              preferredDate: formData.preferredDate,
-              preferredTime: formData.preferredTime,
-              sessionDuration: formData.sessionDuration,
-              topic: formData.topic,
-              notes: formData.notes,
-              status: 'confirmed',
-              confirmationNumber,
-              isPaid: false,
-            }, formData.sessionDuration);
-            teamsMeetingUrl = teamsMeeting.joinWebUrl;
-            teamsJoinUrl = teamsMeeting.joinWebUrl;
-          } catch (teamsError) {
-            console.error('Error creating Teams meeting:', teamsError);
+            videoMeeting = await createGoogleMeetSession(
+              {
+                id: dbBooking.id,
+                createdAt: now.toISOString(),
+                firstName: formData.firstName,
+                lastName: formData.lastName,
+                email: formData.email,
+                phone: formData.phone,
+                country: formData.country,
+                city: formData.city,
+                counsellorId: formData.counsellorId,
+                bookingType: formData.bookingType,
+                preferredDate: formData.preferredDate,
+                preferredTime: formData.preferredTime,
+                sessionDuration: formData.sessionDuration,
+                topic: formData.topic,
+                notes: formData.notes,
+                status: 'confirmed',
+                confirmationNumber,
+                isPaid: false,
+              },
+              formData.sessionDuration
+            );
+            teamsMeetingUrl = videoMeeting.joinWebUrl.trim() || undefined;
+            teamsJoinUrl = teamsMeetingUrl;
+          } catch (meetError) {
+            console.error('Error creating Google Meet session:', meetError);
           }
         }
-        
-        // Send confirmation email to user
+
+        const dbBookingEmailPayload = {
+          id: dbBooking.id,
+          createdAt: now.toISOString(),
+          firstName: formData.firstName,
+          lastName: formData.lastName,
+          email: formData.email,
+          phone: formData.phone,
+          country: formData.country,
+          city: formData.city,
+          counsellorId: formData.counsellorId,
+          bookingType: formData.bookingType,
+          preferredDate: formData.preferredDate,
+          preferredTime: formData.preferredTime,
+          sessionDuration: formData.sessionDuration,
+          topic: formData.topic,
+          notes: formData.notes,
+          teamsMeetingUrl,
+          teamsJoinUrl,
+          status: 'confirmed' as const,
+          confirmationNumber,
+          isPaid: false,
+        };
+
         try {
-          await sendBookingConfirmation({
-            id: dbBooking.id,
-            createdAt: now.toISOString(),
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            email: formData.email,
-            phone: formData.phone,
-            country: formData.country,
-            city: formData.city,
-            counsellorId: formData.counsellorId,
-            bookingType: formData.bookingType,
-            preferredDate: formData.preferredDate,
-            preferredTime: formData.preferredTime,
-            sessionDuration: formData.sessionDuration,
-            topic: formData.topic,
-            notes: formData.notes,
-            teamsMeetingUrl,
-            teamsJoinUrl,
-            status: 'confirmed',
-            confirmationNumber,
-            isPaid: false,
-          });
+          await sendBookingConfirmation(dbBookingEmailPayload, videoMeeting);
         } catch (emailError) {
           console.error('Error sending confirmation email:', emailError);
         }
-        
-        // Send notification to counsellor
+
         try {
-          await sendCounsellorNotification({
-            id: dbBooking.id,
-            createdAt: now.toISOString(),
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            email: formData.email,
-            phone: formData.phone,
-            country: formData.country,
-            city: formData.city,
-            counsellorId: formData.counsellorId,
-            bookingType: formData.bookingType,
-            preferredDate: formData.preferredDate,
-            preferredTime: formData.preferredTime,
-            sessionDuration: formData.sessionDuration,
-            topic: formData.topic,
-            notes: formData.notes,
-            teamsMeetingUrl,
-            teamsJoinUrl,
-            status: 'confirmed',
-            confirmationNumber,
-            isPaid: false,
-          }, counsellor.email, counsellor.name);
+          await sendCounsellorNotification(
+            dbBookingEmailPayload,
+            counsellor.email,
+            counsellor.name,
+            videoMeeting
+          );
         } catch (emailError) {
           console.error('Error sending counsellor notification:', emailError);
         }
@@ -331,91 +319,78 @@ export async function POST(request: NextRequest) {
       isPaid: false,
     };
     
-    // If online booking, create Teams meeting
+    let memoryVideoMeeting: CounsellingVideoMeeting | undefined;
     if (formData.bookingType === 'online') {
       try {
-        const teamsMeeting = await createTeamsMeeting({
-          id: newBooking.id,
-          createdAt: now.toISOString(),
-          firstName: newBooking.firstName,
-          lastName: newBooking.lastName,
-          email: newBooking.email,
-          phone: newBooking.phone,
-          country: newBooking.country,
-          city: newBooking.city,
-          counsellorId: newBooking.counsellorId,
-          bookingType: newBooking.bookingType,
-          preferredDate: newBooking.preferredDate,
-          preferredTime: newBooking.preferredTime,
-          sessionDuration: newBooking.sessionDuration,
-          topic: newBooking.topic,
-          notes: newBooking.notes,
-          status: newBooking.status,
-          confirmationNumber: newBooking.confirmationNumber,
-          isPaid: newBooking.isPaid,
-        }, formData.sessionDuration);
-        newBooking.teamsMeetingUrl = teamsMeeting.joinWebUrl;
-        newBooking.teamsJoinUrl = teamsMeeting.joinWebUrl;
-      } catch (teamsError) {
-        console.error('Error creating Teams meeting:', teamsError);
+        memoryVideoMeeting = await createGoogleMeetSession(
+          {
+            id: newBooking.id,
+            createdAt: now.toISOString(),
+            firstName: newBooking.firstName,
+            lastName: newBooking.lastName,
+            email: newBooking.email,
+            phone: newBooking.phone,
+            country: newBooking.country,
+            city: newBooking.city,
+            counsellorId: newBooking.counsellorId,
+            bookingType: newBooking.bookingType,
+            preferredDate: newBooking.preferredDate,
+            preferredTime: newBooking.preferredTime,
+            sessionDuration: newBooking.sessionDuration,
+            topic: newBooking.topic,
+            notes: newBooking.notes,
+            status: newBooking.status,
+            confirmationNumber: newBooking.confirmationNumber,
+            isPaid: newBooking.isPaid,
+          },
+          formData.sessionDuration
+        );
+        const mu = memoryVideoMeeting.joinWebUrl.trim();
+        newBooking.teamsMeetingUrl = mu || undefined;
+        newBooking.teamsJoinUrl = mu || undefined;
+      } catch (meetError) {
+        console.error('Error creating Google Meet session:', meetError);
       }
     }
-    
-    // Save booking to in-memory storage
+
     inMemoryBookings = [...inMemoryBookings, newBooking];
-    
-    // Send confirmation email to user
+
+    const memoryEmailPayload = {
+      id: newBooking.id,
+      createdAt: now.toISOString(),
+      firstName: newBooking.firstName,
+      lastName: newBooking.lastName,
+      email: newBooking.email,
+      phone: newBooking.phone,
+      country: newBooking.country,
+      city: newBooking.city,
+      counsellorId: newBooking.counsellorId,
+      bookingType: newBooking.bookingType,
+      preferredDate: newBooking.preferredDate,
+      preferredTime: newBooking.preferredTime,
+      sessionDuration: newBooking.sessionDuration,
+      topic: newBooking.topic,
+      notes: newBooking.notes,
+      teamsMeetingUrl: newBooking.teamsMeetingUrl,
+      teamsJoinUrl: newBooking.teamsJoinUrl,
+      status: newBooking.status,
+      confirmationNumber: newBooking.confirmationNumber,
+      isPaid: newBooking.isPaid,
+    };
+
     try {
-      await sendBookingConfirmation({
-        id: newBooking.id,
-        createdAt: now.toISOString(),
-        firstName: newBooking.firstName,
-        lastName: newBooking.lastName,
-        email: newBooking.email,
-        phone: newBooking.phone,
-        country: newBooking.country,
-        city: newBooking.city,
-        counsellorId: newBooking.counsellorId,
-        bookingType: newBooking.bookingType,
-        preferredDate: newBooking.preferredDate,
-        preferredTime: newBooking.preferredTime,
-        sessionDuration: newBooking.sessionDuration,
-        topic: newBooking.topic,
-        notes: newBooking.notes,
-        teamsMeetingUrl: newBooking.teamsMeetingUrl,
-        teamsJoinUrl: newBooking.teamsJoinUrl,
-        status: newBooking.status,
-        confirmationNumber: newBooking.confirmationNumber,
-        isPaid: newBooking.isPaid,
-      });
+      await sendBookingConfirmation(memoryEmailPayload, memoryVideoMeeting);
     } catch (emailError) {
       console.error('Error sending confirmation email:', emailError);
     }
-    
-    // Send notification to counsellor
+
     try {
-      await sendCounsellorNotification({
-        id: newBooking.id,
-        createdAt: now.toISOString(),
-        firstName: newBooking.firstName,
-        lastName: newBooking.lastName,
-        email: newBooking.email,
-        phone: newBooking.phone,
-        country: newBooking.country,
-        city: newBooking.city,
-        counsellorId: newBooking.counsellorId,
-        bookingType: newBooking.bookingType,
-        preferredDate: newBooking.preferredDate,
-        preferredTime: newBooking.preferredTime,
-        sessionDuration: newBooking.sessionDuration,
-        topic: newBooking.topic,
-        notes: newBooking.notes,
-        teamsMeetingUrl: newBooking.teamsMeetingUrl,
-        teamsJoinUrl: newBooking.teamsJoinUrl,
-        status: newBooking.status,
-        confirmationNumber: newBooking.confirmationNumber,
-        isPaid: newBooking.isPaid,
-      }, counsellor.email, counsellor.name);
+      await sendCounsellorNotification(
+        memoryEmailPayload,
+        counsellor.email,
+        counsellor.name,
+        memoryVideoMeeting
+      );
     } catch (emailError) {
       console.error('Error sending counsellor notification:', emailError);
     }

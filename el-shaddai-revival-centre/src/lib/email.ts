@@ -2,7 +2,7 @@
 // This module handles sending confirmation emails and notifications
 
 import { CounsellingBooking } from '@/types/counselling';
-import { TeamsMeeting } from './teams';
+import { type CounsellingVideoMeeting } from './google-meet';
 import nodemailer from 'nodemailer';
 
 interface EmailConfig {
@@ -109,11 +109,26 @@ export async function sendEmail(payload: EmailPayload): Promise<boolean> {
   }
 }
 
+function resolveMeetingJoinUrl(
+  booking: CounsellingBooking,
+  meeting?: CounsellingVideoMeeting
+): string | undefined {
+  const raw =
+    meeting?.joinWebUrl ||
+    meeting?.joinUrl ||
+    booking.teamsJoinUrl ||
+    booking.teamsMeetingUrl;
+  const trimmed = typeof raw === 'string' ? raw.trim() : '';
+  return trimmed || undefined;
+}
+
 // Send booking confirmation email to the user
 export async function sendBookingConfirmation(
   booking: CounsellingBooking,
-  meeting?: TeamsMeeting
+  meeting?: CounsellingVideoMeeting
 ): Promise<boolean> {
+  const joinUrl = resolveMeetingJoinUrl(booking, meeting);
+
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-US', {
@@ -174,7 +189,7 @@ export async function sendBookingConfirmation(
         </tr>
         <tr>
           <td style="padding: 8px 0; color: #64748b; font-size: 14px;">💻 Type:</td>
-          <td style="padding: 8px 0; color: #1e293b; font-weight: 600; font-size: 14px;">${booking.bookingType === 'online' ? 'Online (Google Teams)' : 'In-Person Visit'}</td>
+          <td style="padding: 8px 0; color: #1e293b; font-weight: 600; font-size: 14px;">${booking.bookingType === 'online' ? 'Online (Google Meet)' : 'In-Person Visit'}</td>
         </tr>
         <tr>
           <td style="padding: 8px 0; color: #64748b; font-size: 14px;">📝 Topic:</td>
@@ -187,17 +202,21 @@ export async function sendBookingConfirmation(
       </table>
     </div>
 
-    ${booking.bookingType === 'online' && meeting ? `
-    <!-- Google Teams Section -->
+    ${booking.bookingType === 'online' && joinUrl ? `
+    <!-- Google Meet Section -->
     <div style="background: linear-gradient(135deg, #003399 0%, #0044cc 100%); border-radius: 12px; padding: 30px; margin: 30px 0; text-align: center;">
-      <h3 style="color: white; margin: 0 0 15px 0; font-size: 20px;">📹 Join Your Google Teams Meeting</h3>
-      <a href="${meeting.joinWebUrl}" style="display: inline-block; background: #C8102E; color: white; padding: 15px 35px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 16px; margin-top: 10px; box-shadow: 0 4px 6px rgba(200, 16, 46, 0.3);">
-        🎥 Join Meeting Now
+      <h3 style="color: white; margin: 0 0 15px 0; font-size: 20px;">📹 Join Your Google Meet Session</h3>
+      <a href="${joinUrl}" style="display: inline-block; background: #C8102E; color: white; padding: 15px 35px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 16px; margin-top: 10px; box-shadow: 0 4px 6px rgba(200, 16, 46, 0.3);">
+        🎥 Join Google Meet
       </a>
       <p style="color: rgba(255,255,255,0.9); margin: 20px 0 0 0; font-size: 13px;">
         Or copy this link:<br>
-        <span style="background: rgba(255,255,255,0.1); padding: 5px 10px; border-radius: 4px; word-break: break-all;">${meeting.joinWebUrl}</span>
+        <span style="background: rgba(255,255,255,0.1); padding: 5px 10px; border-radius: 4px; word-break: break-all;">${joinUrl}</span>
       </p>
+    </div>
+    ` : booking.bookingType === 'online' ? `
+    <div style="background: #fef3c7; border-radius: 12px; padding: 20px; margin: 30px 0; border-left: 4px solid #d97706;">
+      <p style="margin: 0; color: #92400e; font-size: 14px;">Your session is <strong>online</strong>. A meeting link will be sent to you shortly, or contact <a href="mailto:info.copelshaddai@gmail.com" style="color: #b45309;">info.copelshaddai@gmail.com</a> if you need the link sooner.</p>
     </div>
     ` : `
     <!-- In-Person Section -->
@@ -253,8 +272,11 @@ export async function sendBookingConfirmation(
 export async function sendCounsellorNotification(
   booking: CounsellingBooking,
   counsellorEmail: string,
-  counsellorName: string
+  counsellorName: string,
+  meeting?: CounsellingVideoMeeting
 ): Promise<boolean> {
+  const joinUrl = resolveMeetingJoinUrl(booking, meeting);
+
   const formatDate = (dateStr: string): string => {
     const date = new Date(dateStr);
     return date.toLocaleDateString('en-US', {
@@ -307,10 +329,24 @@ export async function sendCounsellorNotification(
       <p><strong>Date:</strong> ${formatDate(booking.preferredDate)}</p>
       <p><strong>Time:</strong> ${formatTime(booking.preferredTime)}</p>
       <p><strong>Duration:</strong> ${booking.sessionDuration} minutes</p>
-      <p><strong>Type:</strong> ${booking.bookingType === 'online' ? 'Online (Google Teams)' : 'In-Person'}</p>
+      <p><strong>Type:</strong> ${booking.bookingType === 'online' ? 'Online (Google Meet)' : 'In-Person'}</p>
       <p><strong>Topic:</strong> ${booking.topic}</p>
       <p><strong>Confirmation #:</strong> ${booking.confirmationNumber}</p>
     </div>
+
+    ${booking.bookingType === 'online' && joinUrl ? `
+    <div style="background: linear-gradient(135deg, #003399 0%, #0044cc 100%); border-radius: 12px; padding: 24px; margin: 20px 0; text-align: center;">
+      <h3 style="color: white; margin: 0 0 12px 0; font-size: 18px;">📹 Google Meet link</h3>
+      <a href="${joinUrl}" style="display: inline-block; background: #C8102E; color: white; padding: 12px 28px; text-decoration: none; border-radius: 8px; font-weight: 700; font-size: 15px;">
+        Join Google Meet
+      </a>
+      <p style="color: rgba(255,255,255,0.9); margin: 16px 0 0 0; font-size: 13px;">Or copy:<br><span style="background: rgba(255,255,255,0.12); padding: 6px 10px; border-radius: 4px; word-break: break-all; display: inline-block; margin-top: 6px;">${joinUrl}</span></p>
+    </div>
+    ` : booking.bookingType === 'online' ? `
+    <div style="background: #fef3c7; padding: 16px; border-radius: 8px; margin: 20px 0; border-left: 4px solid #d97706;">
+      <p style="margin: 0; color: #92400e; font-size: 14px;">This booking is online, but no Google Meet link was generated. Configure Meet in server settings or share a link manually.</p>
+    </div>
+    ` : ''}
 
     ${booking.notes ? `
     <div style="background: #fffbeb; padding: 20px; border-radius: 8px; margin: 20px 0;">

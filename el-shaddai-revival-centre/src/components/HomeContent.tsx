@@ -234,7 +234,7 @@ export default function HomeContent({ sermons, events, testimonies }: HomeConten
             <HeartHandshake className="h-16 w-16 mx-auto mb-6" />
             <h2 className="text-4xl font-bold mb-4">Counselling Services</h2>
             <p className="text-xl text-gray-200 mb-8">
-              Professional counselling rooted in faith. Book online sessions via Teams
+              Professional counselling rooted in faith. Book online sessions via Google Meet
               or visit our centre for in-person support.
             </p>
             <div className="flex flex-wrap justify-center gap-4 mb-8">

@@ -3,7 +3,7 @@ import CounsellingBooking from '@/components/CounsellingBooking-fixed';
 
 export const metadata: Metadata = {
   title: 'Counselling Services | El-Shaddai Revival Centre',
-  description: 'Book a counselling session with our experienced pastoral and professional counsellors. Available online via Teams or in-person.',
+  description: 'Book a counselling session with our experienced pastoral and professional counsellors. Available online via Google Meet or in-person.',
 };
 
 export default function CounsellingPage() {
@@ -68,7 +68,7 @@ export default function CounsellingPage() {
                   </div>
                   <div>
                     <h3 className="text-xl font-bold text-gray-800">Online Counselling</h3>
-                    <p className="text-sm text-gray-600">Via Microsoft Teams</p>
+                    <p className="text-sm text-gray-600">Via Google Meet</p>
                   </div>
                 </div>
                 <ul className="space-y-2 text-gray-700">

@@ -831,9 +831,9 @@ export default function CounsellingBooking({ initialCountry = 'GH' }: Counsellin
                 </div>
                 {bookingResult.booking.teamsMeetingUrl && (
                   <div>
-                    <p className="font-semibold text-gray-800">Meeting Link</p>
+                    <p className="font-semibold text-gray-800">Google Meet</p>
                     <a href={bookingResult.booking.teamsMeetingUrl} target="_blank" rel="noopener noreferrer" className="text-blue-600 hover:underline">
-                      Join Meeting
+                      Join Google Meet
                     </a>
                   </div>
                 )}

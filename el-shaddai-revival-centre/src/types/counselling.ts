@@ -75,7 +75,7 @@ export interface CounsellingBooking {
   topic: string;
   notes?: string;
   
-  // Google Teams Details (for online)
+  // Video meeting link (Google Meet; JSON field name kept for API compatibility)
   teamsMeetingUrl?: string;
   teamsJoinUrl?: string;
   
@@ -132,8 +132,8 @@ export interface Country {
 export const BOOKING_TYPES = {
   ONLINE: {
     id: 'online' as const,
-    label: 'Online (Google Teams)',
-    description: 'Join the counselling session from anywhere via Google Teams',
+    label: 'Online (Google Meet)',
+    description: 'Join the counselling session from anywhere via Google Meet',
     icon: 'video',
   },
   IN_PERSON: {

@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid'
 import { counsellingBookingsDb, counsellingSlotsDb, isDbConfigured } from '@/lib/db'
-import { createTeamsMeeting } from '@/lib/teams';
+import { createGoogleMeetSession, type CounsellingVideoMeeting } from '@/lib/google-meet';
 import { sendBookingConfirmation, sendCounsellorNotification, sendCancellationEmail } from '@/lib/email';
 import { BookingFormData, generateBookingNumber, TimeSlot, CounsellingBooking } from '@/types/counselling';
 
@@ -150,38 +150,42 @@ export async function POST(request: NextRequest) {
           status: 'confirmed'
         });
         
-        // Teams meeting for online
+        // Google Meet link for online bookings
         let teamsMeetingUrl: string | undefined;
+        let videoMeeting: CounsellingVideoMeeting | undefined;
         if (formData.bookingType === 'online') {
           try {
-            const teamsMeeting = await createTeamsMeeting({
-              id: dbBooking.id,
-              createdAt: now.toISOString(),
-              firstName: formData.firstName,
-              lastName: formData.lastName,
-              email: formData.email,
-              phone: formData.phone,
-              country: formData.country,
-              city: formData.city || '',
-              counsellorId: formData.counsellorId,
-              bookingType: formData.bookingType,
-              preferredDate: formData.preferredDate,
-              preferredTime: formData.preferredTime,
-              sessionDuration: formData.sessionDuration,
-              topic: formData.topic,
-              notes: formData.notes,
-              status: 'confirmed',
-              confirmationNumber,
-              isPaid: false
-            }, formData.sessionDuration);
-            teamsMeetingUrl = teamsMeeting.joinWebUrl;
-          } catch (teamsError) {
-            console.error('Teams error:', teamsError);
+            videoMeeting = await createGoogleMeetSession(
+              {
+                id: dbBooking.id,
+                createdAt: now.toISOString(),
+                firstName: formData.firstName,
+                lastName: formData.lastName,
+                email: formData.email,
+                phone: formData.phone,
+                country: formData.country,
+                city: formData.city || '',
+                counsellorId: formData.counsellorId,
+                bookingType: formData.bookingType,
+                preferredDate: formData.preferredDate,
+                preferredTime: formData.preferredTime,
+                sessionDuration: formData.sessionDuration,
+                topic: formData.topic,
+                notes: formData.notes,
+                status: 'confirmed',
+                confirmationNumber,
+                isPaid: false,
+              },
+              formData.sessionDuration
+            );
+            teamsMeetingUrl = videoMeeting.joinWebUrl.trim() || undefined;
+          } catch (meetError) {
+            console.error('Google Meet error:', meetError);
           }
         }
         
-        // Send emails (fire and forget)
-        sendBookingConfirmation({
+        const teamsJoinUrl = teamsMeetingUrl;
+        const bookingEmailPayload = {
           id: dbBooking.id,
           createdAt: now.toISOString(),
           firstName: formData.firstName,
@@ -198,32 +202,20 @@ export async function POST(request: NextRequest) {
           topic: formData.topic,
           notes: formData.notes,
           teamsMeetingUrl,
-          status: 'confirmed',
+          teamsJoinUrl,
+          status: 'confirmed' as const,
           confirmationNumber,
           isPaid: false
-        }).catch(console.error);
-        
-        sendCounsellorNotification({
-          id: dbBooking.id,
-          createdAt: now.toISOString(),
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          phone: formData.phone,
-          country: formData.country,
-          city: formData.city || '',
-          counsellorId: formData.counsellorId,
-          bookingType: formData.bookingType,
-          preferredDate: formData.preferredDate,
-          preferredTime: formData.preferredTime,
-          sessionDuration: formData.sessionDuration,
-          topic: formData.topic,
-          notes: formData.notes,
-          teamsMeetingUrl,
-          status: 'confirmed',
-          confirmationNumber,
-          isPaid: false
-        }, counsellor.email, counsellor.name).catch(console.error);
+        };
+
+        sendBookingConfirmation(bookingEmailPayload, videoMeeting).catch(console.error);
+
+        sendCounsellorNotification(
+          bookingEmailPayload,
+          counsellor.email,
+          counsellor.name,
+          videoMeeting
+        ).catch(console.error);
         
         return NextResponse.json({
           success: true,
@@ -253,19 +245,82 @@ export async function POST(request: NextRequest) {
       }
     }
     
-    // In-memory fallback (for dev)
+    const fallbackId = `fallback-${Date.now()}`;
+    let fbTeamsMeetingUrl: string | undefined;
+    let fbVideoMeeting: CounsellingVideoMeeting | undefined;
+    if (formData.bookingType === 'online') {
+      try {
+        fbVideoMeeting = await createGoogleMeetSession(
+          {
+            id: fallbackId,
+            createdAt: now.toISOString(),
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            email: formData.email,
+            phone: formData.phone,
+            country: formData.country,
+            city: formData.city || '',
+            counsellorId: formData.counsellorId,
+            bookingType: formData.bookingType,
+            preferredDate: formData.preferredDate,
+            preferredTime: formData.preferredTime,
+            sessionDuration: formData.sessionDuration,
+            topic: formData.topic,
+            notes: formData.notes,
+            status: 'confirmed',
+            confirmationNumber,
+            isPaid: false
+          },
+          formData.sessionDuration
+        );
+        fbTeamsMeetingUrl = fbVideoMeeting.joinWebUrl.trim() || undefined;
+      } catch (meetError) {
+        console.error('Google Meet error (fallback):', meetError);
+      }
+    }
+
+    const fbJoin = fbTeamsMeetingUrl;
+    const fbPayload = {
+      id: fallbackId,
+      createdAt: now.toISOString(),
+      firstName: formData.firstName,
+      lastName: formData.lastName,
+      email: formData.email,
+      phone: formData.phone,
+      country: formData.country,
+      city: formData.city || '',
+      counsellorId: formData.counsellorId,
+      bookingType: formData.bookingType,
+      preferredDate: formData.preferredDate,
+      preferredTime: formData.preferredTime,
+      sessionDuration: formData.sessionDuration,
+      topic: formData.topic,
+      notes: formData.notes,
+      teamsMeetingUrl: fbTeamsMeetingUrl,
+      teamsJoinUrl: fbJoin,
+      status: 'confirmed' as const,
+      confirmationNumber,
+      isPaid: false
+    };
+
+    sendBookingConfirmation(fbPayload, fbVideoMeeting).catch(console.error);
+    sendCounsellorNotification(fbPayload, counsellor.email, counsellor.name, fbVideoMeeting).catch(
+      console.error
+    );
+
     return NextResponse.json({
       success: true,
       data: {
         confirmationNumber,
         booking: {
-          id: 'fallback-' + Date.now(),
+          id: fallbackId,
           confirmationNumber,
           status: 'confirmed',
           preferredDate: formData.preferredDate,
           preferredTime: formData.preferredTime,
           bookingType: formData.bookingType,
           topic: formData.topic,
+          teamsMeetingUrl: fbTeamsMeetingUrl,
           counsellor: {
             name: counsellor.name,
             title: counsellor.title

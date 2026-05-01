@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { v4 as uuidv4 } from 'uuid';
-import { createTeamsMeeting } from '@/lib/teams';
+import { createGoogleMeetSession } from '@/lib/google-meet';
 import { sendBookingConfirmation, sendCounsellorNotification, sendCancellationEmail } from '@/lib/email';
 import { BookingFormData, generateBookingNumber } from '@/types/counselling';
 import { counsellingBookingsDb, isDbConfigured } from '@/lib/db';
@@ -130,33 +130,36 @@ export async function POST(request: NextRequest) {
     let teamsMeetingUrl: string | undefined;
     let teamsJoinUrl: string | undefined;
     
-    // If online booking, create Teams meeting
+    // If online booking, create Google Meet link
     if (formData.bookingType === 'online') {
       try {
-        const teamsMeeting = await createTeamsMeeting({
-          id: bookingId,
-          createdAt: now.toISOString(),
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          email: formData.email,
-          phone: formData.phone,
-          country: formData.country || '',
-          city: formData.city || '',
-          counsellorId: formData.counsellorId,
-          bookingType: formData.bookingType,
-          preferredDate: formData.preferredDate,
-          preferredTime: formData.preferredTime,
-          sessionDuration: formData.sessionDuration,
-          topic: formData.topic,
-          notes: formData.notes,
-          status: 'pending',
-          confirmationNumber,
-          isPaid: false,
-        }, formData.sessionDuration);
-        teamsMeetingUrl = teamsMeeting.joinWebUrl;
-        teamsJoinUrl = teamsMeeting.joinWebUrl;
-      } catch (teamsError) {
-        console.error('Error creating Teams meeting:', teamsError);
+        const videoMeeting = await createGoogleMeetSession(
+          {
+            id: bookingId,
+            createdAt: now.toISOString(),
+            firstName: formData.firstName,
+            lastName: formData.lastName,
+            email: formData.email,
+            phone: formData.phone,
+            country: formData.country || '',
+            city: formData.city || '',
+            counsellorId: formData.counsellorId,
+            bookingType: formData.bookingType,
+            preferredDate: formData.preferredDate,
+            preferredTime: formData.preferredTime,
+            sessionDuration: formData.sessionDuration,
+            topic: formData.topic,
+            notes: formData.notes,
+            status: 'pending',
+            confirmationNumber,
+            isPaid: false,
+          },
+          formData.sessionDuration
+        );
+        teamsMeetingUrl = videoMeeting.joinWebUrl.trim() || undefined;
+        teamsJoinUrl = teamsMeetingUrl;
+      } catch (meetError) {
+        console.error('Error creating Google Meet session:', meetError);
       }
     }
     
