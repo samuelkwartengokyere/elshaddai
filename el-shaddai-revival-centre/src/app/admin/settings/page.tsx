@@ -720,7 +720,7 @@ export default function AdminSettings() {
             <div className="space-y-4">
               <div><label className="block text-sm mb-1">Name</label><input type="text" value={adminForm.name} onChange={(e) => setAdminForm({ ...adminForm, name: e.target.value })} className="w-full px-4 py-2 border rounded-lg" /></div>
               <div><label className="block text-sm mb-1">Email</label><input type="email" value={adminForm.email} onChange={(e) => setAdminForm({ ...adminForm, email: e.target.value })} disabled={!!editingAdmin} className="w-full px-4 py-2 border rounded-lg" /></div>
-              {!editingAdmin && <div><label className="block text-sm mb-1">Password</label><input type="password" value={adminForm.password} onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })} className="w-full px-4 py-2 border rounded-lg" /></div>}
+              {!editingAdmin && <div><label className="block text-sm mb-1">Password</label><input type={adminForm.password ? 'text' : 'password'} value={adminForm.password} onChange={(e) => setAdminForm({ ...adminForm, password: e.target.value })} className="w-full px-4 py-2 border rounded-lg" /></div>}
               <div><label className="block text-sm mb-1">Role</label><select value={adminForm.role} onChange={(e) => setAdminForm({ ...adminForm, role: e.target.value as 'super_admin' | 'admin' | 'editor' })} className="w-full px-4 py-2 border rounded-lg"><option value="admin">Admin</option><option value="editor">Editor</option></select></div>
             </div>
             <div className="mt-6 flex justify-end space-x-3">

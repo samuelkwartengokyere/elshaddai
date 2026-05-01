@@ -105,18 +105,54 @@ export default function CounsellingAdminPage() {
   const [bulkDates, setBulkDates] = useState<string[]>([]);
   const [bulkMaxSlots, setBulkMaxSlots] = useState(10);
 
+  const calculateOverallStats = (slotList: CounsellingSlot[]) => {
+    const totalDays = slotList.length;
+    const totalCapacity = slotList.reduce((sum, s) => sum + s.max_slots, 0);
+    const totalBooked = slotList.reduce((sum, s) => sum + s.booked_slots, 0);
+    const totalAvailable = slotList.reduce((sum, s) => sum + s.available_slots, 0);
+    const fillRate = totalCapacity > 0 ? Math.round((totalBooked / totalCapacity) * 100) : 0;
+    const fullyBookedDays = slotList.filter(s => s.available_slots === 0 && s.max_slots > 0).length;
+    const availableDays = slotList.filter(s => s.available_slots > 0).length;
+    const emptyDays = slotList.filter(s => s.max_slots === 0).length;
+    return { totalDays, totalCapacity, totalBooked, totalAvailable, fillRate, fullyBookedDays, availableDays, emptyDays };
+  };
+
   // Computed stats for overall slots
   const overallStats = useMemo(() => {
-    const totalDays = slots.length;
-    const totalCapacity = slots.reduce((sum, s) => sum + s.max_slots, 0);
-    const totalBooked = slots.reduce((sum, s) => sum + s.booked_slots, 0);
-    const totalAvailable = slots.reduce((sum, s) => sum + s.available_slots, 0);
-    const fillRate = totalCapacity > 0 ? Math.round((totalBooked / totalCapacity) * 100) : 0;
-    const fullyBookedDays = slots.filter(s => s.available_slots === 0 && s.max_slots > 0).length;
-    const availableDays = slots.filter(s => s.available_slots > 0).length;
-    const emptyDays = slots.filter(s => s.max_slots === 0).length;
-    return { totalDays, totalCapacity, totalBooked, totalAvailable, fillRate, fullyBookedDays, availableDays, emptyDays };
+    return calculateOverallStats(slots);
   }, [slots]);
+
+  // Preview overall stats including unsaved single/bulk slot updates
+  const projectedSlots = useMemo(() => {
+    if (!slotForm.date && bulkDates.length === 0) return slots;
+
+    const slotMap = new Map<string, CounsellingSlot>(slots.map(slot => [slot.date, slot]));
+
+    const applyPreviewUpdate = (date: string, maxSlots: number) => {
+      const existing = slotMap.get(date);
+      const bookedSlots = existing?.booked_slots ?? 0;
+      slotMap.set(date, {
+        id: existing?.id ?? `preview-${date}`,
+        date,
+        max_slots: maxSlots,
+        booked_slots: bookedSlots,
+        available_slots: Math.max(0, maxSlots - bookedSlots),
+        created_at: existing?.created_at ?? '',
+        updated_at: existing?.updated_at ?? '',
+      });
+    };
+
+    bulkDates.forEach(date => applyPreviewUpdate(date, bulkMaxSlots));
+    if (slotForm.date) {
+      applyPreviewUpdate(slotForm.date, slotForm.max_slots);
+    }
+
+    return Array.from(slotMap.values()).sort((a, b) => a.date.localeCompare(b.date));
+  }, [slots, slotForm.date, slotForm.max_slots, bulkDates, bulkMaxSlots]);
+
+  const hasPendingSlotChanges = !!slotForm.date || bulkDates.length > 0;
+  const projectedOverallStats = useMemo(() => calculateOverallStats(projectedSlots), [projectedSlots]);
+  const statsToDisplay = hasPendingSlotChanges ? projectedOverallStats : overallStats;
 
   // Computed stats for single date selection
   const singleDateStats = useMemo(() => {
@@ -713,51 +749,56 @@ export default function CounsellingAdminPage() {
           <div className="mb-6">
             <h3 className="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
               <BarChart3 className="h-4 w-4" />
-              Overall Statistics
+              {hasPendingSlotChanges ? 'Overall Statistics (Preview)' : 'Overall Statistics'}
             </h3>
+            {hasPendingSlotChanges && (
+              <p className="text-xs text-blue-600 mb-3">
+                Cards include unsaved values from your current single/bulk slot inputs.
+              </p>
+            )}
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="bg-white p-4 rounded-lg shadow border-l-4 border-blue-500">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-gray-500 text-xs uppercase font-medium">Total Days</p>
-                    <p className="text-2xl font-bold text-gray-800">{overallStats.totalDays}</p>
+                    <p className="text-2xl font-bold text-gray-800">{statsToDisplay.totalDays}</p>
                   </div>
                   <CalendarDays className="h-8 w-8 text-blue-200" />
                 </div>
-                <p className="text-xs text-gray-400 mt-1">{overallStats.availableDays} available, {overallStats.fullyBookedDays} full</p>
+                <p className="text-xs text-gray-400 mt-1">{statsToDisplay.availableDays} available, {statsToDisplay.fullyBookedDays} full</p>
               </div>
 
               <div className="bg-white p-4 rounded-lg shadow border-l-4 border-green-500">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-gray-500 text-xs uppercase font-medium">Total Capacity</p>
-                    <p className="text-2xl font-bold text-gray-800">{overallStats.totalCapacity}</p>
+                    <p className="text-2xl font-bold text-gray-800">{statsToDisplay.totalCapacity}</p>
                   </div>
                   <CheckCircle2 className="h-8 w-8 text-green-200" />
                 </div>
-                <p className="text-xs text-gray-400 mt-1">{overallStats.emptyDays} days with 0 slots</p>
+                <p className="text-xs text-gray-400 mt-1">{statsToDisplay.emptyDays} days with 0 slots</p>
               </div>
 
               <div className="bg-white p-4 rounded-lg shadow border-l-4 border-purple-500">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-gray-500 text-xs uppercase font-medium">Total Booked</p>
-                    <p className="text-2xl font-bold text-gray-800">{overallStats.totalBooked}</p>
+                    <p className="text-2xl font-bold text-gray-800">{statsToDisplay.totalBooked}</p>
                   </div>
                   <Users className="h-8 w-8 text-purple-200" />
                 </div>
-                <p className="text-xs text-gray-400 mt-1">{overallStats.fillRate}% fill rate</p>
+                <p className="text-xs text-gray-400 mt-1">{statsToDisplay.fillRate}% fill rate</p>
               </div>
 
               <div className="bg-white p-4 rounded-lg shadow border-l-4 border-orange-500">
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="text-gray-500 text-xs uppercase font-medium">Available</p>
-                    <p className="text-2xl font-bold text-gray-800">{overallStats.totalAvailable}</p>
+                    <p className="text-2xl font-bold text-gray-800">{statsToDisplay.totalAvailable}</p>
                   </div>
                   <Clock className="h-8 w-8 text-orange-200" />
                 </div>
-                <p className="text-xs text-gray-400 mt-1">{Math.round(overallStats.totalAvailable / Math.max(overallStats.totalDays, 1))} avg per day</p>
+                <p className="text-xs text-gray-400 mt-1">{Math.round(statsToDisplay.totalAvailable / Math.max(statsToDisplay.totalDays, 1))} avg per day</p>
               </div>
             </div>
           </div>
