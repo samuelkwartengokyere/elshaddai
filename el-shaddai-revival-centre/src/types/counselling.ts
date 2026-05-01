@@ -14,6 +14,7 @@ export interface CounsellingSlot {
 export interface UpsertSlotData {
   date: string;
   max_slots: number;
+  mode?: 'set' | 'add';
 }
 
 

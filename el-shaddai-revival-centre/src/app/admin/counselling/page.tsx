@@ -144,7 +144,9 @@ export default function CounsellingAdminPage() {
 
     bulkDates.forEach(date => applyPreviewUpdate(date, bulkMaxSlots));
     if (slotForm.date) {
-      applyPreviewUpdate(slotForm.date, slotForm.max_slots);
+      const existing = slotMap.get(slotForm.date);
+      const currentMax = existing?.max_slots ?? 0;
+      applyPreviewUpdate(slotForm.date, currentMax + slotForm.max_slots);
     }
 
     return Array.from(slotMap.values()).sort((a, b) => a.date.localeCompare(b.date));
@@ -159,7 +161,7 @@ export default function CounsellingAdminPage() {
     if (!slotForm.date) return null;
     const existingSlot = slots.find(s => s.date === slotForm.date);
     const currentMax = existingSlot?.max_slots ?? 0;
-    const newMax = slotForm.max_slots;
+    const newMax = currentMax + slotForm.max_slots;
     const existingBookings = existingSlot?.booked_slots ?? 0;
     const change = newMax - currentMax;
     const wouldBeOverbooked = newMax < existingBookings;
@@ -202,13 +204,13 @@ export default function CounsellingAdminPage() {
       const response = await fetch('/api/counselling-slots', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(slotForm)
+        body: JSON.stringify({ ...slotForm, mode: 'add' as const })
       });
       const data = await response.json();
       if (data.success) {
         fetchSlots();
         setSlotForm({ date: '', max_slots: 10 });
-        setSuccess('Slot updated successfully!');
+        setSuccess('Slots added successfully!');
       } else {
         setError(data.error || 'Failed to update slot');
       }
@@ -907,7 +909,7 @@ export default function CounsellingAdminPage() {
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {/* Single Date */}
               <div>
-                <label className="block text-sm font-medium mb-2">Set Single Day</label>
+                <label className="block text-sm font-medium mb-2">Add Slots to Single Day</label>
                 <div className="flex gap-2">
                   <input
                     type="date"

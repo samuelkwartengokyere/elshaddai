@@ -83,6 +83,7 @@ export async function POST(request: NextRequest) {
 
   try {
     const data: UpsertSlotData = await request.json();
+    const mode = data.mode === 'add' ? 'add' : 'set';
     
     // Validation
     if (!data.date || !/^\d{4}-\d{2}-\d{2}$/.test(data.date)) {
@@ -106,7 +107,9 @@ export async function POST(request: NextRequest) {
       );
     }
     
-    const slot = await counsellingSlotsDb.setMaxSlots(data.date, data.max_slots);
+    const slot = mode === 'add'
+      ? await counsellingSlotsDb.addSlots(data.date, data.max_slots)
+      : await counsellingSlotsDb.setMaxSlots(data.date, data.max_slots);
     
     const enriched: CounsellingSlot = {
       ...slot,
@@ -116,7 +119,9 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       success: true,
       data: enriched,
-      message: `Set ${data.max_slots} slots for ${data.date}`
+      message: mode === 'add'
+        ? `Added ${data.max_slots} slots for ${data.date}`
+        : `Set ${data.max_slots} slots for ${data.date}`
     });
   } catch (error: any) {
     console.error('Error setting slot limit:', error);

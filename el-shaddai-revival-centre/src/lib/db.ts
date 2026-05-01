@@ -789,22 +789,87 @@ export const counsellingSlotsDb = {
       throw new Error('max_slots must be between 0 and 100')
     }
 
-    let slot = await this.getByDate(date)
-    
-    // If slot doesn't exist, create it
-    if (!slot) {
-      slot = await insert<DbCounsellingSlot>('counselling_slots', {
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase not configured')
+    }
+
+    const supabaseAdmin = await getSupabaseAdmin()
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client not available - service role key may be missing')
+    }
+
+    // Resolve by exact date so one day's update never overrides another day's record.
+    const { data: existingSlot, error: existingError } = await supabaseAdmin
+      .from('counselling_slots')
+      .select('*')
+      .eq('date', date)
+      .limit(1)
+      .maybeSingle()
+
+    if (existingError) {
+      throw existingError
+    }
+
+    if (!existingSlot) {
+      return insert<DbCounsellingSlot>('counselling_slots', {
         date,
         max_slots,
         booked_slots: 0,
         created_at: new Date().toISOString(),
         updated_at: new Date().toISOString()
       })
-      return slot
     }
-    
-    return update<DbCounsellingSlot>(`counselling_slots`, slot.id, {
+
+    return update<DbCounsellingSlot>('counselling_slots', existingSlot.id, {
       max_slots
+    })
+  },
+
+  async addSlots(date: string, additional_slots: number): Promise<DbCounsellingSlot> {
+    if (!Number.isFinite(additional_slots) || Number.isNaN(additional_slots)) {
+      throw new Error('additional_slots must be a valid number')
+    }
+    if (additional_slots < 0 || additional_slots > 100) {
+      throw new Error('additional_slots must be between 0 and 100')
+    }
+
+    if (!isSupabaseConfigured()) {
+      throw new Error('Supabase not configured')
+    }
+
+    const supabaseAdmin = await getSupabaseAdmin()
+    if (!supabaseAdmin) {
+      throw new Error('Supabase admin client not available - service role key may be missing')
+    }
+
+    const { data: existingSlot, error: existingError } = await supabaseAdmin
+      .from('counselling_slots')
+      .select('*')
+      .eq('date', date)
+      .limit(1)
+      .maybeSingle()
+
+    if (existingError) {
+      throw existingError
+    }
+
+    if (!existingSlot) {
+      return insert<DbCounsellingSlot>('counselling_slots', {
+        date,
+        max_slots: additional_slots,
+        booked_slots: 0,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString()
+      })
+    }
+
+    const newMaxSlots = existingSlot.max_slots + additional_slots
+    if (newMaxSlots > 100) {
+      throw new Error('Resulting max_slots must be between 0 and 100')
+    }
+
+    return update<DbCounsellingSlot>('counselling_slots', existingSlot.id, {
+      max_slots: newMaxSlots
     })
   },
   
