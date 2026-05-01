@@ -252,6 +252,12 @@ export async function POST(request: NextRequest) {
         if (logoUrl !== undefined) {
           siteSettings.logoUrl = logoUrl || defaultSettings.logoUrl
         }
+        if (maintenanceMode !== undefined) {
+          siteSettings.maintenanceMode = Boolean(maintenanceMode)
+        }
+        if (maintenanceMessage !== undefined) {
+          siteSettings.maintenanceMessage = maintenanceMessage || ''
+        }
         
         // Save to Supabase
         await settingsDb.set('site_settings', {

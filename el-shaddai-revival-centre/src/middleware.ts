@@ -24,6 +24,11 @@ interface JWTPayload {
   exp?: number
 }
 
+interface MaintenanceState {
+  enabled: boolean
+  message: string
+}
+
 // Verify JWT token using jose (works in Edge runtime)
 async function verifyToken(token: string): Promise<JWTPayload | null> {
   try {
@@ -70,6 +75,44 @@ function getTokenFromCookies(request: NextRequest): string | null {
   }
 }
 
+async function getPersistentMaintenanceMode(): Promise<MaintenanceState> {
+  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
+  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY
+
+  if (!supabaseUrl || !serviceRoleKey) {
+    return getMaintenanceMode()
+  }
+
+  try {
+    const response = await fetch(
+      `${supabaseUrl}/rest/v1/settings?key=eq.site_settings&select=value&limit=1`,
+      {
+        headers: {
+          apikey: serviceRoleKey,
+          Authorization: `Bearer ${serviceRoleKey}`,
+          Accept: 'application/json'
+        },
+        cache: 'no-store'
+      }
+    )
+
+    if (!response.ok) {
+      return getMaintenanceMode()
+    }
+
+    const data = await response.json() as Array<{ value?: { maintenanceMode?: boolean; maintenanceMessage?: string } }>
+    const value = data?.[0]?.value
+
+    return {
+      enabled: Boolean(value?.maintenanceMode),
+      message: value?.maintenanceMessage || ''
+    }
+  } catch (error) {
+    console.error('[Maintenance Mode] Failed to read persistent settings:', error)
+    return getMaintenanceMode()
+  }
+}
+
 export async function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl
   
@@ -92,7 +135,7 @@ const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route
   const isAdminUser = isValidToken && (decoded?.role === 'super_admin' || decoded?.role === 'admin' || decoded?.role === 'editor')
   
   // Check maintenance mode
-  const maintenance = getMaintenanceMode()
+  const maintenance = await getPersistentMaintenanceMode()
   
   // Debug logging
   console.log(`[Auth Middleware] ${pathname} | Auth: ${isValidToken} | Token: ${token ? 'present' : 'missing'} | Maintenance: ${maintenance.enabled}`)
@@ -107,12 +150,16 @@ const isProtectedRoute = protectedRoutes.some(route => pathname.startsWith(route
     if (isMaintenancePage) {
       return NextResponse.next()
     }
+
+    // Authenticated admin users should keep access to manage the system,
+    // including non-/admin API routes such as /api/settings.
+    if (isAdminUser) {
+      return NextResponse.next()
+    }
     
     // Allow admin routes only for admin users
     if (isAdminRoute) {
-      if (isAdminUser) {
-        return NextResponse.next()
-      } else if (!isPublicApiRoute) {
+      if (!isPublicApiRoute) {
         // Non-admin users trying to access admin routes -> redirect to login
         const loginUrl = new URL('/admin/login', request.url)
         loginUrl.searchParams.set('callbackUrl', pathname)
