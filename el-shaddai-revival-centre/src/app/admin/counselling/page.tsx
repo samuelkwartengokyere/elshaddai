@@ -116,6 +116,7 @@ export default function CounsellingAdminPage() {
   const [slotForm, setSlotForm] = useState<UpsertSlotData>({ date: '', max_slots: 10 });
   const [bulkDates, setBulkDates] = useState<string[]>([]);
   const [bulkMaxSlots, setBulkMaxSlots] = useState(10);
+  const [deletingSlotDate, setDeletingSlotDate] = useState<string | null>(null);
   const [bookings, setBookings] = useState<CounsellingBookingRecord[]>([]);
   const [loadingBookings, setLoadingBookings] = useState(false);
   const [updatingBookingId, setUpdatingBookingId] = useState<string | null>(null);
@@ -278,6 +279,34 @@ export default function CounsellingAdminPage() {
 
   const handleEditSlot = (date: string, maxSlots: number) => {
     setSlotForm({ date, max_slots: maxSlots });
+  };
+
+  const handleDeleteSlot = async (date: string) => {
+    const confirmDelete = confirm(`Delete slot settings for ${new Date(date + 'T00:00:00').toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' })}?`);
+    if (!confirmDelete) return;
+
+    try {
+      setDeletingSlotDate(date);
+      setError('');
+      setSuccess('');
+
+      const response = await fetch(`/api/counselling-slots?date=${encodeURIComponent(date)}`, {
+        method: 'DELETE'
+      });
+      const data = await response.json();
+
+      if (data.success) {
+        setSuccess(`Deleted slot settings for ${date}`);
+        await fetchSlots();
+      } else {
+        setError(data.error || 'Failed to delete slot');
+      }
+    } catch (deleteError) {
+      console.error('Delete slot error:', deleteError);
+      setError('Failed to delete slot');
+    } finally {
+      setDeletingSlotDate(null);
+    }
   };
 
   const fetchCounsellors = async () => {
@@ -1193,6 +1222,13 @@ export default function CounsellingAdminPage() {
                           className="text-blue-600 hover:text-blue-900 mr-3"
                         >
                           Edit
+                        </button>
+                        <button
+                          onClick={() => handleDeleteSlot(slot.date)}
+                          disabled={deletingSlotDate === slot.date}
+                          className="text-red-600 hover:text-red-900 disabled:text-gray-400"
+                        >
+                          {deletingSlotDate === slot.date ? 'Deleting...' : 'Delete'}
                         </button>
                       </td>
                     </tr>

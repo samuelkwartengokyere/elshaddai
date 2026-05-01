@@ -143,7 +143,7 @@ export async function POST(request: NextRequest) {
           time_slot: formData.preferredTime,
           issue_type: formData.topic,
           notes: formData.notes || undefined,
-          status: 'pending'
+          status: 'confirmed'
         });
         
         // Teams meeting for online
@@ -166,7 +166,7 @@ export async function POST(request: NextRequest) {
               sessionDuration: formData.sessionDuration,
               topic: formData.topic,
               notes: formData.notes,
-              status: 'pending',
+              status: 'confirmed',
               confirmationNumber,
               isPaid: false
             }, formData.sessionDuration);
@@ -194,7 +194,7 @@ export async function POST(request: NextRequest) {
           topic: formData.topic,
           notes: formData.notes,
           teamsMeetingUrl,
-          status: 'pending',
+          status: 'confirmed',
           confirmationNumber,
           isPaid: false
         }).catch(console.error);
@@ -216,7 +216,7 @@ export async function POST(request: NextRequest) {
           topic: formData.topic,
           notes: formData.notes,
           teamsMeetingUrl,
-          status: 'pending',
+          status: 'confirmed',
           confirmationNumber,
           isPaid: false
         }, counsellor.email, counsellor.name).catch(console.error);
@@ -228,7 +228,7 @@ export async function POST(request: NextRequest) {
             booking: {
               id: dbBooking.id,
               confirmationNumber,
-              status: 'pending',
+              status: 'confirmed',
               preferredDate: formData.preferredDate,
               preferredTime: formData.preferredTime,
               bookingType: formData.bookingType,
@@ -257,7 +257,7 @@ export async function POST(request: NextRequest) {
         booking: {
           id: 'fallback-' + Date.now(),
           confirmationNumber,
-          status: 'pending',
+          status: 'confirmed',
           preferredDate: formData.preferredDate,
           preferredTime: formData.preferredTime,
           bookingType: formData.bookingType,
