@@ -20,34 +20,37 @@ import {
 } from 'lucide-react'
 import Link from 'next/link'
 
+const CHURCH_PHONE_DISPLAY = '+233 55 401 7121'
+const CHURCH_PHONE_TEL = CHURCH_PHONE_DISPLAY.replace(/\s/g, '')
+
 // Ministry contact information
 const ministryContacts = [
   {
     icon: Users,
     title: 'Pastoral Care',
     email: 'info.copelshaddai@gmail.com',
-    phone: '+233 50 123 4568',
+    phone: CHURCH_PHONE_DISPLAY,
     description: 'Prayer requests, counseling, pastoral visits'
   },
   {
     icon: Calendar,
     title: 'Events & Ministries',
     email: 'info.copelshaddai@gmail.com',
-    phone: '+233 50 123 4569',
+    phone: CHURCH_PHONE_DISPLAY,
     description: 'Event bookings, ministry partnerships'
   },
   {
     icon: Heart,
     title: 'Benevolence & Outreach',
     email: 'info.copelshaddai@gmail.com',
-    phone: '+233 50 123 4570',
+    phone: CHURCH_PHONE_DISPLAY,
     description: 'Community outreach, assistance programs'
   },
   {
     icon: Headphones,
     title: 'Technical Support',
     email: 'info.copelshaddai@gmail.com',
-    phone: '+233 50 123 4571',
+    phone: CHURCH_PHONE_DISPLAY,
     description: 'Live stream issues, website support'
   }
 ]
@@ -56,11 +59,13 @@ const ministryContacts = [
 const faqs = [
   {
     question: 'What are your service times?',
-    answer: 'We have Sunday services at 9:00 AM and 11:00 AM, Wednesday Bible Study at 7:00 PM, and Friday Youth Service at 7:00 PM.'
+    answer:
+      'Morning services: 9:00 AM to 1:00 PM. Evening service: 6:30 PM to 9:00 PM. All-night service: 10:00 PM to 4:00 AM.'
   },
   {
     question: 'Where are you located?',
-    answer: 'We&apos;re located at El-Shaddai Revival Centre, Nabewam, Ghana. There&apos;s plenty of parking available on-site.'
+    answer:
+      "Our location is El-Shaddai Revival Centre at Ohene Nkwanta, Nabewam, Ghana, in Odumasi District, Konongo Area. We are about 8 kilometres from Konongo on the Accra–Kumasi highway—about 100 metres on the right-hand side off the highway when coming from Konongo. On this page, scroll to Find Us for the map and Getting Here directions; there is plenty of parking on-site."
   },
   {
     question: 'Is there parking available?',
@@ -76,7 +81,8 @@ const faqs = [
   },
   {
     question: 'How can I get involved in ministry?',
-    answer: 'We&apos;d love to help you find your place! Visit our Welcome Center after any service or contact us to discuss your interests and gifts.'
+    answer:
+      "We would love to help you serve with your gifts. Start on our Serve page to see teams like worship, media, children, youth, ushering, greeters, hospitality, prayer, and more—each listing what is involved and how often they meet. After a service, introduce yourself to a pastor or ministry leader so we can match you to the right team. You can also use the contact form on this page or call us to say what you are interested in and we will follow up."
   }
 ]
 
@@ -91,11 +97,13 @@ function ContactForm() {
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [submitStatus, setSubmitStatus] = useState<'idle' | 'success' | 'error'>('idle')
+  const [submitErrorDetail, setSubmitErrorDetail] = useState<string | null>(null)
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsSubmitting(true)
     setSubmitStatus('idle')
+    setSubmitErrorDetail(null)
 
     try {
       const response = await fetch('/api/contact', {
@@ -104,20 +112,43 @@ function ContactForm() {
         body: JSON.stringify(formData),
       });
 
-      const data = await response.json();
+      let data: { success?: boolean; error?: string } = {};
+      try {
+        data = await response.json();
+      } catch {
+        setSubmitStatus('error');
+        setSubmitErrorDetail('The server returned an invalid response. Please try again.');
+        setTimeout(() => {
+          setSubmitStatus('idle');
+          setSubmitErrorDetail(null);
+        }, 8000);
+        return;
+      }
 
-      if (data.success) {
+      if (response.ok && data.success) {
         setSubmitStatus('success');
         setFormData({ name: '', email: '', phone: '', subject: '', message: '' });
         setTimeout(() => setSubmitStatus('idle'), 5000);
       } else {
         setSubmitStatus('error');
-        setTimeout(() => setSubmitStatus('idle'), 5000);
+        setSubmitErrorDetail(
+          typeof data.error === 'string' && data.error.length > 0
+            ? data.error
+            : 'Could not send your message. Please try again.'
+        );
+        setTimeout(() => {
+          setSubmitStatus('idle');
+          setSubmitErrorDetail(null);
+        }, 8000);
       }
     } catch (error) {
       console.error('Submit error:', error);
       setSubmitStatus('error');
-      setTimeout(() => setSubmitStatus('idle'), 5000);
+      setSubmitErrorDetail('Network error. Check your connection and try again.');
+      setTimeout(() => {
+        setSubmitStatus('idle');
+        setSubmitErrorDetail(null);
+      }, 8000);
     } finally {
       setIsSubmitting(false);
     }
@@ -167,7 +198,7 @@ function ContactForm() {
             value={formData.phone}
             onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
             className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent transition duration-300"
-            placeholder="+233 50 123 4567"
+            placeholder={CHURCH_PHONE_DISPLAY}
           />
         </div>
         <div>
@@ -241,8 +272,9 @@ function ContactForm() {
       )}
       {submitStatus === 'error' && (
         <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded-lg">
-          <p className="font-medium">❌ Failed to send message.</p>
-          <p>Please try again or email info.copelshaddai@gmail.com directly.</p>
+          <p className="font-medium">Could not send your message</p>
+          {submitErrorDetail && <p className="mt-2 text-sm">{submitErrorDetail}</p>}
+          <p className="mt-2 text-sm">You can also email info.copelshaddai@gmail.com directly.</p>
         </div>
       )}
     </form>
@@ -321,7 +353,7 @@ export default function ContactPage() {
                 </div>
                 <h3 className="text-xl font-bold mb-3">Call Us</h3>
                 <p className="text-gray-600">
-                  +233 50 123 4567<br />
+                  {CHURCH_PHONE_DISPLAY}<br />
                   Mon-Fri: 9AM-5PM
                 </p>
               </div>
@@ -344,9 +376,10 @@ export default function ContactPage() {
                   <Clock className="h-8 w-8 text-primary" />
                 </div>
                 <h3 className="text-xl font-bold mb-3">Service Times</h3>
-                <p className="text-gray-600">
-                  Sun: 9AM & 11AM<br />
-                  Wed: 7PM | Fri: 7PM
+                <p className="text-gray-600 text-sm leading-relaxed">
+                  Morning: 9:00 AM–1:00 PM<br />
+                  Evening: 6:30–9:00 PM<br />
+                  All-night: 10:00 PM–4:00 AM
                 </p>
               </div>
             </div>
@@ -388,7 +421,7 @@ export default function ContactPage() {
                           {contact.email}
                         </a>
                         <a 
-                          href={`tel:${contact.phone}`}
+                          href={`tel:${CHURCH_PHONE_TEL}`}
                           className="flex items-center text-accent hover:text-red-600 transition duration-300"
                         >
                           <Phone className="h-4 w-4 mr-2" />
@@ -543,10 +576,10 @@ export default function ContactPage() {
             <div className="text-center mt-8">
               <p className="text-gray-600 mb-4">Still have questions?</p>
               <Link 
-                href="tel:+233501234567"
+                href={`tel:${CHURCH_PHONE_TEL}`}
                 className="inline-flex items-center text-accent hover:text-red-600 font-semibold"
               >
-                Call us at +233 50 123 4567 <ArrowRight className="ml-2 h-5 w-5" />
+                Call us at {CHURCH_PHONE_DISPLAY} <ArrowRight className="ml-2 h-5 w-5" />
               </Link>
             </div>
           </div>
@@ -571,7 +604,7 @@ export default function ContactPage() {
                 Submit Prayer Request
               </Link>
               <a 
-                href="tel:+233501234568"
+                href={`tel:${CHURCH_PHONE_TEL}`}
                 className="border-2 border-white text-white px-8 py-4 rounded-lg font-semibold hover:bg-white hover:text-primary transition duration-300 inline-block"
               >
                 Call Prayer Line

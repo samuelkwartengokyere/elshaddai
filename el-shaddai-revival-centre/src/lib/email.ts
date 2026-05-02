@@ -24,9 +24,29 @@ interface EmailAttachment {
 interface EmailPayload {
   to: string[];
   cc?: string[];
+  bcc?: string[];
+  replyTo?: string;
   subject: string;
   html: string;
   attachments?: EmailAttachment[];
+}
+
+/** Bare address for comparisons (handles `"Name" <a@b.com>`). */
+export function parseEmailAddress(fromField: string): string {
+  const trimmed = fromField.trim();
+  const m = trimmed.match(/<([^>]+)>/);
+  return (m ? m[1] : trimmed).toLowerCase();
+}
+
+/** Resolved From address used in outgoing mail (for same-mailbox routing fixes). */
+export function getResolvedSenderEmail(): string {
+  return parseEmailAddress(getConfig().from);
+}
+
+/** SMTP auth user (normalized). Empty if not configured. */
+export function getSmtpAuthEmail(): string {
+  const user = getConfig().user;
+  return user ? parseEmailAddress(user) : '';
 }
 
 // Get email configuration from environment variables
@@ -35,8 +55,9 @@ function getConfig(): EmailConfig {
     host: process.env.SMTP_HOST || 'smtp.gmail.com',
     port: parseInt(process.env.SMTP_PORT || '587'),
     secure: process.env.SMTP_SECURE === 'true',
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || '',
+    user: (process.env.SMTP_USER || '').trim(),
+    // Gmail app passwords are often shown with spaces; strip them.
+    pass: (process.env.SMTP_PASS || '').replace(/\s/g, ''),
     from: process.env.EMAIL_FROM || 'info.copelshaddai@gmail.com',
     fromName: process.env.EMAIL_FROM_NAME || 'El-Shaddai Revival Centre',
   };
@@ -53,17 +74,52 @@ function createTransporter() {
   }
 
   try {
-    const transporter = nodemailer.createTransport({
+    const forceIpv4 = process.env.SMTP_IPV4_ONLY !== 'false';
+    const timeouts = {
+      connectionTimeout: parseInt(process.env.SMTP_CONNECTION_TIMEOUT_MS || '30000', 10),
+      greetingTimeout: parseInt(process.env.SMTP_GREETING_TIMEOUT_MS || '30000', 10),
+      socketTimeout: parseInt(process.env.SMTP_SOCKET_TIMEOUT_MS || '60000', 10),
+    };
+    const maybeIpv4 = forceIpv4 ? { family: 4 as const } : {};
+
+    const hostLower = config.host.trim().toLowerCase();
+    const useGmailPreset =
+      process.env.SMTP_USE_WELL_KNOWN !== 'false' &&
+      (hostLower === 'smtp.gmail.com' || hostLower === 'gmail');
+
+    // Built-in Gmail preset avoids many "Unexpected socket close" issues vs raw host/port.
+    if (useGmailPreset) {
+      return nodemailer.createTransport({
+        service: 'gmail',
+        auth: {
+          user: config.user,
+          pass: config.pass,
+        },
+        ...timeouts,
+        ...maybeIpv4,
+      });
+    }
+
+    // Port 465 uses TLS from connect; 587 uses STARTTLS (secure must be false on 587).
+    const secure = config.port === 465;
+    const isStartTls587 = config.port === 587;
+
+    return nodemailer.createTransport({
       host: config.host,
       port: config.port,
-      secure: config.secure,
+      secure,
       auth: {
         user: config.user,
         pass: config.pass,
       },
+      ...timeouts,
+      ...(isStartTls587 ? { requireTLS: true } : {}),
+      tls: {
+        minVersion: 'TLSv1.2' as const,
+        rejectUnauthorized: true,
+      },
+      ...maybeIpv4,
     });
-
-    return transporter;
   } catch (error) {
     console.error('Failed to create email transporter:', error);
     return null;
@@ -78,6 +134,7 @@ export async function sendEmail(payload: EmailPayload): Promise<boolean> {
   if (!config.user || !config.pass) {
     console.log('📧 [MOCK EMAIL] Sending email:');
     console.log(`   To: ${payload.to.join(', ')}`);
+    if (payload.bcc?.length) console.log(`   Bcc: ${payload.bcc.join(', ')}`);
     console.log(`   Subject: ${payload.subject}`);
     return true;
   }
@@ -88,6 +145,7 @@ export async function sendEmail(payload: EmailPayload): Promise<boolean> {
     if (!transporter) {
       console.log('📧 [MOCK EMAIL] No transporter available:');
       console.log(`   To: ${payload.to.join(', ')}`);
+      if (payload.bcc?.length) console.log(`   Bcc: ${payload.bcc.join(', ')}`);
       console.log(`   Subject: ${payload.subject}`);
       return true;
     }
@@ -96,6 +154,8 @@ export async function sendEmail(payload: EmailPayload): Promise<boolean> {
       from: `"${config.fromName}" <${config.from}>`,
       to: payload.to.join(', '),
       cc: payload.cc?.join(', '),
+      bcc: payload.bcc?.join(', '),
+      replyTo: payload.replyTo,
       subject: payload.subject,
       html: payload.html,
       attachments: payload.attachments,

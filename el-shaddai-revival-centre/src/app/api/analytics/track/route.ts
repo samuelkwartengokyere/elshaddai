@@ -41,10 +41,15 @@ export async function POST(request: NextRequest) {
 
     if (!insertError) {
       const day = new Date().toISOString().slice(0, 10)
-      void supabase.rpc('increment_analytics_page_view', {
-        p_day: day,
-        p_path: path,
-      }).catch(() => {})
+      void supabase
+        .rpc('increment_analytics_page_view', {
+          p_day: day,
+          p_path: path,
+        })
+        .then(
+          () => {},
+          () => {}
+        )
 
       return NextResponse.json({ ok: true }, { status: 200 })
     }

@@ -11,6 +11,7 @@
  */
 
 import { isSupabaseConfigured } from './supabase'
+import { deriveIsYoutubeConfigured } from './youtubeStorage'
 import { getSupabaseAdminAsync } from './supabase'
 
 import type { SupabaseClient } from '@supabase/supabase-js'
@@ -41,6 +42,8 @@ export interface DbSettings {
   id: string
   key: string
   value: Record<string, unknown>
+  /** Denormalized flag for `key = site_settings`; derived from `value.youtube` on write. */
+  is_youtube_configured?: boolean
   created_at: string
   updated_at: string
 }
@@ -376,23 +379,31 @@ export const settingsDb = {
     if (!isSupabaseConfigured()) {
       throw new Error('Supabase not configured')
     }
-    
+
     const supabaseAdmin = await getSupabaseAdmin()
-    
+
     // Try to update first
     const { data: existing } = await supabaseAdmin
       .from('settings')
       .select('id')
       .eq('key', key)
       .single()
-    
+
+    const isSiteSettings = key === 'site_settings'
+    const isYoutubeConfigured = isSiteSettings ? deriveIsYoutubeConfigured(value) : false
+
     if (existing) {
-      return update<DbSettings>('settings', existing.id, { value })
+      const patch: Partial<DbSettings> = { value }
+      if (isSiteSettings) {
+        patch.is_youtube_configured = isYoutubeConfigured
+      }
+      return update<DbSettings>('settings', existing.id, patch)
     }
-    
+
     return insert<DbSettings>('settings', {
       key,
       value,
+      ...(isSiteSettings ? { is_youtube_configured: isYoutubeConfigured } : {}),
       created_at: new Date().toISOString(),
       updated_at: new Date().toISOString()
     })

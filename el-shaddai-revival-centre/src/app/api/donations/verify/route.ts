@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server';
 import { getSupabaseAdmin } from '@/lib/supabase';
 import { verifyTransaction } from '@/lib/paystack';
 import { sendEmail } from '@/lib/email';
+import { mailboxes } from '@/lib/mailboxes';
 
 export async function GET(request: NextRequest) {
   try {
@@ -106,7 +107,7 @@ export async function GET(request: NextRequest) {
     `;
 
     const paymentSent = await sendEmail({
-      to: ['payment.copelshaddai@gmail.com'],
+      to: [mailboxes.payments],
       subject: paymentSubject,
       html: paymentHtml,
     });

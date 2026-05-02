@@ -53,8 +53,14 @@ export default function SermonsPage() {
       const data = await response.json()
       if (data.success) {
         setSettings(data.settings || {})
-        // Check if YouTube is configured (has channelId or channelUrl)
-        const ytConfigured = !!(data.settings?.youtube?.channelId || data.settings?.youtube?.channelUrl)
+        const ytConfigured =
+          typeof data.settings?.isYoutubeConfigured === 'boolean'
+            ? data.settings.isYoutubeConfigured
+            : !!(
+                data.settings?.youtube?.channelId ||
+                data.settings?.youtube?.channelUrl ||
+                data.settings?.youtube?.playlistId
+              )
         setYoutubeConfigured(ytConfigured)
       }
     } catch (error) {

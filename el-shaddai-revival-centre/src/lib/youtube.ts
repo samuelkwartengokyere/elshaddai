@@ -70,6 +70,13 @@ export function extractChannelId(url: string): string | null {
   return null
 }
 
+/** Official channel live embed (shows current/upcoming live for that channel). Requires UC… channel id. */
+export function buildYoutubeChannelLiveEmbedUrl(channelId: string): string | null {
+  const id = channelId.trim()
+  if (!id || !id.startsWith('UC') || id.length < 22) return null
+  return `https://www.youtube.com/embed/live_stream?channel=${encodeURIComponent(id)}`
+}
+
 /**
  * Get channel ID from username using YouTube API
  */
@@ -150,12 +157,18 @@ export async function fetchChannelPlaylists(
  * Looks for playlist titles containing "sermon" (case-insensitive)
  */
 export function findSermonsPlaylist(playlists: YouTubePlaylist[]): YouTubePlaylist | null {
-  // Search for playlists with "sermon" in the title
-  const sermonsPlaylist = playlists.find(playlist => 
-    playlist.title.toLowerCase().includes('sermon') || 
-    playlist.title.toLowerCase().includes('sermons')
-  )
-  
+  const t = (s: string) => s.toLowerCase()
+  const sermonsPlaylist = playlists.find(playlist => {
+    const title = t(playlist.title)
+    return (
+      title.includes('sermon') ||
+      title.includes('sermons') ||
+      title.includes('preaching') ||
+      title.includes('messages') ||
+      title.includes('weekly message')
+    )
+  })
+
   return sermonsPlaylist || null
 }
 
@@ -697,6 +710,7 @@ export async function checkChannelLiveStatus(
 export default {
   extractVideoId,
   extractChannelId,
+  buildYoutubeChannelLiveEmbedUrl,
   getChannelIdFromUsername,
   formatDuration,
   durationToSeconds,

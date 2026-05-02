@@ -10,6 +10,7 @@ import {
   clearYouTubeCache
 } from '@/lib/youtubeStorage'
 import { fetchChannelDetails, fetchAllChannelVideos, youTubeVideoToSermon, extractChannelId, getChannelIdFromUsername, fetchChannelPlaylists, findSermonsPlaylist } from '@/lib/youtube'
+import { persistYoutubeSiteSettings } from '@/lib/persistSiteSettingsYoutube'
 
 const CACHE_DURATION_MS = 5 * 60 * 1000 // 5 minutes
 
@@ -424,6 +425,17 @@ export async function GET(request: NextRequest) {
       }
     }
 
+    // Prefer a "sermons" playlist on this channel when admin set URL/id but no playlist id
+    let sermonPlaylistId = (youtubeConfig.playlistId || '').trim()
+    if (!sermonPlaylistId && effectiveChannelId && youtubeConfig.apiKey) {
+      const detected = await autoDetectSermonsPlaylist(effectiveChannelId, youtubeConfig.apiKey)
+      if (detected) {
+        sermonPlaylistId = detected
+        setInMemoryYouTubeSettings({ playlistId: detected })
+        await persistYoutubeSiteSettings()
+      }
+    }
+
     // Check cache
     const now = new Date()
     const lastUpdate = getLastCacheUpdate()
@@ -439,7 +451,7 @@ export async function GET(request: NextRequest) {
       const videos = await fetchAllChannelVideos(
         effectiveChannelId,
         youtubeConfig.apiKey,
-        { maxVideos: 500, maxResultsPerPage: 50, playlistId: youtubeConfig.playlistId || undefined }
+        { maxVideos: 500, maxResultsPerPage: 50, playlistId: sermonPlaylistId || undefined }
       )
 
       // Transform to sermon format and update cache
@@ -453,6 +465,8 @@ export async function GET(request: NextRequest) {
         syncStatus: 'success',
         syncError: ''
       })
+
+      await persistYoutubeSiteSettings()
 
       return NextResponse.json({
         success: true,
@@ -481,7 +495,7 @@ export async function GET(request: NextRequest) {
       const videos = await fetchAllChannelVideos(
         effectiveChannelId,
         youtubeConfig.apiKey,
-        { maxVideos: 500, maxResultsPerPage: 50, playlistId: youtubeConfig.playlistId || undefined }
+        { maxVideos: 500, maxResultsPerPage: 50, playlistId: sermonPlaylistId || undefined }
       )
 
       // Transform to sermon format and update cache
@@ -495,6 +509,8 @@ export async function GET(request: NextRequest) {
         syncStatus: 'success',
         syncError: ''
       })
+
+      await persistYoutubeSiteSettings()
 
       return NextResponse.json({
         success: true,
@@ -625,6 +641,8 @@ export async function POST(request: NextRequest) {
         syncError: 'API key required for video sync'
       })
 
+      await persistYoutubeSiteSettings()
+
       return NextResponse.json({
         success: true,
         message: 'Channel/Playlist configured. Add API key to enable video sync.',
@@ -678,6 +696,8 @@ export async function POST(request: NextRequest) {
       startAutoSync(bodySyncInterval)
     }
 
+    await persistYoutubeSiteSettings()
+
     return NextResponse.json({
       success: true,
       message: `YouTube videos synced successfully from ${hasPlaylistConfig ? 'playlist' : 'channel'}`,
@@ -696,6 +716,8 @@ export async function POST(request: NextRequest) {
       syncStatus: 'error',
       syncError: error instanceof Error ? error.message : 'Unknown error'
     })
+
+    await persistYoutubeSiteSettings()
 
     return NextResponse.json({
       success: false,

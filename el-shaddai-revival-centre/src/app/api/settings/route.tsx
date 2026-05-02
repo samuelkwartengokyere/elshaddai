@@ -1,12 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { settingsDb, isDbConfigured } from '@/lib/db'
-import { 
-  getInMemoryYouTubeSettings, 
+import {
+  getInMemoryYouTubeSettings,
   setInMemoryYouTubeSettings,
   getCachedYouTubeVideos,
   setCachedYouTubeVideos,
-  setLastCacheUpdate
+  setLastCacheUpdate,
+  youTubeConfigFromJson,
+  youTubeConfigToJson,
+  deriveIsYoutubeConfigured
 } from '@/lib/youtubeStorage'
+import { mergeYoutubeFromAdminPost, persistYoutubeSiteSettings } from '@/lib/persistSiteSettingsYoutube'
 import { fetchChannelDetails, fetchAllChannelVideos, youTubeVideoToSermon, extractChannelId, getChannelIdFromUsername, fetchChannelPlaylists, findSermonsPlaylist } from '@/lib/youtube'
 import { getMaintenanceMode, parseMaintenanceEnabled, parseMaintenanceMessage, setMaintenanceMode } from '@/lib/maintenance'
 
@@ -107,6 +111,8 @@ async function syncYouTubeVideos(channelId: string, channelUrl: string, apiKey: 
       syncStatus: 'success',
       syncError: ''
     })
+
+    await persistYoutubeSiteSettings()
     
     console.log(`[Settings API] Auto-synced ${sermonVideos.length} YouTube videos`)
     return { success: true, videosCount: sermonVideos.length }
@@ -118,6 +124,7 @@ async function syncYouTubeVideos(channelId: string, channelUrl: string, apiKey: 
       syncStatus: 'error',
       syncError: errorMessage
     })
+    await persistYoutubeSiteSettings()
     return { success: false, videosCount: 0, error: errorMessage }
   }
 }
@@ -144,9 +151,13 @@ if (!globalForSettings.inMemorySettings) {
 let inMemorySettings: Record<string, unknown> = globalForSettings.inMemorySettings
 
 function getInMemorySettings() {
-  return { 
+  const base = {
     ...inMemorySettings,
     youtube: getInMemoryYouTubeSettings()
+  } as Record<string, unknown>
+  return {
+    ...base,
+    isYoutubeConfigured: deriveIsYoutubeConfigured(base)
   }
 }
 
@@ -189,11 +200,25 @@ export async function GET() {
           const maintenanceMessage = parseMaintenanceMessage(value.maintenanceMessage)
           setMaintenanceMode(maintenanceMode, maintenanceMessage)
 
+          if (value.youtube != null) {
+            setInMemoryYouTubeSettings(youTubeConfigFromJson(value.youtube))
+          }
+
+          const mergedForFlag = {
+            ...value,
+            youtube: getInMemoryYouTubeSettings()
+          } as Record<string, unknown>
+          const isYoutubeConfigured =
+            typeof dbSettings.is_youtube_configured === 'boolean'
+              ? dbSettings.is_youtube_configured
+              : deriveIsYoutubeConfigured(mergedForFlag)
+
           return NextResponse.json({
             success: true,
             settings: {
               ...dbSettings.value,
               youtube: getInMemoryYouTubeSettings(),
+              isYoutubeConfigured,
               maintenanceMode,
               maintenanceMessage
             },
@@ -221,7 +246,11 @@ export async function GET() {
   } catch (error) {
     console.error('Error fetching settings:', error)
     return NextResponse.json(
-      { success: true, settings: defaultSettings, isDefault: true },
+      {
+        success: true,
+        settings: { ...defaultSettings, isYoutubeConfigured: false },
+        isDefault: true
+      },
       { status: 200 }
     )
   }
@@ -232,20 +261,31 @@ export async function POST(request: NextRequest) {
     const body = await request.json()
     const { churchName, churchTagline, logoUrl, youtube, maintenanceMode, maintenanceMessage } = body
 
-    // Try Supabase first, fall back to in-memory
     const supabaseConfigured = isDbConfigured()
-    
-    // Build settings object for Supabase
-    const siteSettings: Record<string, unknown> = {}
-    let useSupabase = false
-    
+
+    let existingValue: Record<string, unknown> = {}
     if (supabaseConfigured) {
       try {
-        // Get existing settings from Supabase
         const existingSettings = await settingsDb.get('site_settings')
-        const existingValue = existingSettings?.value || {}
-        
-        // Merge with new settings
+        existingValue = (existingSettings?.value || {}) as Record<string, unknown>
+      } catch (loadError) {
+        console.error('[Settings API] Failed to load site_settings:', loadError)
+      }
+    }
+
+    let mergedYoutube: ReturnType<typeof mergeYoutubeFromAdminPost> | null = null
+    if (youtube !== undefined) {
+      mergedYoutube = mergeYoutubeFromAdminPost(
+        youtube as Record<string, unknown>,
+        existingValue.youtube !== undefined ? existingValue.youtube : getInMemoryYouTubeSettings()
+      )
+    }
+
+    const siteSettings: Record<string, unknown> = {}
+    let useSupabase = false
+
+    if (supabaseConfigured) {
+      try {
         if (churchName !== undefined) {
           siteSettings.churchName = churchName || defaultSettings.churchName
         }
@@ -261,21 +301,22 @@ export async function POST(request: NextRequest) {
         if (maintenanceMessage !== undefined) {
           siteSettings.maintenanceMessage = maintenanceMessage || ''
         }
-        
-        // Save to Supabase
+        if (mergedYoutube) {
+          siteSettings.youtube = youTubeConfigToJson(mergedYoutube)
+        }
+
         await settingsDb.set('site_settings', {
           ...existingValue,
           ...siteSettings
         })
-        
+
         useSupabase = true
         console.log('[Settings API] Settings saved to Supabase')
       } catch (dbError) {
         console.error('[Settings API] Database error, falling back to in-memory:', dbError)
       }
     }
-    
-    // Always update in-memory for immediate availability
+
     if (churchName !== undefined) {
       setInMemorySettings({ churchName: churchName || defaultSettings.churchName })
     }
@@ -285,48 +326,27 @@ export async function POST(request: NextRequest) {
     if (logoUrl !== undefined) {
       setInMemorySettings({ logoUrl: logoUrl || defaultSettings.logoUrl })
     }
-    
-    // Update maintenance mode settings (keep in sync)
+
     if (maintenanceMode !== undefined) {
       setInMemorySettings({ maintenanceMode: parseMaintenanceEnabled(maintenanceMode) })
     }
     if (maintenanceMessage !== undefined) {
       setInMemorySettings({ maintenanceMessage: maintenanceMessage })
     }
-    
-    // Update YouTube settings if explicitly provided (always in-memory for now)
-    if (youtube !== undefined) {
-      // First save the settings
-      setInMemoryYouTubeSettings({
-        channelId: youtube.channelId || '',
-        channelName: youtube.channelName || '',
-        channelUrl: youtube.channelUrl || '',
-        apiKey: youtube.apiKey || '',
-        playlistId: youtube.playlistId || '',  // Save the playlist ID
-        autoSync: youtube.autoSync || false,
-        syncInterval: youtube.syncInterval || 6,
-        lastSync: youtube.lastSync ? new Date(youtube.lastSync) : null,
-        syncStatus: youtube.syncStatus || 'idle',
-        syncError: youtube.syncError || ''
-      })
-      
-      // Auto-sync YouTube videos after saving settings (if channel info + API key OR playlistId are provided)
-      const channelId = youtube.channelId || ''
-      const channelUrl = youtube.channelUrl || ''
-      const apiKey = youtube.apiKey || ''
-      const playlistId = youtube.playlistId || ''  // Get playlist ID
-      
-      // Only auto-sync if we have channel info + API key OR just a playlist ID + API key
+
+    if (mergedYoutube) {
+      setInMemoryYouTubeSettings(mergedYoutube)
+
+      const { channelId, channelUrl, apiKey, playlistId } = mergedYoutube
+
       if ((channelId || channelUrl || playlistId) && apiKey) {
         console.log('[Settings API] YouTube configuration detected, triggering auto-sync...')
-        
-        // Set status to syncing
+
         setInMemoryYouTubeSettings({
           syncStatus: 'syncing',
           syncError: ''
         })
-        
-        // Trigger sync (don't await - let it run in background)
+
         syncYouTubeVideos(channelId, channelUrl, apiKey, playlistId).then(syncResult => {
           if (syncResult.success) {
             console.log(`[Settings API] Auto-sync complete: ${syncResult.videosCount} videos fetched`)

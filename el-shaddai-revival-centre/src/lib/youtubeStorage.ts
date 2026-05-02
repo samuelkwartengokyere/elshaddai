@@ -56,6 +56,56 @@ export function setInMemoryYouTubeSettings(settings: Partial<YouTubeConfigType>)
   globalForYouTubeSettings.inMemoryYouTubeSettings = inMemoryYouTubeSettings
 }
 
+/** Parse YouTube config from JSON stored in site_settings (Supabase). */
+export function youTubeConfigFromJson(input: unknown): YouTubeConfigType {
+  const base: YouTubeConfigType = { ...defaultYouTubeSettings }
+  if (!input || typeof input !== 'object') return base
+  const o = input as Record<string, unknown>
+  const st = o.syncStatus
+  const syncStatus: YouTubeConfigType['syncStatus'] =
+    st === 'idle' || st === 'syncing' || st === 'success' || st === 'error' ? st : base.syncStatus
+  const last = o.lastSync
+  return {
+    channelId: String(o.channelId ?? base.channelId),
+    channelName: String(o.channelName ?? base.channelName),
+    channelUrl: String(o.channelUrl ?? base.channelUrl),
+    apiKey: String(o.apiKey ?? base.apiKey),
+    playlistId: String(o.playlistId ?? base.playlistId),
+    autoSync: Boolean(o.autoSync ?? base.autoSync),
+    syncInterval: typeof o.syncInterval === 'number' && !Number.isNaN(o.syncInterval) ? o.syncInterval : base.syncInterval,
+    lastSync: last == null || last === '' ? null : new Date(String(last)),
+    syncStatus,
+    syncError: String(o.syncError ?? base.syncError)
+  }
+}
+
+/** Shape suitable for JSON / Supabase `settings.value.youtube`. */
+export function youTubeConfigToJson(config: YouTubeConfigType): Record<string, unknown> {
+  return {
+    channelId: config.channelId,
+    channelName: config.channelName,
+    channelUrl: config.channelUrl,
+    apiKey: config.apiKey,
+    playlistId: config.playlistId,
+    autoSync: config.autoSync,
+    syncInterval: config.syncInterval,
+    lastSync: config.lastSync ? config.lastSync.toISOString() : null,
+    syncStatus: config.syncStatus,
+    syncError: config.syncError
+  }
+}
+
+/**
+ * Whether YouTube is considered configured for `settings.is_youtube_configured`
+ * (channel id, URL, or playlist present). Kept in sync with JSON on every save.
+ */
+export function deriveIsYoutubeConfigured(siteSettingsValue: Record<string, unknown>): boolean {
+  const yt = siteSettingsValue.youtube
+  if (yt == null || typeof yt !== 'object') return false
+  const o = youTubeConfigFromJson(yt)
+  return !!(o.channelId.trim() || o.channelUrl.trim() || o.playlistId.trim())
+}
+
 // In-memory cache for YouTube videos - also use globalThis for persistence
 const globalForYouTubeCache = globalThis as unknown as {
   cachedYouTubeVideos: YouTubeCacheItem[]

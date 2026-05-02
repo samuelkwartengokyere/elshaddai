@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { sendEmail } from '@/lib/email';
+import { mailboxes } from '@/lib/mailboxes';
 
 export async function POST(request: NextRequest) {
   try {
@@ -45,7 +46,7 @@ export async function POST(request: NextRequest) {
     `;
 
     const prayerSent = await sendEmail({
-      to: ['prayerrequest.copelshaddai@gmail.com'],
+      to: [mailboxes.prayer],
       subject: prayerSubject,
       html: prayerHtml,
     });
@@ -62,7 +63,7 @@ export async function POST(request: NextRequest) {
         ` : `
           <p>Thank you for entrusting us with your prayer request. Our prayer team has received it 
           and will begin praying for you immediately - 24/7 coverage!</p>
-          <p>Your request has been sent to prayerrequest.copelshaddai@gmail.com</p>
+          <p>Your request has been sent to ${mailboxes.prayer}</p>
         `}
         <div style="background: #d4edda; padding: 20px; border-radius: 8px; margin: 20px 0; text-align: center;">
           <p style="font-size: 18px; font-weight: bold; margin: 0 0 10px 0; color: #155724;">

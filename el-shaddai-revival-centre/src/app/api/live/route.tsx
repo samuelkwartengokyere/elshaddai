@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB, { isDatabaseConnected } from '@/lib/database'
 import { settingsDb } from '@/lib/db'
-import { getInMemoryYouTubeSettings } from '@/lib/youtubeStorage'
-import { checkChannelLiveStatus, extractChannelId, getChannelIdFromUsername } from '@/lib/youtube'
+import { getInMemoryYouTubeSettings, youTubeConfigFromJson } from '@/lib/youtubeStorage'
+import {
+  buildYoutubeChannelLiveEmbedUrl,
+  checkChannelLiveStatus,
+  extractChannelId,
+  getChannelIdFromUsername
+} from '@/lib/youtube'
 
 // In-memory cache for live stream status
 let cachedLiveStatus: {
@@ -16,6 +21,10 @@ let cachedLiveStatus: {
     embedUrl?: string
   } | null
   liveVideoId?: string
+  /** Resolved UC channel id when URL/handle was configured */
+  canonicalChannelId?: string
+  /** Always-on embed for this channel’s live slot (needs UC id) */
+  channelLiveEmbedUrl?: string | null
   lastUpdate: Date | null
 } | null = null
 let lastCacheUpdate: Date | null = null
@@ -56,6 +65,9 @@ export async function GET(request: NextRequest) {
         success: true,
         isLive: cachedLiveStatus.isLive,
         streamInfo: cachedLiveStatus.streamInfo,
+        channelId: cachedLiveStatus.canonicalChannelId,
+        channelLiveEmbedUrl: cachedLiveStatus.channelLiveEmbedUrl ?? undefined,
+        configured: !!(cachedLiveStatus.canonicalChannelId || cachedLiveStatus.channelLiveEmbedUrl),
         cached: true,
         lastUpdate: lastCacheUpdate,
         method: 'cache'
@@ -73,8 +85,9 @@ export async function GET(request: NextRequest) {
     
     if (isReady) {
       try {
-        const dbSettings = await settingsDb.get('youtube')
-        settings = dbSettings ? dbSettings.value as Record<string, unknown> : {} as Record<string, unknown>
+        const dbSettings = await settingsDb.get('site_settings')
+        const value = (dbSettings?.value || {}) as Record<string, unknown>
+        settings = value
       } catch (error) {
         console.error('Database query error:', error)
         settings = {} as Record<string, unknown>
@@ -83,8 +96,8 @@ export async function GET(request: NextRequest) {
       console.warn('Database connection not ready yet, using fallback mode')
     }
 
-    // Get YouTube configuration from database or in-memory
-    const youtubeConfig = (settings?.youtube as YouTubeConfigType) || getInMemoryYouTubeSettings()
+    const fromDb = settings?.youtube != null ? youTubeConfigFromJson(settings.youtube) : null
+    const youtubeConfig = fromDb || getInMemoryYouTubeSettings()
     
     // Get channel ID - try config first, then environment variable
     let channelId = youtubeConfig?.channelId || process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || ''
@@ -151,6 +164,8 @@ export async function GET(request: NextRequest) {
       console.log('[Live API] No API key available, using time-based detection')
     }
 
+    const channelLiveEmbedUrl = buildYoutubeChannelLiveEmbedUrl(channelId)
+
     // Fall back to time-based detection if no actual live stream found
     const timeBasedStatus = getTimeBasedLiveStatus()
     
@@ -172,6 +187,8 @@ export async function GET(request: NextRequest) {
         embedUrl: liveVideoId ? `https://www.youtube.com/embed/${liveVideoId}` : undefined
       } : null,
       liveVideoId,
+      canonicalChannelId: channelId || undefined,
+      channelLiveEmbedUrl,
       lastUpdate: now
     }
     lastCacheUpdate = now
@@ -181,6 +198,7 @@ export async function GET(request: NextRequest) {
       isLive,
       configured: true,
       channelId,
+      channelLiveEmbedUrl: channelLiveEmbedUrl ?? undefined,
       streamInfo: cachedLiveStatus.streamInfo,
       cached: false,
       lastUpdate: now,

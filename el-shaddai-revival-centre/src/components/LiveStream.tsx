@@ -17,6 +17,9 @@ interface LiveStatus {
   success: boolean
   isLive: boolean
   configured: boolean
+  channelId?: string
+  /** Channel live slot embed (UC… id); YouTube switches to live when broadcasting */
+  channelLiveEmbedUrl?: string
   streamInfo?: StreamInfo
   fallback?: {
     isLive: boolean
@@ -34,7 +37,10 @@ export default function LiveStream() {
   const [streamTitle, setStreamTitle] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  /** Current live broadcast video embed (when API detects an active live stream) */
   const [liveEmbedUrl, setLiveEmbedUrl] = useState<string>('')
+  /** Persistent channel live embed from admin-configured channel (resolved server-side) */
+  const [channelLiveEmbedUrl, setChannelLiveEmbedUrl] = useState<string>('')
 
   // Service times configuration
   const serviceTimes = [
@@ -94,18 +100,21 @@ export default function LiveStream() {
 
       if (data.success) {
         setIsLive(data.isLive)
-        
+        setChannelLiveEmbedUrl(
+          data.configured === false ? '' : (data.channelLiveEmbedUrl || '')
+        )
+
         if (data.isLive && data.streamInfo) {
           setViewers(data.streamInfo.viewerCount)
           setStreamTitle(data.streamInfo.title)
-          // Set the live embed URL if available (actual YouTube live video)
           if (data.streamInfo.embedUrl) {
             setLiveEmbedUrl(data.streamInfo.embedUrl)
           } else if (data.streamInfo.videoId) {
             setLiveEmbedUrl(`https://www.youtube.com/embed/${data.streamInfo.videoId}`)
+          } else {
+            setLiveEmbedUrl('')
           }
         } else {
-          // Use estimated viewers based on time if not live
           setViewers(0)
           setStreamTitle('')
           setLiveEmbedUrl('')
@@ -125,7 +134,9 @@ export default function LiveStream() {
     } catch (err) {
       console.error('Error fetching live status:', err)
       setError('Unable to load live status')
-      
+      setChannelLiveEmbedUrl('')
+      setLiveEmbedUrl('')
+
       // Fallback to time-based detection
       const now = new Date()
       const day = now.getDay()
@@ -164,56 +175,15 @@ export default function LiveStream() {
     }
   }, [fetchLiveStatus])
 
-  // YouTube channel ID - try settings first, then fallback to environment variable
-  const [youtubeChannelId, setYoutubeChannelId] = useState<string>('')
-
-  // Fetch YouTube channel ID from settings
-  useEffect(() => {
-    async function fetchYouTubeSettings() {
-      try {
-        const response = await fetch('/api/settings')
-        const data = await response.json()
-        
-        if (data.success && data.settings?.youtube) {
-          // Use channel ID from settings if available
-          const channelId = data.settings.youtube.channelId || data.settings.youtube.channelUrl || ''
-          setYoutubeChannelId(channelId)
-        } else {
-          // Fallback to environment variable
-          setYoutubeChannelId(process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || '')
-        }
-      } catch (error) {
-        console.error('Error fetching YouTube settings:', error)
-        // Fallback to environment variable
-        setYoutubeChannelId(process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || '')
-      }
-    }
-    
-    fetchYouTubeSettings()
-  }, [])
-
-  // Build embed URL - prefer actual live video URL, fallback to channel-based embed
+  // Prefer detected live video embed; else channel live slot from /api/live (matches admin YouTube URL)
   const getEmbedUrl = () => {
-    // If we have an actual live video embed URL from the API, use it
-    if (liveEmbedUrl) {
-      return liveEmbedUrl
+    if (liveEmbedUrl) return liveEmbedUrl
+    if (channelLiveEmbedUrl) return channelLiveEmbedUrl
+    const envId = process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || ''
+    if (envId.startsWith('UC') && envId.length >= 22) {
+      return `https://www.youtube.com/embed/live_stream?channel=${encodeURIComponent(envId)}`
     }
-    
-    const channelId = youtubeChannelId || process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || ''
-    if (!channelId) return ''
-    
-    // If it looks like a full URL, extract the channel ID
-    if (channelId.includes('youtube.com')) {
-      const match = channelId.match(/channel\/([a-zA-Z0-9_-]+)/)
-      if (match) return `https://www.youtube.com/embed/live_stream?channel=${match[1]}`
-      
-      // Handle @username URLs
-      const usernameMatch = channelId.match(/@([a-zA-Z0-9_-]+)/)
-      if (usernameMatch) return `https://www.youtube.com/embed/${usernameMatch[1]}`
-    }
-    
-    // Assume it's a channel ID
-    return `https://www.youtube.com/embed/live_stream?channel=${channelId}`
+    return ''
   }
   
   const embedUrl = getEmbedUrl()

@@ -39,11 +39,24 @@ CREATE TABLE IF NOT EXISTS settings (
   id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
   key TEXT UNIQUE NOT NULL,
   value JSONB NOT NULL DEFAULT '{}'::JSONB,
+  is_youtube_configured BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE TRIGGER update_settings_updated_at BEFORE UPDATE ON settings FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Existing databases: add column (no-op if already present from CREATE above)
+ALTER TABLE settings ADD COLUMN IF NOT EXISTS is_youtube_configured BOOLEAN NOT NULL DEFAULT false;
+
+-- Backfill from stored JSON for site_settings rows
+UPDATE settings
+SET is_youtube_configured = (
+  length(btrim(coalesce(value->'youtube'->>'channelId', ''))) > 0
+  OR length(btrim(coalesce(value->'youtube'->>'channelUrl', ''))) > 0
+  OR length(btrim(coalesce(value->'youtube'->>'playlistId', ''))) > 0
+)
+WHERE key = 'site_settings';
 
 -- 3. EVENTS table
 CREATE TABLE IF NOT EXISTS events (
