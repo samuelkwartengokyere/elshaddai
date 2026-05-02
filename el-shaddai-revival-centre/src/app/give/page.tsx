@@ -1,9 +1,9 @@
 import InternationalDonationForm from '@/components/InternationalDonationForm'
-import { Target, DollarSign, HeartHandshake, Globe, CreditCard, Smartphone, Building2, Mail } from 'lucide-react'
+import { Target, DollarSign, HeartHandshake, Globe, CreditCard, Smartphone, Building2, Mail, Wallet } from 'lucide-react'
 
 export const metadata = {
   title: 'Give | El-Shaddai Revival Centre',
-  description: 'Support our ministry through generous giving. Multiple payment options available for donors worldwide.',
+  description: 'Give in Ghana Cedis or US Dollars — card, mobile money, Apple Pay, or bank through secure Paystack checkout.',
 }
 
 export default function GivePage() {
@@ -38,20 +38,20 @@ export default function GivePage() {
     {
       icon: Smartphone,
       title: 'Mobile Money',
-      description: 'M-Pesa, Airtel Money, Vodafone Cash, MTN Mobile Money',
-      regions: 'Ghana, Nigeria, Kenya'
+      description: 'M-Pesa, Airtel, Vodafone Cash, MTN & more via Paystack',
+      regions: 'Ghana-focused; USD where supported'
     },
     {
       icon: Building2,
       title: 'Bank Transfer',
-      description: 'Direct bank transfer or mobile banking',
-      regions: 'Global'
+      description: 'Pay with your bank on Paystack',
+      regions: 'Where Paystack supports it'
     },
     {
-      icon: Globe,
-      title: 'International Transfer',
-      description: 'SWIFT/IBAN for donors outside Africa',
-      regions: 'US, UK, Europe, Canada, Australia'
+      icon: Wallet,
+      title: 'Apple Pay',
+      description: 'Where device and currency are supported',
+      regions: 'Select regions'
     }
   ]
 
@@ -94,10 +94,10 @@ export default function GivePage() {
         {/* Supported Currencies */}
         <div className="max-w-3xl mx-auto mb-12 text-center">
           <h3 className="text-lg font-medium text-gray-700 mb-4">
-            We accept donations in multiple currencies:
+            Supported currencies for online giving
           </h3>
           <div className="flex flex-wrap justify-center gap-3">
-            {['USD ($)', 'GHS (₵)', 'NGN (₦)', 'GBP (£)', 'EUR (€)', 'CAD (C$)', 'AUD (A$)', 'KES (KSh)', 'ZAR (R)'].map((currency, index) => (
+            {['GHS (₵ Ghana Cedi)', 'USD ($ US Dollar)'].map((currency, index) => (
               <span key={index} className="px-4 py-2 bg-white rounded-full text-sm font-medium text-gray-700 shadow-sm border border-gray-200">
                 {currency}
               </span>

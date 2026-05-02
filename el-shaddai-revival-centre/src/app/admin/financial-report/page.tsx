@@ -286,7 +286,8 @@ export default function AdminFinancialReport() {
               Data Audit Trail
             </h3>
             <p className="text-gray-700">
-              All data sourced from completed donation records. Data is aggregated from Supabase donations table.
+              All data is from donations marked successful — status{' '}
+              success (or legacy completed) — in Supabase.
               View raw donations in Admin Donations.
             </p>
           </div>

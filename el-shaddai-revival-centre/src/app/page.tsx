@@ -60,22 +60,13 @@ export default async function Home() {
     getFeaturedTestimonies()
   ])
 
-  const mockEvents = [
-    { title: 'Men\'s Breakfast', date: 'Jan 20', time: '8:00 AM' },
-    { title: 'Youth Night', date: 'Jan 21', time: '6:00 PM' },
-    { title: 'Prayer Meeting', date: 'Jan 24', time: '7:00 PM' },
-    { title: 'Community Outreach', date: 'Jan 27', time: '9:00 AM' },
-  ]
-
   const mockTestimonies: Testimony[] = []
 
-  const displayEvents = upcomingEvents.length > 0 
-    ? upcomingEvents.map(e => ({
-        title: e.title,
-        date: new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
-        time: e.time
-      }))
-    : mockEvents
+  const displayEvents = upcomingEvents.map((e) => ({
+    title: e.title,
+    date: new Date(e.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
+    time: e.time,
+  }))
   const displayTestimonies = featuredTestimonies.length > 0 ? featuredTestimonies : mockTestimonies
 
   return (

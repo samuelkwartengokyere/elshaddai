@@ -142,6 +142,9 @@ export interface DbDonation {
   donor_country?: string
   payment_method?: string
   payment_channel?: string
+  donor_bank_name?: string | null
+  donor_bank_account_number?: string | null
+  donor_bank_account_holder?: string | null
   status: string
   paystack_reference?: string
   transaction_reference?: string

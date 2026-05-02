@@ -1,21 +1,20 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { 
   Heart, Shield, CheckCircle, AlertCircle, Globe, 
-  CreditCard, Smartphone, Building2, ArrowRight, Loader2 
+  CreditCard, Smartphone, Building2, ArrowRight, Loader2, Wallet
 } from 'lucide-react'
 import { 
   formatCurrency, 
   getCurrencySymbol, 
-  currencyOptions, 
-  paymentMethodOptions,
-  bankTransferDetails,
-  getAvailablePaymentMethods 
+  currencyOptions,
+  filterGiveCurrencyOptions,
+  resolveDefaultGiveCurrency,
+  getGivePaymentMethods,
 } from '@/lib/currency'
 import { 
   PaymentChannel, 
-  DonationFrequency, 
   Currency,
   PaymentMethodOption,
   PaymentMethodType
@@ -27,11 +26,10 @@ const presetAmountsUSD = [25, 50, 100, 250, 500]
 // Helper to derive payment channel from payment method
 const getPaymentChannelFromMethod = (methodId: PaymentMethodType): PaymentChannel => {
   const methodChannelMap: Record<PaymentMethodType, PaymentChannel> = {
-    card: 'paystack', // Card payments via Paystack
+    card: 'paystack',
     mobile_money: 'paystack',
-    bank_transfer: 'manual',
-    ussd: 'paystack',
-    qr_code: 'paystack',
+    apple_pay: 'paystack',
+    bank_transfer: 'paystack',
   }
   return methodChannelMap[methodId] || 'paystack'
 }
@@ -49,9 +47,6 @@ interface FormData {
   amount: string
   customAmount: string
   currency: Currency
-  
-  // Frequency
-  frequency: DonationFrequency
   
   // Donor Info
   firstName: string
@@ -71,10 +66,11 @@ interface FormData {
   
   // Mobile Money specific
   mobileMoneyProvider?: string
-  
-  // Bank Transfer specific
-  accountHolderName?: string
-  bankName?: string
+
+  // Bank transfer (donor’s own bank — recorded before Paystack checkout)
+  bankName: string
+  bankAccountNumber: string
+  accountHolderName: string
 }
 
 interface FormErrors {
@@ -86,16 +82,16 @@ interface FormErrors {
   country?: string
   paymentChannel?: string
   mobileMoneyProvider?: string
-  accountHolderName?: string
   bankName?: string
+  bankAccountNumber?: string
+  accountHolderName?: string
 }
 
 export default function InternationalDonationForm() {
   const [formData, setFormData] = useState<FormData>({
     amount: '',
     customAmount: '',
-    currency: 'USD',
-    frequency: 'one-time',
+    currency: resolveDefaultGiveCurrency(),
     firstName: '',
     lastName: '',
     email: '',
@@ -108,20 +104,17 @@ export default function InternationalDonationForm() {
     notes: '',
     // Method-specific fields
     mobileMoneyProvider: '',
-    accountHolderName: '',
     bankName: '',
+    bankAccountNumber: '',
+    accountHolderName: '',
   })
   
   const [errors, setErrors] = useState<FormErrors>({})
   const [isLoading, setIsLoading] = useState(false)
-  const [isProcessing, setIsProcessing] = useState(false)
   const [success, setSuccess] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
-  const [showBankDetails, setShowBankDetails] = useState(false)
   const [selectedPaymentMethod, setSelectedPaymentMethod] = useState<PaymentMethodOption | null>(null)
   const [verificationResult, setVerificationResult] = useState<unknown>(null)
-  
-  const scriptLoadedRef = useRef(false)
 
   // Detect user's likely currency based on locale
   useEffect(() => {
@@ -130,12 +123,13 @@ export default function InternationalDonationForm() {
         // Check for URL parameter first
         const urlParams = new URLSearchParams(window.location.search)
         const currencyParam = urlParams.get('currency')
-        if (currencyParam && currencyOptions.some(c => c.code === currencyParam)) {
-          setFormData(prev => ({ ...prev, currency: currencyParam as Currency }))
+        const opts = filterGiveCurrencyOptions()
+
+        if (currencyParam && opts.some((c) => c.code === currencyParam)) {
+          setFormData((prev) => ({ ...prev, currency: currencyParam as Currency }))
           return
         }
 
-        // Try to detect from browser
         const locale = navigator.language
         const localeToCurrency: Record<string, Currency> = {
           'en-US': 'USD',
@@ -144,83 +138,94 @@ export default function InternationalDonationForm() {
           'en-NG': 'NGN',
           'en-KE': 'KES',
           'en-ZA': 'ZAR',
-          'fr': 'EUR',
-          'de': 'EUR',
+          fr: 'EUR',
+          de: 'EUR',
         }
-        
-        const detectedCurrency = localeToCurrency[locale] || 
-          currencyOptions.find(c => locale.includes(c.code.toLowerCase()))?.code || 'USD'
-        
-        setFormData(prev => ({ ...prev, currency: detectedCurrency }))
+
+        let detectedCurrency =
+          localeToCurrency[locale] ||
+          currencyOptions.find((c) => locale.includes(c.code.toLowerCase()))?.code ||
+          resolveDefaultGiveCurrency()
+
+        if (!opts.some((o) => o.code === detectedCurrency)) {
+          detectedCurrency = resolveDefaultGiveCurrency()
+        }
+
+        setFormData((prev) => ({ ...prev, currency: detectedCurrency }))
       } catch {
-        // Default to USD
-        setFormData(prev => ({ ...prev, currency: 'USD' }))
+        setFormData((prev) => ({ ...prev, currency: resolveDefaultGiveCurrency() }))
       }
     }
 
     detectCurrency()
   }, [])
 
-  // Update available payment methods when currency changes
+  // If currency changes and the current method is not offered for that currency, switch to the first available
   useEffect(() => {
-    const methods = getAvailablePaymentMethods(formData.currency)
-    if (methods.length > 0) {
-      setSelectedPaymentMethod(methods[0])
-    }
+    const methods = getGivePaymentMethods(formData.currency)
+    if (methods.length === 0) return
+
+    setFormData((prev) => {
+      const stillValid = methods.some((m) => m.id === prev.paymentMethod)
+      if (stillValid) return prev
+      return {
+        ...prev,
+        paymentMethod: methods[0].id,
+        paymentChannel: getPaymentChannelFromMethod(methods[0].id),
+      }
+    })
   }, [formData.currency])
+
+  // Keep the highlighted method card in sync with currency + selected method id
+  useEffect(() => {
+    const methods = getGivePaymentMethods(formData.currency)
+    if (methods.length === 0) {
+      setSelectedPaymentMethod(null)
+      return
+    }
+    const match = methods.find((m) => m.id === formData.paymentMethod)
+    setSelectedPaymentMethod(match ?? methods[0])
+  }, [formData.currency, formData.paymentMethod])
 
   // Check for payment verification on mount
   useEffect(() => {
     const checkPaymentStatus = async () => {
       const urlParams = new URLSearchParams(window.location.search)
-      const reference = urlParams.get('reference')
+      const reference = urlParams.get('reference') || urlParams.get('trxref')
       const status = urlParams.get('status')
 
-      if (reference && status === 'success') {
-        setIsLoading(true)
-        try {
-          const response = await fetch(`/api/donations/verify?reference=${reference}&status=${status}`)
-          const data = await response.json()
+      if (!reference) return
 
-          if (data.success) {
-            setSuccess(true)
-            setVerificationResult(data.donation)
-            window.history.replaceState({}, '', window.location.pathname)
-          } else {
-            setErrorMessage(data.error || 'Payment verification failed')
-          }
-        } catch {
-          setErrorMessage('Failed to verify payment')
-        } finally {
-          setIsLoading(false)
+      if (status === 'failed' || status === 'abandoned' || status === 'cancelled') {
+        setErrorMessage('Payment was not completed.')
+        window.history.replaceState({}, '', window.location.pathname)
+        return
+      }
+
+      setIsLoading(true)
+      try {
+        const response = await fetch(
+          `/api/donations/verify?reference=${encodeURIComponent(reference)}`
+        )
+        const data = await response.json()
+
+        if (data.success) {
+          setSuccess(true)
+          setVerificationResult(data.donation)
+          window.history.replaceState({}, '', window.location.pathname)
+        } else {
+          setErrorMessage(data.error || 'Payment verification failed')
+          window.history.replaceState({}, '', window.location.pathname)
         }
+      } catch {
+        setErrorMessage('Failed to verify payment')
+      } finally {
+        setIsLoading(false)
       }
     }
 
     checkPaymentStatus()
   }, [])
-
-  // Load Paystack script
-  const loadPaystackScript = (): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      if (scriptLoadedRef.current) {
-        resolve()
-        return
-      }
-
-      const script = document.createElement('script')
-      script.src = 'https://js.paystack.co/v1/inline.js'
-      script.async = true
-      script.onload = () => {
-        scriptLoadedRef.current = true
-        resolve()
-      }
-      script.onerror = () => {
-        reject(new Error('Failed to load Paystack script'))
-      }
-      document.head.appendChild(script)
-    })
-  }
 
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -255,9 +260,8 @@ export default function InternationalDonationForm() {
       newErrors.email = 'Please enter a valid email address'
     }
 
-    // Phone required for mobile money, USSD, QR code
-    if (['mobile_money', 'ussd', 'qr_code'].includes(formData.paymentMethod) && !formData.phone.trim()) {
-      newErrors.phone = 'Phone number is required for this payment method'
+    if (formData.paymentMethod === 'mobile_money' && !formData.phone.trim()) {
+      newErrors.phone = 'Phone number is required for mobile money'
     }
 
     // Mobile Money provider validation
@@ -265,13 +269,18 @@ export default function InternationalDonationForm() {
       newErrors.mobileMoneyProvider = 'Please select your mobile money provider'
     }
 
-    // Bank Transfer validation
     if (formData.paymentMethod === 'bank_transfer') {
-      if (!formData.accountHolderName?.trim()) {
-        newErrors.accountHolderName = 'Account holder name is required'
-      }
-      if (!formData.bankName?.trim()) {
+      if (!formData.bankName.trim()) {
         newErrors.bankName = 'Bank name is required'
+      }
+      const acct = formData.bankAccountNumber.replace(/\s/g, '')
+      if (!acct) {
+        newErrors.bankAccountNumber = 'Bank account number is required'
+      } else if (!/^\d{8,18}$/.test(acct)) {
+        newErrors.bankAccountNumber = 'Enter 8–18 digits (numbers only, spaces optional)'
+      }
+      if (!formData.accountHolderName.trim()) {
+        newErrors.accountHolderName = 'Account holder full name is required'
       }
     }
 
@@ -304,53 +313,14 @@ export default function InternationalDonationForm() {
 
     try {
       const finalAmount = formData.customAmount || formData.amount
-      const amountUSD = parseFloat(finalAmount)
 
-      // For manual bank transfers, just create a record
-      if (formData.paymentChannel === 'bank_transfer' || formData.paymentChannel === 'manual') {
-        const response = await fetch('/api/donations', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            amount: finalAmount,
-            currency: formData.currency,
-            frequency: formData.frequency,
-            firstName: formData.firstName,
-            lastName: formData.lastName,
-            email: formData.email,
-            phone: formData.phone,
-            country: formData.country,
-            donationType: formData.donationType,
-            paymentChannel: formData.paymentChannel,
-            paymentMethod: formData.paymentMethod,
-            isAnonymous: formData.isAnonymous,
-            notes: formData.notes,
-            // Method-specific fields
-            accountHolderName: formData.accountHolderName,
-            bankName: formData.bankName,
-          }),
-        })
-
-        const data = await response.json()
-
-        if (!response.ok) {
-          throw new Error(data.error || 'Failed to record donation')
-        }
-
-        setSuccess(true)
-        setShowBankDetails(true)
-        setVerificationResult(data)
-        return
-      }
-
-      // For Paystack payments (card, mobile money, USSD, etc.)
       const response = await fetch('/api/donations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           amount: finalAmount,
           currency: formData.currency,
-          frequency: formData.frequency,
+          frequency: 'one-time',
           firstName: formData.firstName,
           lastName: formData.lastName,
           email: formData.email,
@@ -361,8 +331,13 @@ export default function InternationalDonationForm() {
           paymentMethod: formData.paymentMethod,
           isAnonymous: formData.isAnonymous,
           notes: formData.notes,
-          // Method-specific fields
-          mobileMoneyProvider: formData.paymentMethod === 'mobile_money' ? formData.mobileMoneyProvider : undefined,
+          mobileMoneyProvider:
+            formData.paymentMethod === 'mobile_money' ? formData.mobileMoneyProvider : undefined,
+          bankName: formData.paymentMethod === 'bank_transfer' ? formData.bankName : undefined,
+          bankAccountNumber:
+            formData.paymentMethod === 'bank_transfer' ? formData.bankAccountNumber : undefined,
+          accountHolderName:
+            formData.paymentMethod === 'bank_transfer' ? formData.accountHolderName : undefined,
         }),
       })
 
@@ -372,47 +347,14 @@ export default function InternationalDonationForm() {
         throw new Error(data.error || 'Failed to initialize payment')
       }
 
-      // Load Paystack and open payment modal
-      await loadPaystackScript()
-
-      const paystackOptions = {
-        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || 'pk_test_placeholder',
-        email: formData.email,
-        amount: parseFloat(finalAmount) * 100, // Convert to smallest unit
-        currency: formData.currency,
-        ref: data.reference,
-        label: `${formData.firstName} ${formData.lastName}`,
-        metadata: {
-          frequency: formData.frequency,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          donationId: data.donationId,
-          paymentChannel: formData.paymentChannel,
-        },
-        callback: (response: { reference: string }) => {
-          setIsProcessing(false)
-          window.location.href = `/api/donations/verify?reference=${response.reference}&status=success`
-        },
-        onClose: () => {
-          setIsProcessing(false)
-          setErrorMessage('Payment window closed. Please try again.')
-        }
+      const checkoutUrl = data.authorization_url as string | undefined
+      if (!checkoutUrl) {
+        throw new Error('Checkout is unavailable. Please try again or contact us.')
       }
 
-      setIsProcessing(true)
-
-      // @ts-expect-error Paystack is loaded dynamically
-      if (window.PaystackPop) {
-        // @ts-expect-error Paystack is loaded dynamically
-        const paystack = new window.PaystackPop()
-        paystack.newTransaction(paystackOptions)
-      } else {
-        throw new Error('Paystack not loaded properly')
-      }
-
+      window.location.assign(checkoutUrl)
     } catch (error) {
       setIsLoading(false)
-      setIsProcessing(false)
       setErrorMessage(error instanceof Error ? error.message : 'An error occurred. Please try again.')
     }
   }
@@ -421,8 +363,7 @@ export default function InternationalDonationForm() {
     setFormData({
       amount: '',
       customAmount: '',
-      currency: 'USD',
-      frequency: 'one-time',
+      currency: resolveDefaultGiveCurrency(),
       firstName: '',
       lastName: '',
       email: '',
@@ -435,59 +376,52 @@ export default function InternationalDonationForm() {
       notes: '',
       // Method-specific fields
       mobileMoneyProvider: '',
-      accountHolderName: '',
       bankName: '',
+      bankAccountNumber: '',
+      accountHolderName: '',
     })
     setErrors({})
     setSuccess(false)
     setErrorMessage('')
     setVerificationResult(null)
-    setShowBankDetails(false)
   }
 
   const presetAmounts = getPresetAmounts(formData.currency)
 
-  // Show success message
+  // Show success message (use API donation after Paystack redirect — form state may be reset)
   if (success) {
+    const d = verificationResult as {
+      amount?: number
+      currency?: string
+      donor_email?: string
+    } | null
+    const thankAmount = typeof d?.amount === 'number' ? d.amount : parseFloat(formData.customAmount || formData.amount || '0')
+    const thankCurrency = ((d?.currency || formData.currency || 'USD') as Currency)
+    const thankEmail = d?.donor_email || formData.email
+
     return (
       <div className="card max-w-2xl mx-auto">
         <div className="text-center py-8">
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
           <h2 className="text-3xl font-bold mb-2 text-green-700">Thank You!</h2>
           
-          {showBankDetails ? (
-            <div className="text-left bg-gray-50 p-6 rounded-lg mt-4">
-              <h3 className="text-xl font-bold mb-4">Bank Transfer Instructions</h3>
-              <div className="space-y-3 text-gray-700">
-                <p><strong>Bank:</strong> {bankTransferDetails.ghana.bankName}</p>
-                <p><strong>Account Name:</strong> {bankTransferDetails.ghana.accountName}</p>
-                <p><strong>Account Number:</strong> {bankTransferDetails.ghana.accountNumber}</p>
-                <p><strong>Swift Code:</strong> {bankTransferDetails.ghana.swiftCode}</p>
-                <p><strong>Branch:</strong> {bankTransferDetails.ghana.branch}</p>
-                <p className="text-sm text-gray-500 mt-4">
-                  Please include your name and email in the transfer reference.
-                  Email us at payment.copelshaddai@gmail.com once transfer is complete.
-                </p>
-              </div>
-            </div>
-          ) : (
-            <p className="text-gray-600 mb-4">
-              Your generous donation of {formatCurrency(
-                parseFloat(formData.customAmount || formData.amount), 
-                formData.currency
-              )} has been received.
-            </p>
-          )}
-          
-          <p className="text-gray-600">
-            A receipt has been sent to <strong>{formData.email}</strong>
+          <p className="text-gray-600 mb-4">
+            Your generous donation of {formatCurrency(thankAmount, thankCurrency)} has been received.
           </p>
           
+          {thankEmail ? (
+            <p className="text-gray-600">
+              A receipt has been sent to <strong>{thankEmail}</strong>
+            </p>
+          ) : null}
+          
           <button
+            type="button"
             onClick={resetForm}
-            className="mt-6 btn-primary"
+            className="mt-8 inline-flex cursor-pointer items-center justify-center gap-2 rounded-xl border-2 border-primary bg-white px-8 py-3.5 font-sans font-semibold text-primary shadow-sm transition hover:bg-primary hover:text-white hover:shadow-md focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/30 focus-visible:ring-offset-2"
           >
-            Make Another Donation
+            <Heart className="h-4 w-4" aria-hidden />
+            Make another gift
           </button>
         </div>
       </div>
@@ -506,7 +440,7 @@ export default function InternationalDonationForm() {
         {/* Currency Selector */}
         <div className="mt-6 flex justify-center">
           <div className="flex flex-wrap justify-center gap-2">
-            {currencyOptions.slice(0, 6).map((currency) => (
+            {filterGiveCurrencyOptions().map((currency) => (
               <button
                 key={currency.code}
                 onClick={() => setFormData(prev => ({ ...prev, currency: currency.code }))}
@@ -596,43 +530,13 @@ export default function InternationalDonationForm() {
           </div>
         </div>
 
-        {/* Frequency */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Frequency
-          </label>
-          <div className="flex flex-wrap gap-4">
-            {[
-              { value: 'one-time', label: 'One Time' },
-              { value: 'weekly', label: 'Weekly' },
-              { value: 'monthly', label: 'Monthly' },
-              { value: 'yearly', label: 'Yearly' }
-            ].map((freq) => (
-              <label
-                key={freq.value}
-                className="flex items-center space-x-2 cursor-pointer"
-              >
-                <input
-                  type="radio"
-                  name="frequency"
-                  value={freq.value}
-                  checked={formData.frequency === freq.value}
-                  onChange={handleInputChange}
-                  className="h-4 w-4 text-accent focus:ring-accent"
-                />
-                <span className="capitalize">{freq.label}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
         {/* Payment Method Selection */}
         <div>
           <label className="block text-sm font-medium text-gray-700 mb-3">
             Payment Method <span className="text-red-500">*</span>
           </label>
-          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-            {paymentMethodOptions.slice(0, 6).map((method) => (
+          <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
+            {getGivePaymentMethods(formData.currency).map((method) => (
               <button
                 key={method.id}
                 type="button"
@@ -651,7 +555,13 @@ export default function InternationalDonationForm() {
                     : 'border-gray-300 hover:border-gray-400'
                 }`}
               >
-                <div className="text-2xl mb-2">{method.icon}</div>
+                <div className="text-2xl mb-2 flex items-center justify-center sm:justify-start min-h-[2rem]">
+                  {method.id === 'apple_pay' ? (
+                    <Wallet className="h-8 w-8 text-gray-900" aria-hidden />
+                  ) : (
+                    <span aria-hidden>{method.icon}</span>
+                  )}
+                </div>
                 <div className="font-medium text-sm">{method.name}</div>
                 <div className="text-xs text-gray-500">{method.fees}</div>
               </button>
@@ -709,75 +619,41 @@ export default function InternationalDonationForm() {
               )}
             </div>
             <p className="text-xs text-gray-600 mt-3">
-              A payment request will be sent to your mobile money account.
+              You will be redirected to Paystack to complete mobile money payment.
             </p>
           </div>
         )}
 
-        {/* USSD/QR Code Info */}
-        {(formData.paymentMethod === 'ussd' || formData.paymentMethod === 'qr_code') && (
-          <div className="p-4 bg-blue-50 rounded-lg border border-blue-200">
-            <h4 className="font-medium text-blue-800 mb-2 flex items-center">
-              <Smartphone className="h-5 w-5 mr-2" />
-              {formData.paymentMethod === 'ussd' ? 'USSD Payment' : 'QR Code Payment'}
-            </h4>
-            <p className="text-sm text-gray-600 mb-2">
-              {formData.paymentMethod === 'ussd' 
-                ? 'You will receive a USSD code to dial on your mobile phone.'
-                : 'You will be shown a QR code to scan with your banking app.'}
-            </p>
-            <div>
-              <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                Phone Number <span className="text-red-500">*</span>
-              </label>
-              <input
-                id="phone"
-                type="tel"
-                name="phone"
-                value={formData.phone}
-                onChange={handleInputChange}
-                placeholder="+233123456789"
-                className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent ${
-                  errors.phone ? 'border-red-500' : 'border-gray-300'
-                }`}
-              />
-              {errors.phone && (
-                <p className="mt-1 text-sm text-red-500">{errors.phone}</p>
-              )}
+        {/* Apple Pay */}
+        {formData.paymentMethod === 'apple_pay' && (
+          <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
+            <div className="flex items-start gap-3 text-sm text-gray-700">
+              <Wallet className="h-5 w-5 shrink-0 mt-0.5" aria-hidden />
+              <div>
+                <p className="font-medium text-gray-900">Apple Pay</p>
+                <p className="mt-1">
+                  You will be redirected to Paystack checkout. Apple Pay appears when your device, browser (often Safari), bank, and currency are supported.
+                </p>
+              </div>
             </div>
           </div>
         )}
 
-        {/* Bank Transfer Details */}
+        {/* Bank transfer — collect donor bank details, then Paystack checkout */}
         {formData.paymentMethod === 'bank_transfer' && (
-          <div className="p-4 bg-yellow-50 rounded-lg border border-yellow-200">
-            <h4 className="font-medium text-yellow-800 mb-4 flex items-center">
-              <Building2 className="h-5 w-5 mr-2" />
-              Bank Transfer Information
+          <div className="p-4 bg-amber-50 rounded-lg border border-amber-200">
+            <h4 className="font-medium text-amber-900 mb-4 flex items-center">
+              <Building2 className="h-5 w-5 mr-2" aria-hidden />
+              Your bank details
             </h4>
+            <p className="text-sm text-gray-700 mb-4">
+              Enter the bank account you will pay from. We store this with your gift for our records; Paystack may ask you
+              to confirm or complete payment in their secure checkout.
+            </p>
             <div className="space-y-4">
               <div>
-                <label htmlFor="accountHolderName" className="block text-sm font-medium text-gray-700 mb-2">
-                  Account Holder Name <span className="text-red-500">*</span>
-                </label>
-                <input
-                  id="accountHolderName"
-                  type="text"
-                  name="accountHolderName"
-                  value={formData.accountHolderName}
-                  onChange={handleInputChange}
-                  placeholder="John Doe"
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent ${
-                    errors.accountHolderName ? 'border-red-500' : 'border-gray-300'
-                  }`}
-                />
-                {errors.accountHolderName && (
-                  <p className="mt-1 text-sm text-red-500">{errors.accountHolderName}</p>
-                )}
-              </div>
-              <div>
                 <label htmlFor="bankName" className="block text-sm font-medium text-gray-700 mb-2">
-                  Bank Name <span className="text-red-500">*</span>
+                  Bank name <span className="text-red-500">*</span>
                 </label>
                 <input
                   id="bankName"
@@ -785,28 +661,68 @@ export default function InternationalDonationForm() {
                   name="bankName"
                   value={formData.bankName}
                   onChange={handleInputChange}
-                  placeholder="Bank of Ghana"
-                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-yellow-500 focus:border-transparent ${
+                  placeholder="e.g. Ghana Commercial Bank"
+                  autoComplete="organization"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
                     errors.bankName ? 'border-red-500' : 'border-gray-300'
                   }`}
                 />
-                {errors.bankName && (
-                  <p className="mt-1 text-sm text-red-500">{errors.bankName}</p>
-                )}
+                {errors.bankName ? <p className="mt-1 text-sm text-red-500">{errors.bankName}</p> : null}
+              </div>
+              <div>
+                <label htmlFor="bankAccountNumber" className="block text-sm font-medium text-gray-700 mb-2">
+                  Bank account number <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="bankAccountNumber"
+                  type="text"
+                  name="bankAccountNumber"
+                  inputMode="numeric"
+                  value={formData.bankAccountNumber}
+                  onChange={handleInputChange}
+                  placeholder="Digits only (8–18)"
+                  autoComplete="off"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
+                    errors.bankAccountNumber ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                />
+                {errors.bankAccountNumber ? (
+                  <p className="mt-1 text-sm text-red-500">{errors.bankAccountNumber}</p>
+                ) : null}
+              </div>
+              <div>
+                <label htmlFor="accountHolderName" className="block text-sm font-medium text-gray-700 mb-2">
+                  Account holder full name <span className="text-red-500">*</span>
+                </label>
+                <input
+                  id="accountHolderName"
+                  type="text"
+                  name="accountHolderName"
+                  value={formData.accountHolderName}
+                  onChange={handleInputChange}
+                  placeholder="Name exactly as on the bank account"
+                  autoComplete="name"
+                  className={`w-full px-4 py-3 border rounded-lg focus:ring-2 focus:ring-amber-500 focus:border-transparent ${
+                    errors.accountHolderName ? 'border-red-500' : 'border-gray-300'
+                  }`}
+                />
+                {errors.accountHolderName ? (
+                  <p className="mt-1 text-sm text-red-500">{errors.accountHolderName}</p>
+                ) : null}
               </div>
             </div>
-            <p className="text-xs text-gray-600 mt-3">
-              After submitting, you'll receive bank details to complete your transfer.
+            <p className="text-xs text-gray-600 mt-4">
+              Next you will open Paystack to authorise or complete the bank payment for this amount.
             </p>
           </div>
         )}
 
-        {/* Card Payment - No extra fields needed */}
+        {/* Card — Paystack hosted checkout */}
         {formData.paymentMethod === 'card' && (
           <div className="p-4 bg-gray-50 rounded-lg border border-gray-200">
             <div className="flex items-center text-sm text-gray-600">
-              <CreditCard className="h-5 w-5 mr-2" />
-              You will be redirected to enter your card details securely.
+              <CreditCard className="h-5 w-5 mr-2 shrink-0" aria-hidden />
+              You will be redirected to Paystack to enter your card details securely.
             </div>
           </div>
         )}
@@ -882,7 +798,7 @@ export default function InternationalDonationForm() {
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
               <label htmlFor="phone" className="block text-sm font-medium text-gray-700 mb-2">
-                Phone {['mobile_money', 'ussd', 'qr_code'].includes(formData.paymentMethod) && <span className="text-red-500">*</span>}
+                Phone {formData.paymentMethod === 'mobile_money' && <span className="text-red-500">*</span>}
               </label>
               <input
                 id="phone"
@@ -980,32 +896,71 @@ export default function InternationalDonationForm() {
         </div>
 
         {/* Security & Submit */}
-        <div className="flex flex-col sm:flex-row items-center justify-between pt-4 border-t gap-4">
-          <div className="flex items-center text-sm text-gray-600">
-            <Shield className="h-5 w-5 mr-2" />
-            <Globe className="h-5 w-5 mr-2" />
-            Secure & Encrypted
+        <div className="pt-6 border-t border-gray-200">
+          <div className="flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-3 text-sm text-gray-600">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-primary/10 text-primary">
+                <Shield className="h-5 w-5" aria-hidden />
+              </div>
+              <p>
+                <span className="font-medium text-gray-800">Secure checkout</span>
+                <span className="mx-1.5 text-gray-300">·</span>
+                <span className="inline-flex items-center gap-1">
+                  <Globe className="h-4 w-4 shrink-0 text-primary/80" aria-hidden />
+                  Encrypted via Paystack
+                </span>
+              </p>
+            </div>
+
+            <button
+              type="button"
+              onClick={handlePayment}
+              disabled={isLoading}
+              className={`
+                group relative isolate w-full cursor-pointer overflow-hidden rounded-2xl px-8 py-4 text-center font-sans font-semibold
+                text-white shadow-lg shadow-primary/25 transition duration-300 ease-out
+                sm:w-auto sm:min-w-[16rem]
+                focus-visible:outline-none focus-visible:ring-4 focus-visible:ring-primary/35 focus-visible:ring-offset-2
+                disabled:pointer-events-none disabled:cursor-not-allowed disabled:opacity-55 disabled:shadow-none
+                ${!isLoading ? 'hover:-translate-y-0.5 hover:shadow-xl hover:shadow-primary/30 active:translate-y-0' : ''}
+              `}
+            >
+              <span
+                className="absolute inset-0 bg-gradient-to-r from-primary via-[#0a2a7a] to-secondary"
+                aria-hidden
+              />
+              <span
+                className="absolute inset-0 bg-gradient-to-t from-black/20 to-transparent opacity-0 transition group-hover:opacity-100"
+                aria-hidden
+              />
+              <span className="relative flex items-center justify-center gap-3">
+                {isLoading ? (
+                  <>
+                    <Loader2 className="h-5 w-5 shrink-0 animate-spin" aria-hidden />
+                    <span className="text-base tracking-wide">Redirecting to Paystack…</span>
+                  </>
+                ) : (
+                  <>
+                    <Heart className="h-5 w-5 shrink-0 opacity-95 drop-shadow-sm" aria-hidden />
+                    <span className="text-base sm:text-lg tracking-wide">
+                      Give{' '}
+                      <span className="tabular-nums">
+                        {getCurrencySymbol(formData.currency)}
+                        {(() => {
+                          const raw = formData.customAmount || formData.amount
+                          const n = parseFloat(raw || '')
+                          return Number.isFinite(n) && n > 0 ? n.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 }) : '0.00'
+                        })()}
+                      </span>
+                    </span>
+                    <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-white/15 ring-1 ring-white/25 transition group-hover:bg-white/25">
+                      <ArrowRight className="h-5 w-5 -translate-x-px transition group-hover:translate-x-0.5" aria-hidden />
+                    </span>
+                  </>
+                )}
+              </span>
+            </button>
           </div>
-          <button
-            type="button"
-            onClick={handlePayment}
-            disabled={isLoading || isProcessing}
-            className={`btn-primary px-8 w-full sm:w-auto flex items-center justify-center gap-2 ${
-              isLoading || isProcessing ? 'opacity-50 cursor-not-allowed' : ''
-            }`}
-          >
-            {(isLoading || isProcessing) ? (
-              <>
-                <Loader2 className="h-5 w-5 animate-spin" />
-                {isProcessing ? 'Opening Payment...' : 'Processing...'}
-              </>
-            ) : (
-              <>
-                Give {getCurrencySymbol(formData.currency)}{(formData.customAmount || formData.amount || '0')}
-                <ArrowRight className="h-5 w-5" />
-              </>
-            )}
-          </button>
         </div>
 
         <div className="text-center">
@@ -1013,7 +968,7 @@ export default function InternationalDonationForm() {
             All donations are tax-deductible. You will receive a receipt via email.
           </p>
           <p className="text-xs text-gray-500 mt-1">
-            Donating from outside Ghana? We accept cards, bank transfers, and mobile money.
+            Gifts in Ghana Cedis (₵) or US Dollars ($), with card, mobile money, Apple Pay, or bank on Paystack.
           </p>
         </div>
       </div>

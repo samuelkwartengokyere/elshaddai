@@ -186,11 +186,19 @@ CREATE TABLE IF NOT EXISTS donations (
   is_anonymous BOOLEAN DEFAULT false,
   notes TEXT,
   receipt_sent BOOLEAN DEFAULT false,
+  donor_bank_name TEXT,
+  donor_bank_account_number TEXT,
+  donor_bank_account_holder TEXT,
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX idx_donations_status ON donations(status);
 CREATE INDEX idx_donations_created ON donations(created_at);
+
+-- Donor bank details (Give → bank transfer). Safe on existing DBs:
+ALTER TABLE donations ADD COLUMN IF NOT EXISTS donor_bank_name TEXT;
+ALTER TABLE donations ADD COLUMN IF NOT EXISTS donor_bank_account_number TEXT;
+ALTER TABLE donations ADD COLUMN IF NOT EXISTS donor_bank_account_holder TEXT;
 
 -- 10. COUNSELLING_BOOKINGS table
 CREATE TABLE IF NOT EXISTS counselling_bookings (

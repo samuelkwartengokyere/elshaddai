@@ -10,6 +10,12 @@ interface InitializeTransactionParams {
   frequency: string
   reference?: string
   callbackUrl?: string
+  /** ISO currency code (e.g. NGN, USD). Paystack defaults to NGN if omitted. */
+  currency?: string
+  /** Restrict hosted checkout to these Paystack channels (omit unless every value is enabled for the merchant). */
+  channels?: string[]
+  /** Shallow-merged into Paystack `metadata` (e.g. donor UI choice). */
+  metadataExtra?: Record<string, unknown>
 }
 
 interface TransactionInitializeResponse {
@@ -52,33 +58,44 @@ export async function initializeTransaction(
   params: InitializeTransactionParams
 ): Promise<TransactionInitializeResponse> {
   try {
-    const { email, amount, firstName, lastName, frequency, reference, callbackUrl } = params
+    const { email, amount, firstName, lastName, frequency, reference, callbackUrl, currency, channels, metadataExtra } =
+      params
 
-    // Amount is in kobo for Paystack (multiply by 100)
-    const amountInKobo = Math.round(amount * 100)
+    // Amount in smallest currency unit (kobo, pesewas, cents, etc. — Paystack expects integer * 100 for most currencies)
+    const amountInMinor = Math.round(amount * 100)
+
+    const body: Record<string, unknown> = {
+      email,
+      amount: amountInMinor,
+      first_name: firstName,
+      last_name: lastName,
+      reference: reference || undefined,
+      callback_url: callbackUrl || process.env.PAYSTACK_CALLBACK_URL,
+      metadata: {
+        frequency,
+        firstName,
+        lastName,
+        custom_fields: [
+          {
+            display_name: 'Frequency',
+            variable_name: 'frequency',
+            value: frequency
+          }
+        ],
+        ...metadataExtra,
+      }
+    }
+
+    if (currency) {
+      body.currency = currency
+    }
+    if (channels?.length) {
+      body.channels = channels
+    }
 
     const response = await axios.post<TransactionInitializeResponse>(
       'https://api.paystack.co/transaction/initialize',
-      {
-        email,
-        amount: amountInKobo,
-        first_name: firstName,
-        last_name: lastName,
-        reference: reference || undefined,
-        callback_url: callbackUrl || process.env.PAYSTACK_CALLBACK_URL,
-        metadata: {
-          frequency,
-          firstName,
-          lastName,
-          custom_fields: [
-            {
-              display_name: 'Frequency',
-              variable_name: 'frequency',
-              value: frequency
-            }
-          ]
-        }
-      },
+      body,
       {
         headers: {
           Authorization: `Bearer ${PAYSTACK_SECRET_KEY}`,

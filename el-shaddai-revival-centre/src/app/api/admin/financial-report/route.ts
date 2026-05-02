@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentAdmin } from '@/lib/auth'
 import { donationsDb } from '@/lib/db'
+import { isPaidDonationStatus } from '@/lib/donationStatus'
 
 export async function GET(request: NextRequest) {
   try {
@@ -15,12 +16,13 @@ export async function GET(request: NextRequest) {
     const fromDate = `${year}-01-01`
     const toDate = `${parseInt(year) + 1}-01-01`
 
-    // Fetch completed donations for the year
-    const donations = await donationsDb.getAll().then(donations => 
-      donations.filter(d => 
-        d.status === 'completed' &&
-        new Date(d.created_at) >= new Date(fromDate) &&
-        new Date(d.created_at) < new Date(toDate)
+    // Fetch successful donations for the year (`success` + legacy `completed`)
+    const donations = await donationsDb.getAll().then((list) =>
+      list.filter(
+        (d) =>
+          isPaidDonationStatus(d.status) &&
+          new Date(d.created_at) >= new Date(fromDate) &&
+          new Date(d.created_at) < new Date(toDate)
       )
     )
 

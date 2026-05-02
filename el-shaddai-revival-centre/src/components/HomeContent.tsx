@@ -139,29 +139,39 @@ export default function HomeContent({ events, testimonies }: HomeContentProps) {
             </Link>
           </motion.div>
 
-          <motion.div
-            variants={containerVariants}
-            initial="hidden"
-            whileInView="visible"
-            viewport={{ once: true, amount: 0.2 }}
-            className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
-          >
-            {events.map((event, index) => (
-              <motion.div 
-                key={index} 
-                variants={cardVariants}
-                whileHover={{ scale: 1.03 }}
-                className="card text-center hover:shadow-xl transition duration-300 bg-white rounded-lg shadow-md p-6 cursor-pointer"
-              >
-                <Calendar className="h-12 w-12 text-accent mx-auto mb-4" />
-                <h3 className="text-xl font-bold mb-2">{event.title}</h3>
-                <div className="text-gray-600">
-                  <p className="font-medium">{event.date}</p>
-                  <p>{event.time}</p>
-                </div>
-              </motion.div>
-            ))}
-          </motion.div>
+          {events.length > 0 ? (
+            <motion.div
+              variants={containerVariants}
+              initial="hidden"
+              whileInView="visible"
+              viewport={{ once: true, amount: 0.2 }}
+              className="max-w-4xl mx-auto grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6"
+            >
+              {events.map((event, index) => (
+                <motion.div
+                  key={`${event.title}-${event.date}-${index}`}
+                  variants={cardVariants}
+                  whileHover={{ scale: 1.03 }}
+                  className="card text-center hover:shadow-xl transition duration-300 bg-white rounded-lg shadow-md p-6 cursor-pointer"
+                >
+                  <Calendar className="h-12 w-12 text-accent mx-auto mb-4" />
+                  <h3 className="text-xl font-bold mb-2">{event.title}</h3>
+                  <div className="text-gray-600">
+                    <p className="font-medium">{event.date}</p>
+                    <p>{event.time}</p>
+                  </div>
+                </motion.div>
+              ))}
+            </motion.div>
+          ) : (
+            <p className="max-w-4xl mx-auto text-center text-gray-600 py-8">
+              No upcoming events yet. Check the{' '}
+              <Link href="/events" className="text-accent hover:text-red-600 font-medium">
+                events page
+              </Link>{' '}
+              for the full schedule.
+            </p>
+          )}
         </div>
       </section>
 

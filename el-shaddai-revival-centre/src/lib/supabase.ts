@@ -5,6 +5,7 @@
  */
 
 import { createServerClient, createBrowserClient } from '@supabase/ssr'
+import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { type CookieOptions } from '@supabase/ssr'
 
@@ -33,35 +34,14 @@ const getSupabaseConfig = (): {
 // Check configuration
 export const isSupabaseConfigured = () => getSupabaseConfig().isConfigured
 
-// Server-side admin client (service role - bypass RLS)
-// This should be called within async functions
+// Server-side admin client (service role — bypasses RLS; no cookie/session)
 export const getSupabaseAdmin = async () => {
   const config = getSupabaseConfig()
   if (!config.serviceKey || !config.url) return null
 
-  return createServerClient(
-    config.url,
-    config.serviceKey,
-    {
-      cookies: {
-        async get(name: string) {
-          const cookieStore = await cookies()
-          return cookieStore.get(name)?.value
-        },
-        async set(name: string, value: string, options: CookieOptions) {
-          const cookieStore = await cookies()
-          cookieStore.set(name, value, options)
-        },
-        async remove(name: string) {
-          const cookieStore = await cookies()
-          cookieStore.delete(name)
-        },
-      },
-      auth: {
-        flowType: 'pkce',
-      },
-    }
-  )
+  return createClient(config.url, config.serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+  })
 }
 
 // Server-side client factory (user auth - respects RLS)

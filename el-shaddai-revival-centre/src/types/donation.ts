@@ -1,6 +1,7 @@
 // Donation Type Definitions
 
-export type DonationFrequency = 'one-time' | 'weekly' | 'monthly' | 'yearly'
+/** Online giving only supports immediate one-time gifts. */
+export type DonationFrequency = 'one-time'
 
 export type PaymentChannel = 
   | 'paystack' 
@@ -9,15 +10,20 @@ export type PaymentChannel =
   | 'manual' 
   | 'other'
 
-// Payment method types (for UI selection)
-export type PaymentMethodType = 
-  | 'card' 
-  | 'mobile_money' 
-  | 'bank_transfer' 
-  | 'ussd' 
-  | 'qr_code'
+// Payment method types (for UI selection on Give page)
+export type PaymentMethodType =
+  | 'card'
+  | 'mobile_money'
+  | 'apple_pay'
+  | 'bank_transfer'
 
-export type DonationStatus = 'pending' | 'completed' | 'failed' | 'refunded' | 'cancelled'
+export type DonationStatus =
+  | 'pending'
+  | 'success'
+  | 'completed'
+  | 'failed'
+  | 'refunded'
+  | 'cancelled'
 
 export type Currency = 'USD' | 'GHS' | 'NGN' | 'GBP' | 'EUR' | 'CAD' | 'AUD' | 'KES' | 'ZAR' | 'other'
 

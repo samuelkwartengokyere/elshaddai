@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getCurrentAdmin } from '@/lib/auth'
 import { donationsDb } from '@/lib/db'
+import { isPaidDonationStatus } from '@/lib/donationStatus'
 
 export async function GET(request: NextRequest) {
   try {
@@ -19,10 +20,10 @@ export async function GET(request: NextRequest) {
 
     // Fetch all donations and filter by date/status
     const allDonations = await donationsDb.getAll()
-    const yearDonations = allDonations.filter(donation => {
+    const yearDonations = allDonations.filter((donation) => {
       const createdAt = new Date(donation.created_at)
       return (
-        donation.status === 'completed' &&
+        isPaidDonationStatus(donation.status) &&
         createdAt >= new Date(fromDate) &&
         createdAt < new Date(toDate)
       )

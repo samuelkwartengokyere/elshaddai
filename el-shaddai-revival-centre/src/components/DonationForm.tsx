@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect } from 'react'
 import { Heart, Shield, CheckCircle, AlertCircle } from 'lucide-react'
 import { motion } from 'framer-motion'
 // PaystackInline will be loaded dynamically
@@ -21,7 +21,6 @@ interface FormErrors {
 export default function DonationForm() {
   const [amount, setAmount] = useState('')
   const [customAmount, setCustomAmount] = useState('')
-  const [frequency, setFrequency] = useState('one-time')
   const [formData, setFormData] = useState<FormData>({
     firstName: '',
     lastName: '',
@@ -29,7 +28,6 @@ export default function DonationForm() {
   })
   const [errors, setErrors] = useState<FormErrors>({})
   const [isLoading, setIsLoading] = useState(false)
-  const [isPaying, setIsPaying] = useState(false)
   const [success, setSuccess] = useState(false)
   const [errorMessage, setErrorMessage] = useState('')
   interface VerificationResult {
@@ -39,62 +37,46 @@ export default function DonationForm() {
   const [verificationResult, setVerificationResult] = useState<VerificationResult | null>(null)
 
   const presetAmounts = [25, 50, 100, 250, 500]
-  const paystackRef = useRef<HTMLDivElement>(null)
-  const scriptLoadedRef = useRef(false)
 
-  // Check for payment verification on mount
+  // Check for payment verification on mount (return from Paystack hosted checkout)
   useEffect(() => {
     const checkPaymentStatus = async () => {
       const urlParams = new URLSearchParams(window.location.search)
-      const reference = urlParams.get('reference')
+      const reference = urlParams.get('reference') || urlParams.get('trxref')
       const status = urlParams.get('status')
 
-      if (reference && status === 'success') {
-        setIsLoading(true)
-        try {
-          const response = await fetch(`/api/donations/verify?reference=${reference}&status=${status}`)
-          const data = await response.json()
+      if (!reference) return
 
-          if (data.success) {
-            setSuccess(true)
-            setVerificationResult(data.donation)
-            // Clear URL parameters
-            window.history.replaceState({}, '', window.location.pathname)
-          } else {
-            setErrorMessage(data.error || 'Payment verification failed')
-          }
-        } catch {
-          setErrorMessage('Failed to verify payment')
-        } finally {
-          setIsLoading(false)
+      if (status === 'failed' || status === 'abandoned' || status === 'cancelled') {
+        setErrorMessage('Payment was not completed.')
+        window.history.replaceState({}, '', window.location.pathname)
+        return
+      }
+
+      setIsLoading(true)
+      try {
+        const response = await fetch(
+          `/api/donations/verify?reference=${encodeURIComponent(reference)}`
+        )
+        const data = await response.json()
+
+        if (data.success) {
+          setSuccess(true)
+          setVerificationResult(data.donation)
+          window.history.replaceState({}, '', window.location.pathname)
+        } else {
+          setErrorMessage(data.error || 'Payment verification failed')
+          window.history.replaceState({}, '', window.location.pathname)
         }
+      } catch {
+        setErrorMessage('Failed to verify payment')
+      } finally {
+        setIsLoading(false)
       }
     }
 
     checkPaymentStatus()
   }, [])
-
-  // Load Paystack script
-  const loadPaystackScript = (): Promise<void> => {
-    return new Promise((resolve, reject) => {
-      if (scriptLoadedRef.current) {
-        resolve()
-        return
-      }
-
-      const script = document.createElement('script')
-      script.src = 'https://js.paystack.co/v1/inline.js'
-      script.async = true
-      script.onload = () => {
-        scriptLoadedRef.current = true
-        resolve()
-      }
-      script.onerror = () => {
-        reject(new Error('Failed to load Paystack script'))
-      }
-      document.head.appendChild(script)
-    })
-  }
 
   const validateEmail = (email: string): boolean => {
     const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
@@ -156,10 +138,13 @@ export default function DonationForm() {
         },
         body: JSON.stringify({
           amount: parseFloat(finalAmount),
-          frequency,
+          currency: 'USD',
+          frequency: 'one-time',
           firstName: formData.firstName,
           lastName: formData.lastName,
-          email: formData.email
+          email: formData.email,
+          paymentChannel: 'paystack',
+          paymentMethod: 'card',
         }),
       })
 
@@ -169,47 +154,15 @@ export default function DonationForm() {
         throw new Error(data.error || 'Failed to initialize payment')
       }
 
-      // Load Paystack and open payment modal
-      await loadPaystackScript()
-
-      const paystackOptions = {
-        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || 'pk_test_placeholder',
-        email: formData.email,
-        amount: parseFloat(finalAmount) * 100, // Convert to kobo
-        currency: 'USD',
-        ref: data.reference,
-        label: `${formData.firstName} ${formData.lastName}`,
-        metadata: {
-          frequency,
-          firstName: formData.firstName,
-          lastName: formData.lastName,
-          donationId: data.donationId
-        },
-        callback: async (response: { reference: string }) => {
-          setIsPaying(false)
-          // Redirect to verification page
-          window.location.href = `/api/donations/verify?reference=${response.reference}&status=success`
-        },
-        onClose: () => {
-          setIsPaying(false)
-          setErrorMessage('Payment window closed. Please try again.')
-        }
+      const checkoutUrl = data.authorization_url as string | undefined
+      if (!checkoutUrl) {
+        throw new Error('Checkout is unavailable. Please try again.')
       }
 
-      setIsPaying(true)
-
-      // @ts-expect-error Paystack is loaded dynamically
-      if (window.PaystackPop) {
-        // @ts-expect-error Paystack is loaded dynamically
-        const paystack = new window.PaystackPop()
-        paystack.newTransaction(paystackOptions)
-      } else {
-        throw new Error('Paystack not loaded properly')
-      }
+      window.location.assign(checkoutUrl)
 
     } catch (error) {
       setIsLoading(false)
-      setIsPaying(false)
       setErrorMessage(error instanceof Error ? error.message : 'An error occurred. Please try again.')
     }
   }
@@ -217,7 +170,6 @@ export default function DonationForm() {
   const resetForm = () => {
     setAmount('')
     setCustomAmount('')
-    setFrequency('one-time')
     setFormData({
       firstName: '',
       lastName: '',
@@ -237,10 +189,16 @@ export default function DonationForm() {
           <CheckCircle className="h-16 w-16 text-green-500 mx-auto mb-4" />
           <h2 className="text-3xl font-bold mb-2 text-green-700">Thank You!</h2>
           <p className="text-gray-600 mb-4">
-            Your generous donation of ${verificationResult?.amount || customAmount || amount} has been received.
+            Your generous donation of $
+            {typeof (verificationResult as { amount?: number } | null)?.amount === 'number'
+              ? (verificationResult as { amount: number }).amount.toFixed(2)
+              : (customAmount || amount || '0')}
+            {' '}
+            has been received.
           </p>
           <p className="text-gray-600">
-            A receipt has been sent to <strong>{formData.email}</strong>
+            A receipt has been sent to{' '}
+            <strong>{(verificationResult as { donor_email?: string } | null)?.donor_email || formData.email}</strong>
           </p>
           <p className="text-sm text-gray-500 mt-6">
             Redirecting to homepage in 5 seconds...
@@ -326,31 +284,6 @@ export default function DonationForm() {
           </div>
         </div>
 
-        {/* Frequency */}
-        <div>
-          <label className="block text-sm font-medium text-gray-700 mb-3">
-            Frequency
-          </label>
-          <div className="flex space-x-4">
-            {['one-time', 'monthly', 'weekly'].map((freq) => (
-              <label
-                key={freq}
-                className="flex items-center space-x-2 cursor-pointer"
-              >
-                <input
-                  type="radio"
-                  name="frequency"
-                  value={freq}
-                  checked={frequency === freq}
-                  onChange={(e) => setFrequency(e.target.value)}
-                  className="h-4 w-4 text-accent focus:ring-accent"
-                />
-                <span className="capitalize">{freq.replace('-', ' ')}</span>
-              </label>
-            ))}
-          </div>
-        </div>
-
         {/* Donor Details */}
         <div className="space-y-4">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -427,9 +360,9 @@ export default function DonationForm() {
           <button
             type="button"
             onClick={handlePayment}
-            disabled={isLoading || isPaying}
+            disabled={isLoading}
             className={`btn-primary px-8 w-full sm:w-auto ${
-              isLoading || isPaying ? 'opacity-50 cursor-not-allowed' : ''
+              isLoading ? 'opacity-50 cursor-not-allowed' : ''
             }`}
           >
             {isLoading ? (
@@ -438,15 +371,7 @@ export default function DonationForm() {
                   <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                   <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                Processing...
-              </span>
-            ) : isPaying ? (
-              <span className="flex items-center justify-center">
-                <svg className="animate-spin -ml-1 mr-3 h-5 w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                Opening Payment...
+                Redirecting to Paystack…
               </span>
             ) : (
               `Give $${customAmount || amount || '0'}`

@@ -13,7 +13,67 @@ export const currencyOptions: CurrencyOption[] = [
   { code: 'ZAR', name: 'South African Rand', symbol: 'R', exchangeRateToUSD: 0.053 }, // ~19 ZAR per USD
 ]
 
-// Payment method options with regional availability
+/** Currencies allowed on the Give page and in `/api/donations` (order = chip display order). */
+export const GIVE_SUPPORTED_CURRENCIES: Currency[] = ['GHS', 'USD']
+
+/**
+ * Optional env subset of `{GHS, USD}` — use if Paystack only activates one currency
+ * (e.g. only `NEXT_PUBLIC_PAYSTACK_ALLOWED_CURRENCIES=GHS`).
+ */
+export function parsePaystackAllowedCurrencies(): Currency[] | null {
+  const raw = process.env.NEXT_PUBLIC_PAYSTACK_ALLOWED_CURRENCIES?.trim()
+  if (!raw) return null
+  const parts = raw.split(',').map((s) => s.trim().toUpperCase()).filter(Boolean)
+  const out = parts.filter((c): c is Currency =>
+    GIVE_SUPPORTED_CURRENCIES.includes(c as Currency)
+  ) as Currency[]
+  return out.length ? out : null
+}
+
+export function filterGiveCurrencyOptions(): CurrencyOption[] {
+  const envSubset = parsePaystackAllowedCurrencies()
+  const codes = envSubset ?? GIVE_SUPPORTED_CURRENCIES
+  return codes
+    .map((code) => currencyOptions.find((o) => o.code === code))
+    .filter((o): o is CurrencyOption => !!o)
+}
+
+/** Starting currency when the Give form loads / resets. */
+export function resolveDefaultGiveCurrency(): Currency {
+  const effective = parsePaystackAllowedCurrencies() ?? GIVE_SUPPORTED_CURRENCIES
+  const env = process.env.NEXT_PUBLIC_PAYSTACK_DEFAULT_CURRENCY?.trim().toUpperCase()
+  if (env && GIVE_SUPPORTED_CURRENCIES.includes(env as Currency)) {
+    if (effective.includes(env as Currency)) return env as Currency
+  }
+  return effective[0]!
+}
+
+/** Validate donation currency against supported list before Paystack initialize. */
+export function normalizeDonationCurrency(
+  raw: string | undefined
+): { ok: true; currency: Currency } | { ok: false; error: string } {
+  const envSubset = parsePaystackAllowedCurrencies()
+  const allowed = envSubset ?? GIVE_SUPPORTED_CURRENCIES
+  const code = (raw || resolveDefaultGiveCurrency()).toUpperCase()
+
+  if (!GIVE_SUPPORTED_CURRENCIES.includes(code as Currency)) {
+    return {
+      ok: false,
+      error: `${code} is not supported. Giving is available in ${GIVE_SUPPORTED_CURRENCIES.join(' and ')} only.`,
+    }
+  }
+
+  const currency = code as Currency
+  if (!allowed.includes(currency)) {
+    return {
+      ok: false,
+      error: `${currency} is not enabled here. Use ${allowed.join(' or ')} and match Paystack Dashboard.`,
+    }
+  }
+  return { ok: true, currency }
+}
+
+// Payment method options with regional availability (Give page: card, mobile money, Apple Pay, bank wire)
 export const paymentMethodOptions: Array<{
   id: PaymentMethodType
   name: string
@@ -32,7 +92,7 @@ export const paymentMethodOptions: Array<{
     description: 'Pay securely with your credit or debit card',
     icon: '💳',
     channels: ['paystack'],
-    currencies: ['USD', 'GBP', 'EUR', 'CAD', 'AUD', 'GHS', 'NGN', 'KES', 'ZAR'],
+    currencies: ['GHS', 'USD'],
     regions: ['Global'],
     fees: '2.5-3.5%',
     processingTime: 'Instant',
@@ -43,7 +103,7 @@ export const paymentMethodOptions: Array<{
     description: 'Pay using your mobile money wallet',
     icon: '📱',
     channels: ['paystack'],
-    currencies: ['GHS', 'NGN', 'KES', 'ZAR', 'USD'],
+    currencies: ['GHS', 'USD'],
     regions: ['Ghana', 'Nigeria', 'Kenya', 'South Africa'],
     fees: '1.5-2.5%',
     processingTime: 'Instant',
@@ -57,39 +117,44 @@ export const paymentMethodOptions: Array<{
     ],
   },
   {
+    id: 'apple_pay',
+    name: 'Apple Pay',
+    description: 'Pay with Apple Pay where your device and Paystack support it (often Safari on iPhone/Mac)',
+    icon: '\u00A0',
+    channels: ['paystack'],
+    currencies: ['GHS', 'USD'],
+    regions: ['Global'],
+    fees: '2.5-3.5%',
+    processingTime: 'Instant',
+  },
+  {
     id: 'bank_transfer',
     name: 'Bank Transfer',
-    description: 'Direct bank transfer or mobile banking',
+    description: 'Pay with your bank account on Paystack checkout (availability depends on currency and region)',
     icon: '🏦',
-    channels: ['paystack', 'manual'],
-    currencies: ['USD', 'GBP', 'EUR', 'GHS', 'NGN'],
+    channels: ['paystack'],
+    currencies: ['GHS', 'USD'],
     regions: ['Global'],
     fees: 'Varies by bank',
-    processingTime: '1-5 business days',
-  },
-  {
-    id: 'ussd',
-    name: 'USSD',
-    description: 'Pay using USSD code (*123#)',
-    icon: '📞',
-    channels: ['paystack'],
-    currencies: ['GHS', 'NGN'],
-    regions: ['Ghana', 'Nigeria'],
-    fees: '1.5-2.5%',
-    processingTime: 'Instant',
-  },
-  {
-    id: 'qr_code',
-    name: 'QR Code',
-    description: 'Scan QR code with your banking app',
-    icon: '📲',
-    channels: ['paystack'],
-    currencies: ['GHS', 'NGN', 'USD'],
-    regions: ['Ghana', 'Nigeria'],
-    fees: '1-2%',
-    processingTime: 'Instant',
+    processingTime: 'Instant–3 business days',
   },
 ]
+
+/** Display order on Give page */
+const GIVE_PAYMENT_METHOD_ORDER: PaymentMethodType[] = [
+  'card',
+  'mobile_money',
+  'apple_pay',
+  'bank_transfer',
+]
+
+export function getGivePaymentMethods(currency: Currency) {
+  const byId = new Map(paymentMethodOptions.map((pm) => [pm.id, pm]))
+  return GIVE_PAYMENT_METHOD_ORDER.map((id) => byId.get(id)).filter(
+    (pm): pm is (typeof paymentMethodOptions)[number] =>
+      !!pm && pm.currencies.includes(currency)
+  )
+}
 
 // Bank transfer details for manual donations
 export const bankTransferDetails = {
