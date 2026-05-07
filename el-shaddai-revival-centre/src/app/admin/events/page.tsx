@@ -13,6 +13,11 @@ import {
   X
 } from 'lucide-react'
 import ImageUpload from '@/components/ImageUpload'
+import {
+  EVENT_CATEGORY_OPTIONS,
+  formatEventCategoryLabel,
+  type EventCategorySlug,
+} from '@/lib/event-categories'
 
 interface Event {
   _id: string
@@ -27,15 +32,13 @@ interface Event {
   imageUrl?: string
 }
 
-type EventCategory = 'revival' | 'special' | 'holiday' | 'worship' | 'youth' | 'children' | 'outreach' | 'fellowship' | 'other'
-
 interface EventFormData {
   title: string
   description: string
   date: string
   time: string
   location: string
-  category: EventCategory
+  category: EventCategorySlug | string
   recurring: boolean
   imageUrl?: string
 }
@@ -59,7 +62,7 @@ export default function EventsPage() {
     date: new Date().toISOString().split('T')[0],
     time: '',
     location: '',
-    category: 'other',
+    category: 'revival',
     recurring: false,
     imageUrl: ''
   })
@@ -114,7 +117,7 @@ export default function EventsPage() {
       date: new Date().toISOString().split('T')[0],
       time: '',
       location: '',
-      category: 'other',
+      category: 'revival',
       recurring: false,
       imageUrl: ''
     })
@@ -133,7 +136,7 @@ export default function EventsPage() {
       date: event.date.split('T')[0],
       time: event.time,
       location: event.location,
-      category: event.category as EventCategory,
+      category: event.category,
       recurring: event.recurring,
       imageUrl: event.imageUrl || ''
     })
@@ -169,7 +172,7 @@ export default function EventsPage() {
           date: new Date().toISOString().split('T')[0],
           time: '',
           location: '',
-          category: 'other',
+          category: 'revival',
           recurring: false,
           imageUrl: ''
         })
@@ -245,14 +248,19 @@ export default function EventsPage() {
       case 'revival': return 'bg-orange-100 text-orange-800'
       case 'special': return 'bg-green-100 text-green-800'
       case 'holiday': return 'bg-blue-100 text-blue-800'
-      case 'worship': return 'bg-blue-100 text-blue-800'
+      case 'mentees': return 'bg-purple-100 text-purple-800'
+      case 'outreach': return 'bg-teal-100 text-teal-800'
+      case 'worship': return 'bg-indigo-100 text-indigo-800'
       case 'youth': return 'bg-purple-100 text-purple-800'
-      case 'children': return 'bg-green-100 text-green-800'
-      case 'outreach': return 'bg-orange-100 text-orange-800'
+      case 'children': return 'bg-lime-100 text-lime-800'
       case 'fellowship': return 'bg-pink-100 text-pink-800'
+      case 'other': return 'bg-gray-100 text-gray-800'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
+
+  const isKnownCategory = (slug: string): slug is EventCategorySlug =>
+    EVENT_CATEGORY_OPTIONS.some((o) => o.value === slug)
 
   return (
     <div>
@@ -279,15 +287,11 @@ export default function EventsPage() {
               className="px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
             >
               <option value="">All Categories</option>
-              <option value="revival">Revival</option>
-              <option value="special">Special Program</option>
-              <option value="holiday">Holiday Program</option>
-              <option value="worship">Worship</option>
-              <option value="youth">Youth</option>
-              <option value="children">Children</option>
-              <option value="outreach">Outreach</option>
-              <option value="fellowship">Fellowship</option>
-              <option value="other">Other</option>
+              {EVENT_CATEGORY_OPTIONS.map((opt) => (
+                <option key={opt.value} value={opt.value}>
+                  {opt.label}
+                </option>
+              ))}
             </select>
             <button
               type="submit"
@@ -318,7 +322,7 @@ export default function EventsPage() {
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
           <p className="text-gray-600 text-sm">Categories</p>
-          <p className="text-2xl font-bold text-blue-500">9</p>
+          <p className="text-2xl font-bold text-blue-500">{EVENT_CATEGORY_OPTIONS.length}</p>
         </div>
         <div className="bg-white p-4 rounded-lg shadow">
           <p className="text-gray-600 text-sm">Published</p>
@@ -357,7 +361,7 @@ export default function EventsPage() {
                 <div className="p-4">
                   <div className="flex items-center justify-between mb-3">
                     <span className={`px-3 py-1 text-xs font-medium rounded-full ${getCategoryColor(event.category)}`}>
-                      {event.category}
+                      {formatEventCategoryLabel(event.category)}
                     </span>
                     {event.recurring && (
                       <span className="text-xs text-gray-500 bg-gray-100 px-2 py-1 rounded">
@@ -560,19 +564,22 @@ export default function EventsPage() {
                 </label>
                 <select
                   required
-                  value={formData.category}
-                  onChange={(e) => setFormData(prev => ({ ...prev, category: e.target.value as EventCategory }))}
+                  value={formData.category || 'revival'}
+                  onChange={(e) =>
+                    setFormData((prev) => ({ ...prev, category: e.target.value }))
+                  }
                   className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
                 >
-                  <option value="revival">Revival</option>
-                  <option value="special">Special Program</option>
-                  <option value="holiday">Holiday Program</option>
-                  <option value="worship">Worship</option>
-                  <option value="youth">Youth</option>
-                  <option value="children">Children</option>
-                  <option value="outreach">Outreach</option>
-                  <option value="fellowship">Fellowship</option>
-                  <option value="other">Other</option>
+                  {formData.category && !isKnownCategory(formData.category) ? (
+                    <option value={formData.category}>
+                      {formData.category} (legacy — choose a category)
+                    </option>
+                  ) : null}
+                  {EVENT_CATEGORY_OPTIONS.map((opt) => (
+                    <option key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 

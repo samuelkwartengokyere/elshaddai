@@ -96,14 +96,17 @@ export function youTubeConfigToJson(config: YouTubeConfigType): Record<string, u
 }
 
 /**
- * Whether YouTube is considered configured for `settings.is_youtube_configured`
- * (channel id, URL, or playlist present). Kept in sync with JSON on every save.
+ * Whether YouTube is considered configured for `settings.is_youtube_configured`.
+ * Requires a Data API key plus channel URL, channel id, or sermons playlist id
+ * (sermons + live features both need the key).
  */
 export function deriveIsYoutubeConfigured(siteSettingsValue: Record<string, unknown>): boolean {
   const yt = siteSettingsValue.youtube
   if (yt == null || typeof yt !== 'object') return false
   const o = youTubeConfigFromJson(yt)
-  return !!(o.channelId.trim() || o.channelUrl.trim() || o.playlistId.trim())
+  const hasTarget = !!(o.channelId.trim() || o.channelUrl.trim() || o.playlistId.trim())
+  const hasKey = !!o.apiKey.trim()
+  return hasTarget && hasKey
 }
 
 // In-memory cache for YouTube videos - also use globalThis for persistence

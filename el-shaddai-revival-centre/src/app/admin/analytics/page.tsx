@@ -4,19 +4,8 @@ import WebsiteAnalyticsPanel from '@/components/admin/WebsiteAnalyticsPanel'
 
 export default function AdminAnalyticsPage() {
   return (
-    <div>
-      <div className="mb-8">
-        <h1 className="text-3xl font-bold text-gray-800">Analytics</h1>
-        <p className="text-gray-600 mt-1">
-          Page views, location hints, device and OS (from User-Agent), and visit times—stored in UTC.
-        </p>
-      </div>
-
+    <div className="-m-6 min-h-[calc(100vh-4rem)] bg-[#eef0f3] p-6">
       <WebsiteAnalyticsPanel showCardHeading={false} />
-
-      <p className="mt-4 text-xs text-gray-500">
-        Admin routes, financial reports area, and maintenance page are excluded from counts.
-      </p>
     </div>
   )
 }

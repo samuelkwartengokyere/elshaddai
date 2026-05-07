@@ -1,6 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { getSupabaseAdmin } from '@/lib/supabase'
-import { sanitizePathForAnalytics } from '@/lib/analytics'
+import {
+  normalizeReferrerHostFromClient,
+  sanitizePathForAnalytics,
+  sanitizeVisitorKeyForAnalytics,
+} from '@/lib/analytics'
 import { buildAnalyticsVisitMeta } from '@/lib/analytics-request-meta'
 
 export async function POST(request: NextRequest) {
@@ -25,19 +29,55 @@ export async function POST(request: NextRequest) {
       return new NextResponse(null, { status: 204 })
     }
 
+    const bodyRecord =
+      typeof body === 'object' && body !== null ? (body as Record<string, unknown>) : {}
+
+    const referrerRaw = typeof bodyRecord.referrer === 'string' ? bodyRecord.referrer : ''
+    const referrerHost = normalizeReferrerHostFromClient(referrerRaw).slice(0, 253)
+
+    const visitorKey = sanitizeVisitorKeyForAnalytics(
+      typeof bodyRecord.visitorKey === 'string' ? bodyRecord.visitorKey : null
+    )
+
+    const clientUserAgent = typeof bodyRecord.clientUserAgent === 'string' ? bodyRecord.clientUserAgent : undefined
+    const localeTag =
+      typeof bodyRecord.locale === 'string'
+        ? bodyRecord.locale
+        : typeof bodyRecord.localeTag === 'string'
+          ? bodyRecord.localeTag
+          : undefined
+
     const supabase = await getSupabaseAdmin()
     if (!supabase) {
       return new NextResponse(null, { status: 204 })
     }
 
-    const meta = buildAnalyticsVisitMeta(request)
+    const meta = buildAnalyticsVisitMeta(request, {
+      clientUserAgent,
+      localeTag,
+    })
 
-    const { error: insertError } = await supabase.from('analytics_page_view_events').insert({
+    const extended = {
       path,
       country: meta.country.slice(0, 64),
       device_type: meta.deviceType.slice(0, 64),
       os_name: meta.osName.slice(0, 128),
-    })
+      browser_name: meta.browserName.slice(0, 128),
+      referrer_host: referrerHost,
+      ...(visitorKey ? { visitor_key: visitorKey } : {}),
+    }
+
+    const legacyRow = {
+      path,
+      country: meta.country.slice(0, 64),
+      device_type: meta.deviceType.slice(0, 64),
+      os_name: meta.osName.slice(0, 128),
+    }
+
+    let insertError = (await supabase.from('analytics_page_view_events').insert(extended)).error
+    if (insertError && looksLikeMissingAnalyticsColumns(insertError)) {
+      insertError = (await supabase.from('analytics_page_view_events').insert(legacyRow)).error
+    }
 
     if (!insertError) {
       const day = new Date().toISOString().slice(0, 10)
@@ -89,10 +129,20 @@ export async function POST(request: NextRequest) {
   }
 }
 
-function missingRelationRpc(err: { code?: string; message?: string }): boolean {
+function looksLikeMissingAnalyticsColumns(err: { message?: string }): boolean {
+  const m = (err.message || '').toLowerCase()
   return (
-    err.code === '42883' ||
-    !!err.message?.includes('increment_analytics_page_view') ||
-    !!err.message?.includes('schema cache')
+    (m.includes('column') && m.includes('does not exist')) ||
+    m.includes('browser_name') ||
+    m.includes('referrer_host') ||
+    m.includes('visitor_key')
+  )
+}
+
+function missingRelationRpc(error: { code?: string; message?: string }): boolean {
+  return (
+    error.code === '42883' ||
+    !!error.message?.includes('increment_analytics_page_view') ||
+    !!error.message?.includes('schema cache')
   )
 }

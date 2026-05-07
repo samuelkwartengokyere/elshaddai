@@ -32,6 +32,13 @@ export interface OptimizationResult {
   reductionPercent: number
 }
 
+/** Satisfies `BlobPart` when Node's `Buffer` typings use `ArrayBufferLike`. */
+function fileFromBufferSlice(buffer: Buffer, fileName: string, mimeType: string): File {
+  const ab = new ArrayBuffer(buffer.length)
+  new Uint8Array(ab).set(buffer)
+  return new File([ab], fileName, { type: mimeType })
+}
+
 const DEFAULT_OPTIONS: Required<OptimizationOptions> = {
   maxWidth: 1920,
   maxHeight: 1920,
@@ -146,7 +153,7 @@ export async function createOptimizedFile(
   const baseName = file.name.replace(/\.[^/.]+$/, '')
   const newName = `${baseName}${result.extension}`
 
-  return new File([result.buffer], newName, { type: result.mimeType })
+  return fileFromBufferSlice(result.buffer, newName, result.mimeType)
 }
 
 /**
@@ -156,7 +163,7 @@ export async function createOptimizedGeneralFile(file: File): Promise<File> {
   const result = await optimizeGeneralImage(file)
   const baseName = file.name.replace(/\.[^/.]+$/, '')
   const newName = `${baseName}${result.extension}`
-  return new File([result.buffer], newName, { type: result.mimeType })
+  return fileFromBufferSlice(result.buffer, newName, result.mimeType)
 }
 
 /**
@@ -166,5 +173,5 @@ export async function createOptimizedAvatarFile(file: File): Promise<File> {
   const result = await optimizeAvatarImage(file)
   const baseName = file.name.replace(/\.[^/.]+$/, '')
   const newName = `${baseName}${result.extension}`
-  return new File([result.buffer], newName, { type: result.mimeType })
+  return fileFromBufferSlice(result.buffer, newName, result.mimeType)
 }

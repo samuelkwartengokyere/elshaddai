@@ -11,18 +11,24 @@ import {
   deriveIsYoutubeConfigured
 } from '@/lib/youtubeStorage'
 import { mergeYoutubeFromAdminPost, persistYoutubeSiteSettings } from '@/lib/persistSiteSettingsYoutube'
-import { fetchChannelDetails, fetchAllChannelVideos, youTubeVideoToSermon, extractChannelId, getChannelIdFromUsername, fetchChannelPlaylists, findSermonsPlaylist } from '@/lib/youtube'
+import {
+  fetchChannelDetails,
+  fetchAllChannelVideos,
+  youTubeVideoToSermon,
+  extractChannelId,
+  getChannelIdFromUsername,
+  resolveSermonsPlaylistId,
+  YOUTUBE_NO_SERMONS_PLAYLIST_HINT
+} from '@/lib/youtube'
 import { getMaintenanceMode, parseMaintenanceEnabled, parseMaintenanceMessage, setMaintenanceMode } from '@/lib/maintenance'
 
 // Auto-sync YouTube videos function
-async function syncYouTubeVideos(channelId: string, channelUrl: string, apiKey: string, playlistId: string = ''): Promise<{ success: boolean; videosCount: number; error?: string }> {
+async function syncYouTubeVideos(channelId: string, channelUrl: string, apiKey: string, playlistIdIn: string = ''): Promise<{ success: boolean; videosCount: number; error?: string }> {
   try {
-    // Get effective channel ID (only needed if not using playlistId)
     let effectiveChannelId = channelId || ''
-    
-    // If using a specific playlist, we don't need channel ID
+    let playlistId = (playlistIdIn || '').trim()
     const isUsingPlaylist = !!playlistId
-    
+
     if (!isUsingPlaylist && !effectiveChannelId && channelUrl) {
       const extractedId = extractChannelId(channelUrl)
       if (extractedId) {
@@ -31,9 +37,9 @@ async function syncYouTubeVideos(channelId: string, channelUrl: string, apiKey: 
         const atMatch = channelUrl.match(/youtube\.com\/@([a-zA-Z0-9_-]+)/)
         const cMatch = channelUrl.match(/youtube\.com\/c\/([a-zA-Z0-9_-]+)/)
         const userMatch = channelUrl.match(/youtube\.com\/user\/([a-zA-Z0-9_-]+)/)
-        
+
         const usernameMatch = atMatch || cMatch || userMatch
-        
+
         if (usernameMatch) {
           const resolvedId = await getChannelIdFromUsername(usernameMatch[1], apiKey)
           if (resolvedId) {
@@ -42,64 +48,53 @@ async function syncYouTubeVideos(channelId: string, channelUrl: string, apiKey: 
         }
       }
     }
-    
-    // If using playlist, channelId is optional
+
     if (!isUsingPlaylist && !effectiveChannelId) {
       return { success: false, videosCount: 0, error: 'Could not resolve channel ID' }
     }
-    
+
     if (!apiKey) {
       return { success: false, videosCount: 0, error: 'API key required' }
     }
-    
-    // If no specific playlist is configured but we have a channel, auto-detect sermons playlist
+
     if (!isUsingPlaylist && effectiveChannelId) {
-      console.log('[Settings API] No specific playlist configured, attempting to auto-detect sermons playlist...')
-      
-      const playlistsResult = await fetchChannelPlaylists(effectiveChannelId, apiKey, { maxResults: 50 })
-      
-      if (playlistsResult.playlists.length > 0) {
-        // Log all playlists for debugging
-        playlistsResult.playlists.forEach(playlist => {
-          console.log(`[Settings API] Found playlist: "${playlist.title}" (${playlist.id})`)
-        })
-        
-        const sermonsPlaylist = findSermonsPlaylist(playlistsResult.playlists)
-        
-        if (sermonsPlaylist) {
-          console.log(`[Settings API] Found sermons playlist: "${sermonsPlaylist.title}" (${sermonsPlaylist.id})`)
-          playlistId = sermonsPlaylist.id
-          
-          // Update settings with detected playlist
-          setInMemoryYouTubeSettings({ playlistId })
-        } else {
-          console.log('[Settings API] No sermons playlist found on channel')
-        }
+      console.log('[Settings API] Resolving Sermons playlist on channel...')
+      const detected = await resolveSermonsPlaylistId(effectiveChannelId, apiKey)
+      if (!detected) {
+        return { success: false, videosCount: 0, error: YOUTUBE_NO_SERMONS_PLAYLIST_HINT }
+      }
+      playlistId = detected
+      setInMemoryYouTubeSettings({ playlistId })
+    }
+
+    if (!playlistId) {
+      return {
+        success: false,
+        videosCount: 0,
+        error:
+          'No sermons playlist. Ensure your channel has a public playlist named "Sermons" or paste a playlist URL in settings.'
       }
     }
-    
-    // Fetch channel details only if not using playlist
+
     let channelDetails = null
-    if (!isUsingPlaylist && effectiveChannelId) {
+    if (effectiveChannelId) {
       channelDetails = await fetchChannelDetails(effectiveChannelId, apiKey)
     }
-    
-    // Fetch all videos (from playlist or channel uploads)
-    const fetchSource = playlistId ? `playlist: ${playlistId}` : `channel: ${effectiveChannelId}`
-    console.log(`[Settings API] Fetching videos from: ${fetchSource}`)
-    
-    const videos = await fetchAllChannelVideos(
-      effectiveChannelId,
-      apiKey,
-      { maxVideos: 500, maxResultsPerPage: 50, playlistId: playlistId || undefined }
-    )
-    
+
+    console.log(`[Settings API] Fetching videos from playlist: ${playlistId}`)
+
+    const videos = await fetchAllChannelVideos(effectiveChannelId, apiKey, {
+      maxVideos: 500,
+      maxResultsPerPage: 50,
+      playlistId
+    })
+
     const sermonVideos = videos.map(youTubeVideoToSermon)
-    
+
     // Update cache
     setCachedYouTubeVideos(sermonVideos)
     setLastCacheUpdate(new Date())
-    
+
     // Update in-memory settings with channel name and sync status
     setInMemoryYouTubeSettings({
       channelId: effectiveChannelId,
@@ -113,10 +108,10 @@ async function syncYouTubeVideos(channelId: string, channelUrl: string, apiKey: 
     })
 
     await persistYoutubeSiteSettings()
-    
+
     console.log(`[Settings API] Auto-synced ${sermonVideos.length} YouTube videos`)
     return { success: true, videosCount: sermonVideos.length }
-    
+
   } catch (error) {
     console.error('[Settings API] YouTube sync error:', error)
     const errorMessage = error instanceof Error ? error.message : 'Unknown error'
@@ -208,10 +203,7 @@ export async function GET() {
             ...value,
             youtube: getInMemoryYouTubeSettings()
           } as Record<string, unknown>
-          const isYoutubeConfigured =
-            typeof dbSettings.is_youtube_configured === 'boolean'
-              ? dbSettings.is_youtube_configured
-              : deriveIsYoutubeConfigured(mergedForFlag)
+          const isYoutubeConfigured = deriveIsYoutubeConfigured(mergedForFlag)
 
           return NextResponse.json({
             success: true,

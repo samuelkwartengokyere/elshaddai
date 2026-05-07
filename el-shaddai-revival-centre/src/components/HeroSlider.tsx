@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, type ReactNode } from "react"
 import Image from "next/image"
 import { motion, AnimatePresence } from "framer-motion"
 import { ChevronLeft, ChevronRight, Circle } from "lucide-react"
@@ -94,7 +94,11 @@ const slides = [
   }
 ]
 
-export default function HeroSlider() {
+type HeroSliderProps = {
+  topExtra?: ReactNode
+}
+
+export default function HeroSlider({ topExtra }: HeroSliderProps) {
   const [currentSlide, setCurrentSlide] = useState(0)
   const [isAutoPlay, setIsAutoPlay] = useState(true)
 
@@ -164,8 +168,10 @@ className="object-center object-cover"
         </motion.div>
       </AnimatePresence>
 
+      <div className="absolute inset-0 bg-gradient-to-b from-transparent/20 via-black/40 to-black/70 z-[5] pointer-events-none" aria-hidden />
+
       {/* Navigation dots */}
-      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-2 z-20">
+      <div className="absolute bottom-8 left-1/2 transform -translate-x-1/2 flex space-x-2 z-30">
         {slides.map((_, index) => (
           <motion.button
             key={index}
@@ -183,46 +189,49 @@ className="object-center object-cover"
         ))}
       </div>
 
-      {/* Content overlay */}
+      {/* Content overlay — centered in hero */}
       <motion.div 
-        className="absolute bottom-20 left-4 right-4 md:left-16 md:right-16 lg:left-32 lg:right-32 text-center z-20"
+        className="absolute inset-0 flex flex-col items-center justify-center gap-8 px-4 md:px-12 lg:px-32 text-center z-20 py-24"
         initial={{ y: 30, opacity: 0 }}
         animate={{ y: 0, opacity: 1 }}
         transition={{ delay: 0.3, duration: 0.6 }}
       >
-        <motion.h2 
-          className="text-3xl md:text-5xl lg:text-6xl font-bold mb-4 drop-shadow-2xl"
-          whileHover={{ scale: 1.02 }}
-        >
-          {activeSlide.title}
-        </motion.h2>
-        <motion.p 
-          className="text-lg md:text-xl lg:text-2xl mb-8 max-w-2xl mx-auto drop-shadow-xl opacity-90"
-          whileHover={{ scale: 1.02 }}
-        >
-          {activeSlide.subtitle}
-        </motion.p>
-        <motion.a
-          href={activeSlide.ctaLink}
-          className="inline-block bg-white text-primary px-8 py-4 rounded-lg font-bold text-lg md:text-xl hover:bg-gray-100 hover:shadow-2xl transition-all duration-300 shadow-lg"
-          whileHover={{ scale: 1.05, y: -2 }}
-          whileTap={{ scale: 0.98 }}
-        >
-          {activeSlide.ctaText} →
-        </motion.a>
+        {topExtra}
+        <div className="flex flex-col items-center">
+          <motion.h2 
+            className="text-3xl md:text-5xl lg:text-6xl font-bold mb-4 max-w-4xl drop-shadow-2xl"
+            whileHover={{ scale: 1.02 }}
+          >
+            {activeSlide.title}
+          </motion.h2>
+          <motion.p 
+            className="text-lg md:text-xl lg:text-2xl mb-8 max-w-2xl mx-auto drop-shadow-xl opacity-90"
+            whileHover={{ scale: 1.02 }}
+          >
+            {activeSlide.subtitle}
+          </motion.p>
+          <motion.a
+            href={activeSlide.ctaLink}
+            className="inline-block bg-white text-primary px-8 py-4 rounded-lg font-bold text-lg md:text-xl hover:bg-gray-100 hover:shadow-2xl transition-all duration-300 shadow-lg"
+            whileHover={{ scale: 1.05, y: -2 }}
+            whileTap={{ scale: 0.98 }}
+          >
+            {activeSlide.ctaText} →
+          </motion.a>
+        </div>
       </motion.div>
 
       {/* Arrow navigation */}
       <button
         onClick={prevSlide}
-        className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-3 rounded-full transition-all duration-300 z-20 md:block hidden"
+        className="absolute left-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-3 rounded-full transition-all duration-300 z-30 md:block hidden"
         aria-label="Previous slide"
       >
         <ChevronLeft className="h-6 w-6" />
       </button>
       <button
         onClick={nextSlide}
-        className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-3 rounded-full transition-all duration-300 z-20 md:block hidden"
+        className="absolute right-4 top-1/2 -translate-y-1/2 bg-black/30 hover:bg-black/50 text-white p-3 rounded-full transition-all duration-300 z-30 md:block hidden"
         aria-label="Next slide"
       >
         <ChevronRight className="h-6 w-6" />

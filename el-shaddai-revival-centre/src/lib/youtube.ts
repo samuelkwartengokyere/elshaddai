@@ -153,24 +153,55 @@ export async function fetchChannelPlaylists(
 }
 
 /**
- * Find the sermons playlist from a list of playlists
- * Looks for playlist titles containing "sermon" (case-insensitive)
+ * Find the sermons playlist from a list of playlists.
+ * Prefers exact title "Sermons" (any casing), then titles containing sermon-related keywords.
  */
 export function findSermonsPlaylist(playlists: YouTubePlaylist[]): YouTubePlaylist | null {
-  const t = (s: string) => s.toLowerCase()
-  const sermonsPlaylist = playlists.find(playlist => {
-    const title = t(playlist.title)
-    return (
-      title.includes('sermon') ||
-      title.includes('sermons') ||
-      title.includes('preaching') ||
-      title.includes('messages') ||
-      title.includes('weekly message')
-    )
-  })
+  const norm = (s: string) => s.trim().toLowerCase()
+  const exact = playlists.find((p) => norm(p.title) === 'sermons')
+  if (exact) return exact
 
-  return sermonsPlaylist || null
+  const t = (s: string) => s.toLowerCase()
+  return (
+    playlists.find((playlist) => {
+      const title = t(playlist.title)
+      return (
+        title.includes('sermon') ||
+        title.includes('preaching') ||
+        title.includes('messages') ||
+        title.includes('weekly message')
+      )
+    }) || null
+  )
 }
+
+const SERMONS_PLAYLIST_PAGES_MAX = 10
+
+/** Paginates channel playlists and returns the Sermons playlist id, if any. */
+export async function resolveSermonsPlaylistId(
+  channelId: string,
+  apiKey: string
+): Promise<string | null> {
+  const collected: YouTubePlaylist[] = []
+  let pageToken: string | undefined
+
+  for (let page = 0; page < SERMONS_PLAYLIST_PAGES_MAX; page++) {
+    const result = await fetchChannelPlaylists(channelId, apiKey, {
+      maxResults: 50,
+      pageToken
+    })
+    collected.push(...result.playlists)
+    if (!result.nextPageToken) break
+    pageToken = result.nextPageToken
+  }
+
+  const match = findSermonsPlaylist(collected)
+  return match?.id ?? null
+}
+
+/** User-facing hint when no matching playlist exists on the channel. */
+export const YOUTUBE_NO_SERMONS_PLAYLIST_HINT =
+  'No playlist named “Sermons” found on this channel. Create a public playlist titled exactly “Sermons” (any casing), or paste a playlist URL under Admin → Settings → YouTube.'
 
 export interface YouTubePlaylist {
   id: string
@@ -720,6 +751,7 @@ export default {
   fetchAllChannelVideos,
   fetchChannelPlaylists,
   findSermonsPlaylist,
+  resolveSermonsPlaylistId,
   searchVideos,
   youTubeVideoToSermon,
   getEmbedHtml,

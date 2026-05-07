@@ -115,8 +115,8 @@ export async function POST(request: NextRequest) {
     // Process each image
     for (const { name, file } of imageFiles) {
       try {
-        const fileBuffer = await file.async('uint8array')
-        const fileSize = fileBuffer.length
+        const arrayBuffer = await file.async('arraybuffer')
+        const fileSize = arrayBuffer.byteLength
 
         // Validate file size
         if (fileSize > maxImageSize) {
@@ -150,7 +150,7 @@ export async function POST(request: NextRequest) {
         }
 
         // Create a File-like object for uploadToBucket
-        let uploadFile = new File([fileBuffer], path.basename(name), { type: mimeType })
+        let uploadFile = new File([arrayBuffer], path.basename(name), { type: mimeType })
 
         // Optimize image before upload
         try {

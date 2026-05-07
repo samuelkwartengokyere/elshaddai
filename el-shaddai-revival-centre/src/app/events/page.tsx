@@ -16,26 +16,15 @@ import {
   AlertCircle,
   Star
 } from 'lucide-react'
+import {
+  EVENT_CATEGORY_OPTIONS,
+  formatEventCategoryLabel,
+} from '@/lib/event-categories'
 
-// Event categories for events page tabs
+// Event categories for events page tabs (aligned with admin)
 const eventCategories = [
   { id: 'all', label: 'All Events' },
-  { id: 'revival', label: 'Revival' },
-  { id: 'special', label: 'Special Program' },
-  { id: 'holiday', label: 'Holiday Program' },
-]
-
-// Calendar event categories (revival, special, holiday)
-const calendarCategories = [
-  { id: 'revival', label: 'Revival Weeks', color: 'bg-orange-500' },
-  { id: 'special', label: 'Special Programs', color: 'bg-green-500' },
-  { id: 'holiday', label: 'Holiday Programs', color: 'bg-blue-500' },
-]
-
-// All categories combined for legend
-const allCategories = [
-  ...eventCategories.slice(1), // All except 'all'
-  ...calendarCategories
+  ...EVENT_CATEGORY_OPTIONS.map((o) => ({ id: o.value, label: o.label })),
 ]
 
 // Revival weeks data (recalculated based on year)
@@ -229,10 +218,16 @@ export default function EventsPage() {
 
   const getCategoryColor = (category: string) => {
     switch (category) {
-      // Events page categories
       case 'revival': return 'bg-orange-100 text-orange-800'
       case 'special': return 'bg-green-100 text-green-800'
       case 'holiday': return 'bg-blue-100 text-blue-800'
+      case 'mentees': return 'bg-purple-100 text-purple-800'
+      case 'outreach': return 'bg-teal-100 text-teal-800'
+      case 'worship': return 'bg-indigo-100 text-indigo-800'
+      case 'youth': return 'bg-purple-100 text-purple-800'
+      case 'children': return 'bg-lime-100 text-lime-800'
+      case 'fellowship': return 'bg-pink-100 text-pink-800'
+      case 'other': return 'bg-gray-100 text-gray-800'
       default: return 'bg-gray-100 text-gray-800'
     }
   }
@@ -393,7 +388,7 @@ export default function EventsPage() {
                     <div className="p-6">
                       {/* Category Badge */}
                       <span className={`inline-block px-3 py-1 rounded-full text-xs font-medium mb-3 ${getCategoryColor(event.category)}`}>
-                        {event.category.charAt(0).toUpperCase() + event.category.slice(1)}
+                        {formatEventCategoryLabel(event.category)}
                       </span>
 
                       {/* Event Title */}
@@ -623,20 +618,14 @@ export default function EventsPage() {
 
             {/* Calendar Legend */}
             <div className="flex flex-wrap justify-center gap-4 mb-6">
-              {eventCategories.slice(1).map(category => (
-                <div key={category.id} className="flex items-center gap-2">
-                  <span className={`w-3 h-3 rounded-full ${getCategoryColor(category.id)}`}></span>
-                  <span className="text-sm text-gray-600">{category.label}</span>
-                </div>
-              ))}
               <div className="flex items-center gap-2">
                 <Star className="w-3 h-3 text-orange-500" />
                 <span className="text-sm text-gray-600">Revival Weeks</span>
               </div>
-              {calendarCategories.map(category => (
-                <div key={category.id} className="flex items-center gap-2">
-                  <span className={`w-3 h-3 rounded-full ${category.color}`}></span>
-                  <span className="text-sm text-gray-600">{category.label}</span>
+              {EVENT_CATEGORY_OPTIONS.map((opt) => (
+                <div key={opt.value} className="flex items-center gap-2">
+                  <span className={`w-3 h-3 rounded-full ${opt.calendarColor}`} />
+                  <span className="text-sm text-gray-600">{opt.label}</span>
                 </div>
               ))}
             </div>

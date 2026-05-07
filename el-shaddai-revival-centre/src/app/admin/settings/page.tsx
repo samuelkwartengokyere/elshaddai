@@ -109,7 +109,7 @@ export default function AdminSettings() {
 
   const [youtubeSettings, setYoutubeSettings] = useState({
     channelId: '', channelName: '', channelUrl: '', apiKey: '', playlistId: '',
-    autoSync: false, syncInterval: 6, lastSync: null as Date | null,
+    autoSync: true, syncInterval: 6, lastSync: null as Date | null,
     syncStatus: 'idle' as 'idle' | 'syncing' | 'success' | 'error', syncError: ''
   })
   const [syncing, setSyncing] = useState(false)
@@ -163,7 +163,7 @@ export default function AdminSettings() {
             channelUrl: data.settings.youtube.channelUrl || '',
             apiKey: data.settings.youtube.apiKey || '',
             playlistId: data.settings.youtube.playlistId || '',
-            autoSync: data.settings.youtube.autoSync || false,
+            autoSync: data.settings.youtube.autoSync !== false,
             syncInterval: data.settings.youtube.syncInterval || 6,
             lastSync: data.settings.youtube.lastSync ? new Date(data.settings.youtube.lastSync) : null,
             syncStatus: data.settings.youtube.syncStatus || 'idle',
@@ -209,7 +209,7 @@ export default function AdminSettings() {
         youtube: { channelId: youtubeSettings.channelId || '', channelName: youtubeSettings.channelName || '',
           channelUrl: youtubeSettings.channelUrl || '', apiKey: youtubeSettings.apiKey || '',
           playlistId: youtubeSettings.playlistId || '',
-          autoSync: youtubeSettings.autoSync || false, syncInterval: youtubeSettings.syncInterval || 6,
+          autoSync: youtubeSettings.autoSync, syncInterval: youtubeSettings.syncInterval || 6,
           lastSync: youtubeSettings.lastSync, syncStatus: youtubeSettings.syncStatus || 'idle', syncError: youtubeSettings.syncError || ''
         }
       }
@@ -228,7 +228,7 @@ export default function AdminSettings() {
             setYoutubeSettings({ channelId: data.settings.youtube.channelId || '', channelName: data.settings.youtube.channelName || '',
               channelUrl: data.settings.youtube.channelUrl || '', apiKey: data.settings.youtube.apiKey || '',
               playlistId: data.settings.youtube.playlistId || '',
-              autoSync: data.settings.youtube.autoSync || false, syncInterval: data.settings.youtube.syncInterval || 6,
+              autoSync: data.settings.youtube.autoSync !== false, syncInterval: data.settings.youtube.syncInterval || 6,
               lastSync: data.settings.youtube.lastSync, syncStatus: data.settings.youtube.syncStatus || 'idle',
               syncError: data.settings.youtube.syncError || ''
             })
@@ -489,7 +489,7 @@ export default function AdminSettings() {
                   <div>
                     <h3 className="font-medium text-yellow-700">YouTube Channel Not Configured</h3>
                     <p className="text-sm text-yellow-600 mt-1">
-                      To enable live streaming and auto-sync sermons on the public website, configure your YouTube channel below.
+                      Add your channel URL and YouTube Data API key below. The site loads videos from a public playlist titled <strong className="font-medium">Sermons</strong> on that channel and uses the same setup for the Live Stream page (detects live broadcasts when you go live).
                     </p>
                   </div>
                 </div>
@@ -527,39 +527,55 @@ export default function AdminSettings() {
               </div>
             )}
             
-            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div className="grid grid-cols-1 gap-6 max-w-3xl">
               <div>
                 <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">YouTube Playlist URL or ID</label>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">YouTube channel URL (required)</label>
+                  <input
+                    type="url"
+                    value={youtubeSettings.channelUrl}
+                    onChange={(e) => setYoutubeSettings({ ...youtubeSettings, channelUrl: e.target.value })}
+                    placeholder="https://www.youtube.com/@YourChannel"
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent"
+                  />
+                  <p className="text-sm text-gray-500 mt-1">
+                    Your channel link and API key are enough. After you save, the site finds your public <strong className="font-medium">Sermons</strong> playlist and refreshes the Sermons page. You can override with a playlist URL below if your list uses a different name.
+                  </p>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">YouTube Data API key (required)</label>
+                  <input 
+                    type="password"
+                    autoComplete="off"
+                    value={youtubeSettings.apiKey} 
+                    onChange={(e) => setYoutubeSettings({ ...youtubeSettings, apiKey: e.target.value })} 
+                    placeholder="YouTube Data API v3 key" 
+                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent" 
+                  />
+                  <p className="text-sm text-gray-500 mt-1">Create a key in Google Cloud Console and restrict it to YouTube Data API v3.</p>
+                </div>
+
+                <div className="mb-4">
+                  <label className="block text-sm font-medium text-gray-700 mb-2">Sermons playlist URL or ID (optional)</label>
                   <div className="flex gap-2">
                     <input 
                       type="text" 
                       value={youtubeSettings.playlistId} 
                       onChange={(e) => setYoutubeSettings({ ...youtubeSettings, playlistId: e.target.value })} 
-                      placeholder="Paste full playlist URL or just the ID" 
+                      placeholder="Only if auto-detection does not match your playlist" 
                       className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent" 
                     />
                     <button 
+                      type="button"
                       onClick={handleExtractPlaylistId}
                       className="px-4 py-2 bg-gray-100 text-gray-700 rounded-lg hover:bg-gray-200 flex items-center"
-                      title="Extract Playlist ID from URL"
+                      title="Extract playlist ID from URL"
                     >
                       <RefreshCw className="h-4 w-4" />
                     </button>
                   </div>
-                  <p className="text-sm text-gray-500 mt-1">Paste your playlist URL: https://youtube.com/playlist?list=PLnsERQ-tij2GegNkZ2G-3VZRBodovqWWp</p>
-                </div>
-                
-                <div className="mb-4">
-                  <label className="block text-sm font-medium text-gray-700 mb-2">API Key (Required)</label>
-                  <input 
-                    type="text" 
-                    value={youtubeSettings.apiKey} 
-                    onChange={(e) => setYoutubeSettings({ ...youtubeSettings, apiKey: e.target.value })} 
-                    placeholder="Enter your YouTube Data API v3 key" 
-                    className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-accent focus:border-transparent" 
-                  />
-                  <p className="text-sm text-gray-500 mt-1">Get your API key from Google Cloud Console</p>
+                  <p className="text-sm text-gray-500 mt-1">Leave blank to use the Sermons playlist on your channel. Paste a playlist URL here to override.</p>
                 </div>
 
                 <div className="mb-4">
@@ -570,14 +586,14 @@ export default function AdminSettings() {
                       onChange={(e) => setYoutubeSettings({ ...youtubeSettings, autoSync: e.target.checked })} 
                       className="h-4 w-4 mr-2 text-accent focus:ring-accent"
                     />
-                    <span className="text-sm font-medium text-gray-700">Enable Auto-Sync</span>
+                    <span className="text-sm font-medium text-gray-700">Enable auto-sync</span>
                   </label>
-                  <p className="text-sm text-gray-500 mt-1 ml-6">Automatically fetch new videos when they are added to the playlist</p>
+                  <p className="text-sm text-gray-500 mt-1 ml-6">Periodically refetch the Sermons playlist in the background.</p>
                 </div>
 
                 {youtubeSettings.autoSync && (
                   <div className="mb-4 ml-6">
-                    <label className="block text-sm font-medium text-gray-700 mb-2">Sync Interval</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">Sync interval</label>
                     <select 
                       value={youtubeSettings.syncInterval} 
                       onChange={(e) => setYoutubeSettings({ ...youtubeSettings, syncInterval: parseInt(e.target.value) })} 
@@ -605,9 +621,19 @@ export default function AdminSettings() {
               
               <button 
                 onClick={handleSyncYouTube} 
-                disabled={syncing || !youtubeSettings.playlistId || !youtubeSettings.apiKey} 
+                disabled={
+                  syncing ||
+                  !(youtubeSettings.channelUrl?.trim() || youtubeSettings.playlistId?.trim()) ||
+                  !youtubeSettings.apiKey
+                } 
                 className="flex items-center px-6 py-3 bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
-                title={!youtubeSettings.playlistId ? "Please enter a Playlist ID first" : !youtubeSettings.apiKey ? "Please enter an API Key first" : "Sync now"}
+                title={
+                  !(youtubeSettings.channelUrl?.trim() || youtubeSettings.playlistId?.trim())
+                    ? 'Add your channel URL (or a playlist URL) and API key'
+                    : !youtubeSettings.apiKey
+                      ? 'Add your YouTube Data API key'
+                      : 'Pull latest videos from the Sermons playlist'
+                }
               >
                 {syncing ? <><Loader2 className="h-5 w-5 mr-2 animate-spin" />Syncing...</> : <><RefreshCw className="h-5 w-5 mr-2" />Sync Now</>}
               </button>

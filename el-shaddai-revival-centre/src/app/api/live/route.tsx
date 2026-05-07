@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from 'next/server'
 import connectDB, { isDatabaseConnected } from '@/lib/database'
 import { settingsDb } from '@/lib/db'
-import { getInMemoryYouTubeSettings, youTubeConfigFromJson } from '@/lib/youtubeStorage'
+import {
+  getInMemoryYouTubeSettings,
+  setInMemoryYouTubeSettings,
+  youTubeConfigFromJson
+} from '@/lib/youtubeStorage'
+import { persistYoutubeSiteSettings } from '@/lib/persistSiteSettingsYoutube'
 import {
   buildYoutubeChannelLiveEmbedUrl,
   checkChannelLiveStatus,
@@ -98,11 +103,14 @@ export async function GET(request: NextRequest) {
 
     const fromDb = settings?.youtube != null ? youTubeConfigFromJson(settings.youtube) : null
     const youtubeConfig = fromDb || getInMemoryYouTubeSettings()
-    
+
+    const envChannelUrl =
+      process.env.YOUTUBE_CHANNEL_URL || process.env.NEXT_PUBLIC_YOUTUBE_URL || ''
+
     // Get channel ID - try config first, then environment variable
     let channelId = youtubeConfig?.channelId || process.env.NEXT_PUBLIC_YOUTUBE_CHANNEL_ID || ''
     const apiKey = youtubeConfig?.apiKey || process.env.YOUTUBE_API_KEY || ''
-    const channelUrl = youtubeConfig?.channelUrl || ''
+    const channelUrl = youtubeConfig?.channelUrl || envChannelUrl
 
     // Check if YouTube is configured
     if (!channelId && !channelUrl) {
@@ -118,6 +126,8 @@ export async function GET(request: NextRequest) {
         message: 'Add YouTube channel ID to settings to enable live stream embed'
       })
     }
+
+    const storedChannelId = (youtubeConfig?.channelId || '').trim()
 
     // Resolve channel ID from URL if needed
     if (!channelId && channelUrl) {
@@ -138,6 +148,25 @@ export async function GET(request: NextRequest) {
           channelId = await getChannelIdFromUsername(usernameMatch[1], apiKey) || ''
         }
       }
+    }
+
+    // Persist resolved UC… id so sermons + live survive cold starts (same as admin save)
+    if (
+      channelId &&
+      channelId.startsWith('UC') &&
+      channelId !== storedChannelId &&
+      (fromDb || (youtubeConfig?.channelUrl || envChannelUrl))
+    ) {
+      const mem = getInMemoryYouTubeSettings()
+      setInMemoryYouTubeSettings({
+        ...mem,
+        channelId,
+        channelUrl: channelUrl || mem.channelUrl,
+        apiKey: apiKey || mem.apiKey
+      })
+      await persistYoutubeSiteSettings().catch((e) =>
+        console.error('[Live API] Failed to persist resolved channel id:', e)
+      )
     }
 
     // Check if we have an API key to check actual live status
@@ -165,6 +194,7 @@ export async function GET(request: NextRequest) {
     }
 
     const channelLiveEmbedUrl = buildYoutubeChannelLiveEmbedUrl(channelId)
+    const channelResolved = !!(channelId && channelId.startsWith('UC'))
 
     // Fall back to time-based detection if no actual live stream found
     const timeBasedStatus = getTimeBasedLiveStatus()
@@ -196,16 +226,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({
       success: true,
       isLive,
-      configured: true,
-      channelId,
+      configured: channelResolved,
+      channelId: channelResolved ? channelId : channelId || null,
       channelLiveEmbedUrl: channelLiveEmbedUrl ?? undefined,
       streamInfo: cachedLiveStatus.streamInfo,
       cached: false,
       lastUpdate: now,
       method: apiKey ? 'youtube-api' : 'time-based',
-      message: apiKey 
-        ? (isLive ? 'Live stream detected on YouTube' : 'No live stream found on YouTube')
-        : 'Using time-based detection. Add API key to check actual YouTube live status.'
+      message: !channelResolved && channelUrl
+        ? 'Add a valid YouTube Data API key in Admin → Settings → YouTube so @channel links resolve for live embed.'
+        : apiKey
+          ? (isLive ? 'Live stream detected on YouTube' : 'No live stream found on YouTube')
+          : 'Using time-based detection. Add API key to check actual YouTube live status.'
     })
 
   } catch (error) {
